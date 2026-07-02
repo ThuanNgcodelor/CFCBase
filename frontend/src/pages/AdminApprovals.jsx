@@ -1,45 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Building2, Calendar, Car, Clock } from 'lucide-react';
-
-// Fake Data for Pending Approvals
-const pendingRequests = [
-  {
-    id: 'REQ-001',
-    type: 'ROOM',
-    resourceName: 'Phòng Hội đồng 1',
-    purpose: 'Họp giao ban tuần ban Giám đốc',
-    timeInfo: '14:00 - 16:00, Hôm nay',
-    booker: {
-      fullName: 'Nguyễn Văn A',
-      email: 'a.nguyen@booking.base.vn',
-      phone: '0901.234.567',
-      department: 'Phòng Phát triển Kinh doanh',
-      avatar: 'https://i.pravatar.cc/150?u=a.nguyen',
-    }
-  },
-  {
-    id: 'REQ-002',
-    type: 'CAR',
-    resourceName: 'Ford Transit 16 Chỗ (30G-987.65)',
-    purpose: 'Đưa đón đoàn đối tác từ Sân bay Nội Bài',
-    timeInfo: '08:00 - 11:30, Ngày mai',
-    booker: {
-      fullName: 'Trần Thị B',
-      email: 'b.tran@booking.base.vn',
-      phone: '0988.765.432',
-      department: 'Phòng Hành chính Nhân sự',
-      avatar: 'https://i.pravatar.cc/150?u=b.tran',
-    }
-  }
-];
+import { bookingApi } from '../api/bookingApi';
 
 export default function AdminApprovals() {
   const navigate = useNavigate();
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPending = async () => {
+      try {
+        const [rooms, cars] = await Promise.all([
+          bookingApi.getRoomBookings(),
+          bookingApi.getCarBookings()
+        ]);
+
+        const mappedRooms = (rooms || []).filter(r => r.status === 'PENDING').map(r => ({
+          id: r.id,
+          type: 'ROOM',
+          resourceName: r.room?.name,
+          purpose: r.title,
+          timeInfo: `${new Date(r.startTime).toLocaleString('vi-VN')} - ${new Date(r.endTime).toLocaleString('vi-VN')}`,
+          booker: {
+            fullName: r.requester?.fullName,
+            department: r.requester?.department || 'Nhân viên',
+            avatar: 'https://i.pravatar.cc/150?u=' + r.requester?.email,
+          },
+          raw: r
+        }));
+
+        const mappedCars = (cars || []).filter(c => c.status === 'PENDING').map(c => ({
+          id: c.id,
+          type: 'CAR',
+          resourceName: c.vehicle ? `${c.vehicle.vehicleType?.name} - ${c.vehicle.licensePlate}` : 'Chưa xếp xe',
+          purpose: c.title,
+          timeInfo: `${new Date(c.startTime).toLocaleString('vi-VN')} - ${new Date(c.endTime).toLocaleString('vi-VN')}`,
+          booker: {
+            fullName: c.requester?.fullName,
+            department: c.requester?.department || 'Nhân viên',
+            avatar: 'https://i.pravatar.cc/150?u=' + c.requester?.email,
+          },
+          raw: c
+        }));
+
+        setPendingRequests([...mappedRooms, ...mappedCars]);
+      } catch (e) {
+        console.error("Lỗi lấy danh sách pending:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPending();
+  }, []);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="w-full flex-1 flex flex-col h-full">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Duyệt yêu cầu</h1>
         <p className="text-gray-500 mt-1">Quản lý và xét duyệt các yêu cầu sử dụng tài nguyên đang chờ xử lý.</p>
@@ -57,10 +74,14 @@ export default function AdminApprovals() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
-            {pendingRequests.map(req => (
+            {loading ? (
+              <tr>
+                <td colSpan="5" className="px-6 py-12 text-center text-gray-500">Đang tải...</td>
+              </tr>
+            ) : pendingRequests.map(req => (
               <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {req.id}
+                  {req.id.substring(0, 8).toUpperCase()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -92,7 +113,7 @@ export default function AdminApprovals() {
               </tr>
             ))}
             
-            {pendingRequests.length === 0 && (
+            {!loading && pendingRequests.length === 0 && (
               <tr>
                 <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
                   Không có yêu cầu nào đang chờ duyệt.

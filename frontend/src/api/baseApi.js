@@ -1,4 +1,5 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
@@ -12,7 +13,7 @@ export const baseApi = axios.create({
 // Interceptor đính kèm Access Token vào mọi request
 baseApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = Cookies.get('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,7 +33,7 @@ baseApi.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = Cookies.get('refreshToken');
         if (!refreshToken) {
           throw new Error('No refresh token available');
         }
@@ -45,17 +46,17 @@ baseApi.interceptors.response.use(
         const { accessToken, refreshToken: newRefreshToken } = res.data.data;
 
         // Lưu lại token mới
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
+        Cookies.set('accessToken', accessToken, { expires: 1/48 }); // 30 mins
+        Cookies.set('refreshToken', newRefreshToken, { expires: 7 });
 
         // Gắn token mới vào request cũ và gọi lại
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return baseApi(originalRequest);
       } catch (refreshError) {
         // Nếu refresh cũng lỗi (ví dụ refresh token bị thu hồi hoặc hết hạn), thì văng ra login
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        Cookies.remove('accessToken');
+        Cookies.remove('refreshToken');
+        Cookies.remove('user');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Home, CalendarRange, CarFront, Bell, CheckSquare, Settings, Menu } from 'lucide-react';
-import { baseApi } from '../api/baseApi';
+import { authApi } from '../api/authApi';
+import { notificationApi } from '../api/notificationApi';
+import Cookies from 'js-cookie';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -9,10 +11,20 @@ export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef(null);
-  
-  // Đọc User thật từ Local Storage
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  // Đọc User thật từ Cookie
+  const user = authApi.getUser() || {};
   const isAdmin = user.role === 'ADMIN';
+
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    if (user.id) {
+      notificationApi.getNotifications(user.id)
+        .then(data => setNotifications(data || []))
+        .catch(err => console.error("Lỗi lấy thông báo:", err));
+    }
+  }, [user.id]);
 
   // Đóng dropdown thông báo khi click ra ngoài
   useEffect(() => {
@@ -26,19 +38,8 @@ export default function DashboardLayout() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (refreshToken) {
-        await baseApi.post('/auth/logout', { refreshToken });
-      }
-    } catch (e) {
-      console.error("Lỗi khi logout backend:", e);
-    } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      navigate('/login');
-    }
+    await authApi.logout();
+    navigate('/login');
   };
 
   const navItems = [
@@ -49,18 +50,27 @@ export default function DashboardLayout() {
     { name: 'Tài nguyên', path: '/admin/resources', icon: Settings, show: isAdmin },
   ];
 
-  const notifications = [
-    { id: 1, title: 'Yêu cầu của bạn đã được duyệt', desc: 'Phòng Hội đồng 1 - 10:00 30/07', time: '5 phút trước', isRead: false },
-    { id: 2, title: 'Có yêu cầu mới cần duyệt', desc: 'Xin xe công tác Đồng Tháp', time: '1 giờ trước', isRead: false },
-    { id: 3, title: 'Yêu cầu bị từ chối', desc: 'Xe 16 chỗ đã được người khác đặt trước', time: '1 ngày trước', isRead: true },
-  ];
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const handleMarkAsRead = async (notif) => {
+    if (!notif.isRead) {
+      try {
+        await notificationApi.markAsRead(notif.id);
+        setNotifications(notifications.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const isCalendarRoute = location.pathname.startsWith('/cars') || location.pathname.startsWith('/rooms');
 
   return (
     <div className="flex h-[100dvh] bg-[#F9FAFB] font-sans text-gray-900 overflow-hidden relative">
-      
+
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 z-20 md:hidden transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -69,16 +79,16 @@ export default function DashboardLayout() {
       {/* Sidebar Navigation */}
       <aside className={`
         fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 md:relative md:translate-x-0
-        ${isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:w-20'}
+        ${isSidebarOpen ? 'translate-x-0 w-46' : '-translate-x-full md:w-20'}
         bg-white border-r border-gray-200 flex flex-col shrink-0
       `}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-          {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-blue-700">BookingBase</span>}
+          {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-blue-700">CFC Booking</span>}
           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 hidden md:block">
             <Menu className="w-5 h-5" />
           </button>
         </div>
-        
+
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {navItems.filter(item => item.show).map((item) => {
             const Icon = item.icon;
@@ -88,11 +98,10 @@ export default function DashboardLayout() {
                 key={item.path}
                 to={item.path}
                 title={!isSidebarOpen ? item.name : ""}
-                className={`flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${
-                  isActive 
-                    ? 'bg-blue-50 text-blue-700 font-medium' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
+                className={`flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
+                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
               >
                 <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700' : 'text-gray-400'}`} />
                 {isSidebarOpen && <span>{item.name}</span>}
@@ -102,51 +111,153 @@ export default function DashboardLayout() {
         </nav>
 
         {/* User Profile & Logout */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-3 border-t border-gray-200">
           {isSidebarOpen ? (
-            <div 
-              className="flex items-center gap-3 mb-4 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition-colors -mx-2"
-              onClick={() => navigate('/profile')}
-            >
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold flex-shrink-0 shadow-sm">
-                {user.fullName?.charAt(0) || 'U'}
+            <div className="flex flex-col gap-2">
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-md transition-colors"
+                onClick={() => navigate('/profile')}
+              >
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold flex-shrink-0 shadow-sm">
+                  {user.fullName?.charAt(0) || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate hover:text-blue-700 transition-colors">{user.fullName}</p>
+                  <p className="text-[11px] text-gray-500 truncate">{user.department || 'Nhân viên'}</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate hover:text-blue-700 transition-colors">{user.fullName}</p>
-                <p className="text-xs text-gray-500 truncate">{user.department || 'Nhân viên'}</p>
+
+              <div className="flex items-center gap-1 border-t border-gray-100 pt-2">
+                <div className="relative flex-1" ref={notifRef}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsNotifOpen(!isNotifOpen); }}
+                    className="w-full flex items-center justify-center p-2 rounded-md hover:bg-gray-100 transition-colors text-gray-600 focus:outline-none"
+                    title="Thông báo"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1.5 right-1/4 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+                    )}
+                  </button>
+
+                  {isNotifOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                      <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                        <span className="font-semibold text-gray-900">Thông báo</span>
+                        <button className="text-xs text-blue-600 font-medium">Đã đọc tất cả</button>
+                      </div>
+                      <div className="max-h-[300px] overflow-y-auto">
+                        {notifications.slice(0, 5).map(notif => (
+                          <div
+                            key={notif.id}
+                            onClick={() => handleMarkAsRead(notif)}
+                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${notif.isRead ? 'opacity-70' : 'bg-blue-50/20'}`}
+                          >
+                            <div className="flex justify-between items-start mb-1">
+                              <span className={`text-sm font-medium ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</span>
+                              <span className="text-xs text-gray-400">{new Date(notif.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <p className="text-sm text-gray-500">{notif.message}</p>
+                          </div>
+                        ))}
+                        {notifications.length === 0 && (
+                          <div className="p-4 text-center text-sm text-gray-500">Bạn không có thông báo nào</div>
+                        )}
+                      </div>
+                      <div className="p-2 bg-gray-50/50 border-t border-gray-100">
+                        <button className="w-full py-1.5 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-md transition-colors">
+                          Xem tất cả
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 flex items-center justify-center p-2 rounded-md hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors"
+                  title="Đăng xuất"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ) : (
-             <div 
-               className="flex justify-center mb-4 cursor-pointer hover:opacity-80 transition-opacity"
-               onClick={() => navigate('/profile')}
-             >
-               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold shadow-sm" title={user.fullName}>
+            <div className="flex flex-col items-center gap-3">
+              <div
+                className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/profile')}
+                title={user.fullName}
+              >
                 {user.fullName?.charAt(0) || 'U'}
-               </div>
-             </div>
+              </div>
+
+              <div className="relative w-full flex justify-center" ref={notifRef}>
+                <button
+                  onClick={() => setIsNotifOpen(!isNotifOpen)}
+                  className="relative p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600 focus:outline-none"
+                  title="Thông báo"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+                  )}
+                </button>
+
+                {isNotifOpen && (
+                  <div className="absolute bottom-full left-12 mb-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                    <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                      <span className="font-semibold text-gray-900">Thông báo</span>
+                      <button className="text-xs text-blue-600 font-medium">Đã đọc tất cả</button>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {notifications.slice(0, 5).map(notif => (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleMarkAsRead(notif)}
+                          className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${notif.isRead ? 'opacity-70' : 'bg-blue-50/20'}`}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className={`text-sm font-medium ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</span>
+                            <span className="text-xs text-gray-400">{new Date(notif.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <p className="text-sm text-gray-500">{notif.message}</p>
+                        </div>
+                      ))}
+                      {notifications.length === 0 && (
+                        <div className="p-4 text-center text-sm text-gray-500">Bạn không có thông báo nào</div>
+                      )}
+                    </div>
+                    <div className="p-2 bg-gray-50/50 border-t border-gray-100">
+                      <button className="w-full py-1.5 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-md transition-colors">
+                        Xem tất cả
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center p-2 rounded-full hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors"
+                title="Đăng xuất"
+              >
+                <LogOut className="w-5 h-5 flex-shrink-0" />
+              </button>
+            </div>
           )}
-          
-          <button 
-            onClick={handleLogout}
-            className={`w-full flex items-center ${isSidebarOpen ? 'justify-center gap-2 px-4' : 'justify-center'} py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors`}
-            title="Đăng xuất"
-          >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
-            {isSidebarOpen && <span>Đăng xuất</span>}
-          </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
-        {/* Top Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 shrink-0 z-10">
+
+        {/* Top Header (Only visible on mobile) */}
+        <header className="md:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 shrink-0 z-10">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsSidebarOpen(true)} 
-              className="md:hidden p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -154,50 +265,10 @@ export default function DashboardLayout() {
               {navItems.find(item => location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/'))?.name || 'Hệ thống'}
             </h1>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="relative" ref={notifRef}>
-              <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="relative p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 focus:outline-none"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
-              </button>
-
-              {isNotifOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
-                  <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <span className="font-semibold text-gray-900">Thông báo</span>
-                    <button className="text-xs text-blue-600 font-medium">Đã đọc tất cả</button>
-                  </div>
-                  <div className="max-h-[300px] overflow-y-auto">
-                    {notifications.map(notif => (
-                      <div key={notif.id} className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${notif.isRead ? 'opacity-70' : 'bg-blue-50/20'}`}>
-                        <div className="flex justify-between items-start mb-1">
-                          <span className={`text-sm font-medium ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</span>
-                          <span className="text-xs text-gray-400">{notif.time}</span>
-                        </div>
-                        <p className="text-sm text-gray-500">{notif.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="p-3 text-center border-t border-gray-100">
-                    <button 
-                      onClick={() => { setIsNotifOpen(false); navigate('/notifications'); }}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      Xem tất cả thông báo
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#F9FAFB] p-4 sm:p-8">
+        <main className={`flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden ${isCalendarRoute ? 'bg-white p-0' : 'bg-[#F9FAFB] p-4 sm:p-8'}`}>
           <Outlet />
         </main>
       </div>

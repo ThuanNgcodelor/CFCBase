@@ -30,4 +30,9 @@ public class BookingRoomController {
             return ResponseEntity.internalServerError().body(ApiResponse.error(500, "Đã xảy ra lỗi hệ thống: " + e.getMessage()));
         }
     }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<java.util.List<BookingRoom>>> getAllBookings() {
+        return ResponseEntity.ok(ApiResponse.success(bookingRoomService.getAllBookings(), "Lấy danh sách đặt phòng thành công"));
+    }
 }

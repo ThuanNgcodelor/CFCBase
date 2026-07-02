@@ -9,6 +9,8 @@ import com.booking.system.enums.RoomStatus;
 import com.booking.system.repository.BookingRoomRepository;
 import com.booking.system.repository.RoomRepository;
 import com.booking.system.repository.UserRepository;
+import com.booking.system.enums.NotificationType;
+import com.booking.system.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ public class BookingRoomService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final BookingRoomRepository bookingRoomRepository;
+    private final NotificationService notificationService;
 
     /**
      * Hàm đặt phòng có kiểm tra trùng lịch và khóa DB.
@@ -63,6 +66,17 @@ public class BookingRoomService {
         booking.setNote(request.getNote());
         booking.setStatus(BookingStatus.PENDING); // Chờ duyệt
 
-        return bookingRoomRepository.save(booking);
+        BookingRoom saved = bookingRoomRepository.save(booking);
+        
+        notificationService.createNotification(requester, 
+            "Tạo yêu cầu đặt phòng thành công", 
+            "Yêu cầu đặt phòng '" + saved.getTitle() + "' đã được gửi và đang chờ duyệt.", 
+            NotificationType.BOOKING_CREATED);
+            
+        return saved;
+    }
+
+    public java.util.List<BookingRoom> getAllBookings() {
+        return bookingRoomRepository.findAll();
     }
 }

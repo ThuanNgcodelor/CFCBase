@@ -27,7 +27,7 @@ spring:
       client:
         registration:
           google:
-            client-id: 443356692274-o43k13l38ulretif94apg4164dbtt2sp.apps.googleusercontent.com
+            client-id: 443356692274-i2sq4m48gttjfeu1h15m20b5pcdogvq3.apps.googleusercontent.com
 
 server:
   port: 8080

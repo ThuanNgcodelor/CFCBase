@@ -3,7 +3,7 @@ import { Users, DoorOpen, Car } from 'lucide-react';
 
 export default function Dashboard() {
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="w-full flex-1">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Tổng quan</h1>
         <p className="text-gray-500 mt-1">Quản lý và theo dõi tình trạng phòng họp, xe nội bộ.</p>
