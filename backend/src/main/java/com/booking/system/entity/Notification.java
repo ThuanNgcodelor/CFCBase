@@ -2,6 +2,7 @@ package com.booking.system.entity;
 
 import com.booking.system.enums.NotificationType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,6 +38,7 @@ public class Notification {
     @Column(nullable = false)
     private NotificationType type;
 
+    @JsonProperty("isRead")
     @Column(name = "is_read", nullable = false)
     private boolean isRead = false;
 

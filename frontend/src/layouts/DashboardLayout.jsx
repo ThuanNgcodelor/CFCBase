@@ -24,7 +24,15 @@ export default function DashboardLayout() {
   useEffect(() => {
     if (user.id) {
       notificationApi.getNotifications(user.id)
-        .then(data => setNotifications(data || []))
+        .then(data => {
+            if (data && data.content) {
+                setNotifications(data.content);
+            } else if (Array.isArray(data)) {
+                setNotifications(data);
+            } else {
+                setNotifications([]);
+            }
+        })
         .catch(err => console.error("Lỗi lấy thông báo:", err));
     }
   }, [user.id]);

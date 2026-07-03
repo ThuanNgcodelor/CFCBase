@@ -68,10 +68,20 @@ public class BookingRoomService {
 
         BookingRoom saved = bookingRoomRepository.save(booking);
         
+        // Thông báo cho người đặt
         notificationService.createNotification(requester, null,
             "Tạo yêu cầu đặt phòng thành công", 
             "Yêu cầu đặt phòng '" + saved.getTitle() + "' đã được gửi và đang chờ duyệt.", 
             NotificationType.BOOKING_CREATED);
+            
+        // Thông báo cho Admin
+        java.util.List<User> admins = userRepository.findByRole(com.booking.system.enums.RoleEnum.ADMIN);
+        for (User admin : admins) {
+            notificationService.createNotification(admin, requester,
+                "Yêu cầu đặt phòng mới (Cần duyệt)", 
+                requester.getFullName() + " vừa tạo một yêu cầu đặt phòng mới ('" + saved.getTitle() + "').", 
+                NotificationType.BOOKING_CREATED);
+        }
             
         return saved;
     }

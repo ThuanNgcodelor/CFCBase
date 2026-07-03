@@ -3,9 +3,12 @@ import { Bell, CheckCircle2, Clock, XCircle, ArrowRight, Search, ChevronLeft, Ch
 import { useNavigate } from 'react-router-dom';
 import { notificationApi } from '../api/notificationApi';
 import { authApi } from '../api/authApi';
+import SockJS from 'sockjs-client';
+import { Stomp } from '@stomp/stompjs';
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
+  const [totalElements, setTotalElements] = useState(0);
   const navigate = useNavigate();
   const user = authApi.getUser();
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,10 +21,37 @@ export default function Notifications() {
 
   useEffect(() => {
     if (user?.id) {
-      notificationApi.getNotifications(user.id)
-        .then(data => setNotifications(data || []))
+      notificationApi.getNotifications(user.id, currentPage - 1, itemsPerPage)
+        .then(data => {
+            if (data && data.content) {
+                setNotifications(data.content);
+                setTotalElements(data.totalElements);
+            } else if (Array.isArray(data)) {
+                setNotifications(data);
+                setTotalElements(data.length);
+            }
+        })
         .catch(err => console.error(err));
     }
+  }, [user?.id, currentPage]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const socket = new SockJS('http://localhost:8080/ws');
+    const stompClient = Stomp.over(socket);
+    stompClient.debug = () => {};
+    stompClient.connect({}, () => {
+      stompClient.subscribe(`/topic/notifications/${user.id}`, (message) => {
+        const newNotif = JSON.parse(message.body);
+        setNotifications(prev => [newNotif, ...prev]);
+        setTotalElements(prev => prev + 1);
+      });
+    });
+    return () => {
+      if (stompClient.connected) {
+        stompClient.disconnect();
+      }
+    };
   }, [user?.id]);
 
   const getSystemIcon = (title) => {
@@ -71,11 +101,8 @@ export default function Notifications() {
     return titleMatch || descMatch || senderMatch;
   });
 
-  const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage);
-  const paginatedNotifications = filteredNotifications.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalElements / itemsPerPage);
+  const displayNotifications = filteredNotifications;
 
   return (
     <div className="w-full flex-1 flex flex-col min-h-0">
@@ -102,7 +129,7 @@ export default function Notifications() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex-1 overflow-y-auto">
-        {paginatedNotifications.map(notif => {
+        {displayNotifications.map(notif => {
           // Xử lý hiển thị Avatar người gửi hoặc Icon hệ thống
           const hasSender = !!notif.sender;
           const senderName = notif.sender?.fullName || 'Hệ thống';
@@ -154,7 +181,7 @@ export default function Notifications() {
             </div>
           );
         })}
-        {paginatedNotifications.length === 0 && (
+        {displayNotifications.length === 0 && (
           <div className="py-20 flex flex-col items-center justify-center text-gray-500">
             <Bell className="w-12 h-12 text-gray-200 mb-4" />
             <p className="font-medium">
@@ -167,7 +194,7 @@ export default function Notifications() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 mb-2 px-1">
           <p className="text-sm text-gray-500">
-            Hiển thị <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> đến <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredNotifications.length)}</span> trong tổng số <span className="font-medium">{filteredNotifications.length}</span> thông báo
+            Hiển thị <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> đến <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalElements)}</span> trong tổng số <span className="font-medium">{totalElements}</span> thông báo
           </p>
           <div className="flex gap-2">
             <button 

@@ -17,8 +17,12 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping("/users/{userId}")
-    public ResponseEntity<ApiResponse<List<Notification>>> getNotifications(@PathVariable String userId) {
-        return ResponseEntity.ok(ApiResponse.success(notificationService.getNotificationsForUser(userId), "Lấy danh sách thông báo thành công"));
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<Notification>>> getNotifications(
+            @PathVariable String userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return ResponseEntity.ok(ApiResponse.success(notificationService.getNotificationsForUserPaged(userId, pageable), "Lấy danh sách thông báo thành công"));
     }
 
     @PutMapping("/{id}/read")

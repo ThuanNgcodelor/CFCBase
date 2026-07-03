@@ -56,10 +56,20 @@ public class BookingCarService {
 
         BookingCar saved = bookingCarRepository.save(booking);
         
+        // Thông báo cho người đặt
         notificationService.createNotification(requester, null,
             "Tạo yêu cầu đặt xe thành công", 
             "Yêu cầu đặt xe từ '" + saved.getDeparture() + "' đi '" + saved.getDestination() + "' đã được gửi và đang chờ duyệt.", 
             NotificationType.BOOKING_CREATED);
+            
+        // Thông báo cho Admin
+        java.util.List<User> admins = userRepository.findByRole(com.booking.system.enums.RoleEnum.ADMIN);
+        for (User admin : admins) {
+            notificationService.createNotification(admin, requester,
+                "Yêu cầu đặt xe mới (Cần duyệt)", 
+                requester.getFullName() + " vừa tạo một yêu cầu đặt xe từ '" + saved.getDeparture() + "' đi '" + saved.getDestination() + "'.", 
+                NotificationType.BOOKING_CREATED);
+        }
             
         return saved;
     }

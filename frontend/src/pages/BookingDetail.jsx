@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, User, Clock, FileText, XCircle, Send } from 'l
 import { bookingApi } from '../api/bookingApi';
 import { approvalApi } from '../api/approvalApi';
 import { authApi } from '../api/authApi';
+import { userApi } from '../api/userApi';
 import { Button } from '../components/ui/Button';
 import toast from 'react-hot-toast';
 
@@ -14,6 +15,8 @@ export default function BookingDetail() {
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState(''); // 'ROOM' or 'CAR'
   const [note, setNote] = useState('');
+  const [approvers, setApprovers] = useState([]);
+  const [showAllApprovers, setShowAllApprovers] = useState(false);
 
   const currentUser = authApi.getUser();
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -22,10 +25,12 @@ export default function BookingDetail() {
   useEffect(() => {
     const fetchDetail = async () => {
       try {
-        const [rooms, cars] = await Promise.all([
+        const [rooms, cars, approversList] = await Promise.all([
           bookingApi.getRoomBookings(),
-          bookingApi.getCarBookings()
+          bookingApi.getCarBookings(),
+          userApi.getApprovers()
         ]);
+        setApprovers(approversList || []);
 
         const roomReq = (rooms || []).find(r => r.id === id || `REQ-00${r.id}` === id);
         if (roomReq) {
@@ -194,31 +199,41 @@ export default function BookingDetail() {
           <div className="p-4 border-b border-gray-100 bg-[#fbfbfb]">
             <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Người Duyệt</h3>
             <div className="space-y-3">
-              <div className="flex items-start justify-between bg-white p-3 border border-gray-100 rounded shadow-sm">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold shrink-0">
-                    P
+              {(showAllApprovers ? approvers : approvers.slice(0, 2)).map(approver => (
+                <div key={approver.id} className="flex items-start justify-between bg-white p-3 border border-gray-100 rounded shadow-sm">
+                  <div className="flex items-start gap-3">
+                    {approver.avatarUrl ? (
+                      <img src={approver.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 ${approver.role === 'ADMIN' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                        {approver.fullName?.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{approver.fullName}</p>
+                      <p className="text-[11px] text-gray-500 leading-tight">
+                        {approver.department?.name || (approver.role === 'ADMIN' ? 'Quản trị hệ thống' : 'Quản lý')}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Phan Thị Minh Diễn</p>
-                    <p className="text-[11px] text-gray-500 leading-tight">Trưởng phòng Tổ chức hành chính</p>
-                  </div>
+                  {request.status === 'APPROVED' ? (
+                    <div className="w-3 h-3 rounded-full bg-green-500 shrink-0 mt-2 border-2 border-white shadow-sm" title="Đã duyệt"></div>
+                  ) : request.status === 'REJECTED' ? (
+                    <div className="w-3 h-3 rounded-full bg-red-500 shrink-0 mt-2 border-2 border-white shadow-sm" title="Đã từ chối"></div>
+                  ) : (
+                    <div className="w-3 h-3 rounded-full border-2 border-green-400 shrink-0 mt-2" title="Chờ duyệt"></div>
+                  )}
                 </div>
-                <div className="w-3 h-3 rounded-full bg-green-500 shrink-0 mt-2 border-2 border-white shadow-sm" title="Đã duyệt"></div>
-              </div>
-
-              <div className="flex items-start justify-between bg-white p-3 border border-gray-100 rounded shadow-sm">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold shrink-0">
-                    B
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Bùi Hữu Thọ</p>
-                    <p className="text-[11px] text-gray-500 leading-tight">Phó phòng Tổ chức hành chính</p>
-                  </div>
-                </div>
-                <div className="w-3 h-3 rounded-full border-2 border-green-400 shrink-0 mt-2" title="Chờ duyệt"></div>
-              </div>
+              ))}
+              
+              {approvers.length > 2 && (
+                <button 
+                  onClick={() => setShowAllApprovers(!showAllApprovers)}
+                  className="w-full text-xs text-blue-600 font-medium py-1.5 hover:bg-blue-50 rounded transition-colors text-center mt-2 border border-dashed border-blue-200"
+                >
+                  {showAllApprovers ? 'Thu gọn' : `Xem thêm ${approvers.length - 2} người`}
+                </button>
+              )}
             </div>
           </div>
 
@@ -231,12 +246,18 @@ export default function BookingDetail() {
               </div>
               <div>
                 <p className="text-[11px] text-gray-500 mb-1 flex items-center gap-1">Người quản lý</p>
+                {approvers.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-xs text-green-600 font-bold">
-                    P
-                  </div>
-                  <p className="text-sm text-gray-900">Phan Thị Minh Diễn</p>
+                  {approvers[0].avatarUrl ? (
+                    <img src={approvers[0].avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-xs text-green-600 font-bold">
+                      {approvers[0].fullName?.charAt(0)}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-900">{approvers[0].fullName}</p>
                 </div>
+                )}
               </div>
 
             </div>
