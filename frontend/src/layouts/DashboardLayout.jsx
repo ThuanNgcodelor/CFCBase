@@ -8,13 +8,16 @@ import Cookies from 'js-cookie';
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  const [imageError, setImageError] = useState(false);
+  const [collapsedImageError, setCollapsedImageError] = useState(false);
 
   // Đọc User thật từ Cookie
   const user = authApi.getUser() || {};
   const isAdmin = user.role === 'ADMIN';
+  const isApprover = user.role === 'ADMIN' || user.role === 'MANAGER';
 
   const [notifications, setNotifications] = useState([]);
 
@@ -25,6 +28,13 @@ export default function DashboardLayout() {
         .catch(err => console.error("Lỗi lấy thông báo:", err));
     }
   }, [user.id]);
+
+  // Tự động đóng sidebar trên mobile khi đổi trang
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, [location.pathname]);
 
   // Đóng dropdown thông báo khi click ra ngoài
   useEffect(() => {
@@ -42,11 +52,14 @@ export default function DashboardLayout() {
     navigate('/login');
   };
 
-  const navItems = [
+  const mainNavItems = [
     { name: 'Trang chủ', path: '/', icon: Home, show: true },
-    { name: 'Duyệt yêu cầu', path: '/admin/approvals', icon: CheckSquare, show: isAdmin },
     { name: 'Đặt phòng họp', path: '/rooms', icon: CalendarRange, show: true },
     { name: 'Đặt xe', path: '/cars', icon: CarFront, show: true },
+  ];
+
+  const adminNavItems = [
+    { name: 'Duyệt yêu cầu', path: '/admin/approvals', icon: CheckSquare, show: isApprover },
     { name: 'Tài nguyên', path: '/admin/resources', icon: Settings, show: isAdmin },
   ];
 
@@ -60,6 +73,17 @@ export default function DashboardLayout() {
       } catch (e) {
         console.error(e);
       }
+    }
+
+    if (user?.role === 'ADMIN' && (notif.title.toLowerCase().includes('mới') || notif.title.toLowerCase().includes('chờ duyệt'))) {
+      navigate('/admin/approvals');
+      setIsNotifOpen(false);
+    } else if (notif.title.toLowerCase().includes('phòng')) {
+      navigate('/rooms');
+      setIsNotifOpen(false);
+    } else if (notif.title.toLowerCase().includes('xe')) {
+      navigate('/cars');
+      setIsNotifOpen(false);
     }
   };
 
@@ -79,7 +103,7 @@ export default function DashboardLayout() {
       {/* Sidebar Navigation */}
       <aside className={`
         fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 md:relative md:translate-x-0
-        ${isSidebarOpen ? 'translate-x-0 w-46' : '-translate-x-full md:w-20'}
+        ${isSidebarOpen ? 'translate-x-0 w-54' : '-translate-x-full md:w-20'}
         bg-white border-r border-gray-200 flex flex-col shrink-0
       `}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
@@ -89,25 +113,54 @@ export default function DashboardLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {navItems.filter(item => item.show).map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/');
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                title={!isSidebarOpen ? item.name : ""}
-                className={`flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-              >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700' : 'text-gray-400'}`} />
-                {isSidebarOpen && <span>{item.name}</span>}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 py-4 px-3 space-y-6 overflow-y-auto">
+          {/* Nhóm chức năng chính */}
+          <div className="space-y-1">
+            {isSidebarOpen && <div className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Chức năng chính</div>}
+            {mainNavItems.filter(item => item.show).map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/');
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={!isSidebarOpen ? item.name : ""}
+                  className={`flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                >
+                  <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700' : 'text-gray-400'}`} />
+                  {isSidebarOpen && <span>{item.name}</span>}
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Nhóm quản trị */}
+          {(isAdmin || isApprover) && (
+            <div className="space-y-1">
+              {isSidebarOpen && <div className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">Quản trị hệ thống</div>}
+              {adminNavItems.filter(item => item.show).map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname.startsWith(item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    title={!isSidebarOpen ? item.name : ""}
+                    className={`flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
+                      ? 'bg-amber-50 text-amber-700 font-medium'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                  >
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-amber-700' : 'text-gray-400'}`} />
+                    {isSidebarOpen && <span>{item.name}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         {/* User Profile & Logout */}
@@ -118,12 +171,24 @@ export default function DashboardLayout() {
                 className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-md transition-colors"
                 onClick={() => navigate('/profile')}
               >
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold flex-shrink-0 shadow-sm">
-                  {user.fullName?.charAt(0) || 'U'}
-                </div>
+                {user.avatarUrl && !imageError ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="Avatar"
+                    className="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0 border border-gray-100"
+                    referrerPolicy="no-referrer"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold flex-shrink-0 shadow-sm">
+                    {user.fullName?.charAt(0) || 'U'}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate hover:text-blue-700 transition-colors">{user.fullName}</p>
-                  <p className="text-[11px] text-gray-500 truncate">{user.department || 'Nhân viên'}</p>
+                  <p className="text-[11px] text-gray-500 truncate">
+                    {user.position || (user.role === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên')}
+                  </p>
                 </div>
               </div>
 
@@ -147,25 +212,56 @@ export default function DashboardLayout() {
                         <button className="text-xs text-blue-600 font-medium">Đã đọc tất cả</button>
                       </div>
                       <div className="max-h-[300px] overflow-y-auto">
-                        {notifications.slice(0, 5).map(notif => (
-                          <div
-                            key={notif.id}
-                            onClick={() => handleMarkAsRead(notif)}
-                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${notif.isRead ? 'opacity-70' : 'bg-blue-50/20'}`}
-                          >
-                            <div className="flex justify-between items-start mb-1">
-                              <span className={`text-sm font-medium ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</span>
-                              <span className="text-xs text-gray-400">{new Date(notif.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                        {notifications.slice(0, 5).map(notif => {
+                          const hasSender = !!notif.sender;
+                          const senderName = notif.sender?.fullName || 'Hệ thống';
+                          const avatarUrl = notif.sender?.avatarUrl;
+
+                          return (
+                            <div
+                              key={notif.id}
+                              onClick={() => handleMarkAsRead(notif)}
+                              className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${notif.isRead ? 'opacity-70' : 'bg-blue-50/20'}`}
+                            >
+                              <div className="flex gap-3">
+                                <div className="shrink-0 mt-0.5">
+                                  {hasSender ? (
+                                    avatarUrl ? (
+                                      <img src={avatarUrl} alt="Avatar" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover border border-gray-200" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                        {senderName.charAt(0).toUpperCase()}
+                                      </div>
+                                    )
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                      <Bell className="w-4 h-4 text-blue-500" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className={`text-sm font-medium truncate ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</span>
+                                    <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">{new Date(notif.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                  </div>
+                                  <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2">{notif.description}</p>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-500">{notif.message}</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {notifications.length === 0 && (
                           <div className="p-4 text-center text-sm text-gray-500">Bạn không có thông báo nào</div>
                         )}
                       </div>
                       <div className="p-2 bg-gray-50/50 border-t border-gray-100">
-                        <button className="w-full py-1.5 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-md transition-colors">
+                        <button 
+                          onClick={() => {
+                            setIsNotifOpen(false);
+                            navigate('/notifications');
+                          }}
+                          className="w-full py-1.5 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-md transition-colors"
+                        >
                           Xem tất cả
                         </button>
                       </div>
@@ -185,11 +281,23 @@ export default function DashboardLayout() {
           ) : (
             <div className="flex flex-col items-center gap-3">
               <div
-                className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => navigate('/profile')}
                 title={user.fullName}
               >
-                {user.fullName?.charAt(0) || 'U'}
+                {user.avatarUrl && !collapsedImageError ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="Avatar"
+                    className="w-full h-full rounded-full object-cover shadow-sm border border-gray-100"
+                    referrerPolicy="no-referrer"
+                    onError={() => setCollapsedImageError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold shadow-sm">
+                    {user.fullName?.charAt(0) || 'U'}
+                  </div>
+                )}
               </div>
 
               <div className="relative w-full flex justify-center" ref={notifRef}>
@@ -262,14 +370,32 @@ export default function DashboardLayout() {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-medium text-gray-800">
-              {navItems.find(item => location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/'))?.name || 'Hệ thống'}
+              {[...mainNavItems, ...adminNavItems].find(item => location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/'))?.name || 'Hệ thống'}
             </h1>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className={`flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden ${isCalendarRoute ? 'bg-white p-0' : 'bg-[#F9FAFB] p-4 sm:p-8'}`}>
-          <Outlet />
+        <main className={`flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden ${isCalendarRoute ? 'bg-white' : 'bg-[#F9FAFB]'}`}>
+          <div className={`flex-1 flex flex-col ${isCalendarRoute ? 'p-0' : 'p-4 sm:p-8'}`}>
+            <Outlet />
+          </div>
+          
+          {/* System Footer */}
+          <footer className="mt-auto border-t border-gray-200 bg-white px-4 py-6 sm:px-8 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <img src="/logo2.png" alt="CFC Logo" className="h-10 w-auto object-contain" />
+              <div>
+                <p className="font-semibold text-gray-700 text-sm">CÔNG TY CỔ PHẦN PHÂN BÓN & HÓA CHẤT CẦN THƠ</p>
+                <p className="text-xs text-gray-500 mt-0.5">© Bản quyền thuộc về CFC | Cung cấp bởi phòng TCHC</p>
+                <p className="text-xs text-gray-500 mt-0.5">Thiết kế và phát triển bởi: <span className="font-medium">Nguyễn Trung Thuận (David Nguyen)</span></p>
+              </div>
+            </div>
+            <div className="text-left md:text-right text-xs text-gray-500 space-y-0.5">
+              <p>Trục Chính Khu Công Nghiệp Trà Nóc 1, P. Thới An Đông, Q. Bình Thủy, TP. Cần Thơ</p>
+              <p>Điện thoại: <span className="font-medium text-gray-600">1900 5307</span> | Email: <span className="font-medium text-gray-600">info@cfccobay.com</span></p>
+            </div>
+          </footer>
         </main>
       </div>
     </div>

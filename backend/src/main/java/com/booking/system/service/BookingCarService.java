@@ -56,7 +56,7 @@ public class BookingCarService {
 
         BookingCar saved = bookingCarRepository.save(booking);
         
-        notificationService.createNotification(requester, 
+        notificationService.createNotification(requester, null,
             "Tạo yêu cầu đặt xe thành công", 
             "Yêu cầu đặt xe từ '" + saved.getDeparture() + "' đi '" + saved.getDestination() + "' đã được gửi và đang chờ duyệt.", 
             NotificationType.BOOKING_CREATED);

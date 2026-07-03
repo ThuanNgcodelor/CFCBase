@@ -53,12 +53,9 @@ public class AuthService {
                     .setAudience(Collections.singletonList(googleClientId))
                     .build();
 
-            // Note: If you don't have a real client ID yet for testing, you might need to bypass this verification temporarily
-            // For production, this verification is mandatory.
             GoogleIdToken idToken = verifier.verify(idTokenString);
             
             if (idToken == null) {
-                // If it's a test token, we can mock the payload. For production, throw exception.
                 throw new RuntimeException("Token Google không hợp lệ");
             }
             
@@ -70,13 +67,10 @@ public class AuthService {
             return processUserAuth(email, name, pictureUrl);
 
         } catch (Exception e) {
-            // For development without actual Google Client ID, we can fallback to a dummy user if we want
-            // But normally we throw here.
             throw new RuntimeException("Lỗi xác thực Google: " + e.getMessage());
         }
     }
-
-    // Helper method just for testing if you don't have a real Google Client ID yet
+    
     public AuthResponse authenticateDummyForDev(String email) {
         return processUserAuth(email, "Developer User", "");
     }
@@ -118,7 +112,7 @@ public class AuthService {
         );
 
         AuthResponse.UserDto userDto = new AuthResponse.UserDto(
-                user.getId(), user.getEmail(), user.getFullName(), user.getRole().name(), user.getAvatarUrl()
+                user.getId(), user.getEmail(), user.getFullName(), user.getRole().name(), user.getAvatarUrl(), user.getPassword() != null
         );
 
         return new AuthResponse(accessToken, refreshToken, userDto);
@@ -136,7 +130,7 @@ public class AuthService {
         );
 
         AuthResponse.UserDto userDto = new AuthResponse.UserDto(
-                user.getId(), user.getEmail(), user.getFullName(), user.getRole().name(), user.getAvatarUrl()
+                user.getId(), user.getEmail(), user.getFullName(), user.getRole().name(), user.getAvatarUrl(), user.getPassword() != null
         );
 
         return new AuthResponse(accessToken, refreshToken, userDto);
@@ -164,7 +158,7 @@ public class AuthService {
         redisTemplate.opsForValue().set("refreshToken:" + email, newRefreshToken, 7, TimeUnit.DAYS);
 
         AuthResponse.UserDto userDto = new AuthResponse.UserDto(
-                user.getId(), user.getEmail(), user.getFullName(), user.getRole().name(), user.getAvatarUrl()
+                user.getId(), user.getEmail(), user.getFullName(), user.getRole().name(), user.getAvatarUrl(), user.getPassword() != null
         );
 
         return new AuthResponse(newAccessToken, newRefreshToken, userDto);

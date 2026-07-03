@@ -61,6 +61,7 @@ export default function RoomBooking() {
           start: new Date(b.startTime),
           end: new Date(b.endTime),
           user: b.requester?.fullName || 'User',
+          avatarUrl: b.requester?.avatarUrl,
           status: b.status,
           roomId: b.room?.id
         }));
@@ -72,7 +73,10 @@ export default function RoomBooking() {
     fetchData();
   }, []);
 
-  const filteredEvents = selectedRoom ? events.filter(e => e.roomId === selectedRoom) : events;
+  const filteredEvents = events.filter(e => 
+    e.status !== 'REJECTED' && e.status !== 'CANCELLED' && 
+    (selectedRoom ? e.roomId === selectedRoom : true)
+  );
 
   return (
     <div className="w-full h-full flex flex-col bg-white">
@@ -139,6 +143,7 @@ export default function RoomBooking() {
           onSelectEvent={(event) => navigate(`/admin/approvals/${event.id}`)}
           min={new Date(0, 0, 0, 7, 0, 0)}
           max={new Date(0, 0, 0, 20, 0, 0)}
+          scrollToTime={new Date(1970, 1, 1, 7)}
           formats={{ 
             timeGutterFormat: "H'h'",
           }}

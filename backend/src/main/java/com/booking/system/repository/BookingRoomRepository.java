@@ -19,4 +19,15 @@ public interface BookingRoomRepository extends JpaRepository<BookingRoom, String
     long countOverlappingBookings(@Param("roomId") String roomId, 
                                   @Param("startTime") LocalDateTime startTime, 
                                   @Param("endTime") LocalDateTime endTime);
+
+    long countByStatus(com.booking.system.enums.BookingStatus status);
+
+    java.util.List<BookingRoom> findByStatusAndStartTimeBetweenOrderByStartTimeAsc(
+            com.booking.system.enums.BookingStatus status, 
+            LocalDateTime start, 
+            LocalDateTime end);
+
+    java.util.List<BookingRoom> findByRequesterIdAndStartTimeAfterOrderByStartTimeAsc(
+            String requesterId, 
+            LocalDateTime time);
 }

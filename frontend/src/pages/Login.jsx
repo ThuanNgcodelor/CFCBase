@@ -16,6 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const saveAuthData = (data) => {
+    authApi.setAuthData(data);
     window.location.href = '/';
   };
 
@@ -53,10 +54,10 @@ export default function Login() {
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-gray-100">
 
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
-            <Building2 className="text-white w-6 h-6" />
+          <div className="w-20 h-20 flex items-center justify-center mb-2">
+            <img src="/logo2.png" alt="CFC Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">CFC Booking</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mt-2">CFC Booking</h1>
           <p className="text-sm text-gray-500 mt-2 text-center">
             Hệ thống đặt phòng họp và xe nội bộ
           </p>

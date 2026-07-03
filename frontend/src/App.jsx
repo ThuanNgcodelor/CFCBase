@@ -13,29 +13,62 @@ import CreateRoomBooking from './pages/CreateRoomBooking';
 import CreateCarBooking from './pages/CreateCarBooking';
 import Cookies from 'js-cookie';
 
-function App() {
+// Component bảo vệ Route Đăng nhập (Chưa đăng nhập mới vào được)
+const LoginRoute = ({ children }) => {
   const token = Cookies.get('accessToken');
-  const user = Cookies.get('user') ? JSON.parse(Cookies.get('user')) : {};
+  if (token) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
 
-  const isAuthenticated = !!token;
-  const userRole = user.role;
+// Component bảo vệ Route Chung (Đã đăng nhập mới vào được)
+const ProtectedRoute = ({ children }) => {
+  const token = Cookies.get('accessToken');
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
 
-  // Component bảo vệ Route theo Role
-  const AdminRoute = ({ children }) => {
-    if (userRole !== 'ADMIN') {
-      return <Navigate to="/" replace />;
-    }
-    return children;
-  };
+// Component bảo vệ Route chỉ dành cho Admin hoặc Manager (Duyệt yêu cầu)
+const ApproverRoute = ({ children }) => {
+  const userJson = Cookies.get('user');
+  const user = userJson ? JSON.parse(userJson) : {};
+  if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
+// Component bảo vệ Route chỉ dành riêng cho Admin (Quản lý tài nguyên)
+const AdminRoute = ({ children }) => {
+  const userJson = Cookies.get('user');
+  const user = userJson ? JSON.parse(userJson) : {};
+  if (user.role !== 'ADMIN') {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
+function App() {
 
   return (
     <>
       <Toaster position="top-right" />
       <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
+      <Route path="/login" element={
+        <LoginRoute>
+          <Login />
+        </LoginRoute>
+      } />
 
       {/* Protected Routes */}
-      <Route path="/" element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
+      <Route path="/" element={
+        <ProtectedRoute>
+          <DashboardLayout />
+        </ProtectedRoute>
+      }>
         <Route index element={<Dashboard />} />
         <Route path="rooms" element={<RoomBooking />} />
         <Route path="rooms/create" element={<CreateRoomBooking />} />
@@ -50,9 +83,9 @@ function App() {
         {/* Admin Routes */}
         <Route path="admin">
           <Route path="approvals" element={
-            <AdminRoute>
+            <ApproverRoute>
               <AdminApprovals />
-            </AdminRoute>
+            </ApproverRoute>
           } />
           {/* Bạn có thể thêm các route quản lý tài nguyên khác vào đây */}
         </Route>

@@ -14,4 +14,6 @@ public interface VehicleRepository extends JpaRepository<Vehicle, String> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT v FROM Vehicle v WHERE v.id = :vehicleId")
     Optional<Vehicle> findByIdWithLock(@Param("vehicleId") String vehicleId);
+
+    long countByStatus(com.booking.system.enums.RoomStatus status);
 }

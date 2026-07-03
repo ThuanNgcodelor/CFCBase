@@ -17,9 +17,10 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
 
     @Transactional
-    public void createNotification(User user, String title, String description, NotificationType type) {
+    public void createNotification(User user, User sender, String title, String description, NotificationType type) {
         Notification notification = new Notification();
         notification.setUser(user);
+        notification.setSender(sender);
         notification.setTitle(title);
         notification.setDescription(description);
         notification.setType(type);

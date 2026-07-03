@@ -26,7 +26,7 @@ export default function AdminApprovals() {
           booker: {
             fullName: r.requester?.fullName,
             department: r.requester?.department || 'Nhân viên',
-            avatar: 'https://i.pravatar.cc/150?u=' + r.requester?.email,
+            avatar: r.requester?.avatarUrl,
           },
           raw: r
         }));
@@ -40,7 +40,7 @@ export default function AdminApprovals() {
           booker: {
             fullName: c.requester?.fullName,
             department: c.requester?.department || 'Nhân viên',
-            avatar: 'https://i.pravatar.cc/150?u=' + c.requester?.email,
+            avatar: c.requester?.avatarUrl,
           },
           raw: c
         }));
@@ -66,7 +66,6 @@ export default function AdminApprovals() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mã YC</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Người yêu cầu</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tài nguyên</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Thời gian</th>
@@ -80,12 +79,24 @@ export default function AdminApprovals() {
               </tr>
             ) : pendingRequests.map(req => (
               <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {req.id.substring(0, 8).toUpperCase()}
-                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <img className="h-8 w-8 rounded-full border border-gray-200" src={req.booker.avatar} alt="" />
+                    {req.booker.avatar ? (
+                      <img 
+                        className="h-8 w-8 rounded-full border border-gray-200 object-cover shrink-0" 
+                        src={req.booker.avatar} 
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.booker.fullName || 'U')}&background=dbeafe&color=1d4ed8`;
+                        }}
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold border border-gray-200 shrink-0">
+                        {req.booker.fullName?.charAt(0) || 'U'}
+                      </div>
+                    )}
                     <div className="ml-3">
                       <div className="text-sm font-medium text-gray-900">{req.booker.fullName}</div>
                       <div className="text-xs text-gray-500">{req.booker.department}</div>
@@ -94,7 +105,7 @@ export default function AdminApprovals() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm text-gray-900 font-medium flex items-center gap-2">
-                    {req.type === 'ROOM' ? <Building2 className="w-4 h-4 text-blue-500"/> : <Car className="w-4 h-4 text-green-500"/>}
+                    {req.type === 'ROOM' ? <Building2 className="w-4 h-4 text-blue-500" /> : <Car className="w-4 h-4 text-green-500" />}
                     {req.resourceName}
                   </div>
                   <div className="text-sm text-gray-500 truncate max-w-[250px] mt-0.5">{req.purpose}</div>
@@ -112,7 +123,7 @@ export default function AdminApprovals() {
                 </td>
               </tr>
             ))}
-            
+
             {!loading && pendingRequests.length === 0 && (
               <tr>
                 <td colSpan="5" className="px-6 py-12 text-center text-gray-500">

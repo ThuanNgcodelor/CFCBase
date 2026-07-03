@@ -1,6 +1,7 @@
 package com.booking.system.entity;
 
 import com.booking.system.enums.NotificationType;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,7 +19,13 @@ public class Notification {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "department"})
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sender_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "department"})
+    private User sender;
 
     @Column(nullable = false)
     private String title;

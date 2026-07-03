@@ -17,6 +17,7 @@ export default function BookingDetail() {
 
   const currentUser = authApi.getUser();
   const isAdmin = currentUser?.role === 'ADMIN';
+  const isApprover = currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER';
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -86,7 +87,7 @@ export default function BookingDetail() {
   const resourceName = type === 'ROOM' ? request.room?.name : request.vehicle ? `${request.vehicle.vehicleType?.name} - ${request.vehicle.licensePlate}` : 'Chưa xếp xe';
 
   return (
-    <div className="flex flex-col min-h-full bg-white rounded-lg shadow-sm overflow-hidden">
+    <div className="flex flex-col min-h-full shrink-0 bg-white rounded-lg shadow-sm overflow-hidden">
       {/* Header */}
       <div className="bg-[#1a56d6] text-white px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -114,7 +115,7 @@ export default function BookingDetail() {
             </div>
 
             <h3 className="mt-8 mb-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Thông tin</h3>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6">
               <div className="flex items-start gap-3">
                 <User className="w-5 h-5 text-gray-400 shrink-0" />
@@ -123,7 +124,7 @@ export default function BookingDetail() {
                   <p className="text-sm font-medium text-gray-900">{request.requester?.fullName}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-gray-400 shrink-0" />
                 <div>
@@ -164,15 +165,15 @@ export default function BookingDetail() {
           {/* Action Log / Feedback */}
           <div className="bg-gray-50 p-6 flex-1 flex flex-col">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Lý do duyệt / từ chối</h3>
-            
-            {request.status === 'PENDING' && isAdmin && (
+
+            {request.status === 'PENDING' && isApprover && (
               <>
                 <div className="mt-2 mb-4 flex items-center gap-2 border border-gray-200 bg-white rounded-full px-4 py-2 shadow-sm">
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="Nhập lý do duyệt hoặc từ chối..." 
+                    placeholder="Nhập lý do duyệt hoặc từ chối..."
                     className="flex-1 outline-none text-sm bg-transparent"
                   />
                 </div>
@@ -205,7 +206,7 @@ export default function BookingDetail() {
                 </div>
                 <div className="w-3 h-3 rounded-full bg-green-500 shrink-0 mt-2 border-2 border-white shadow-sm" title="Đã duyệt"></div>
               </div>
-              
+
               <div className="flex items-start justify-between bg-white p-3 border border-gray-100 rounded shadow-sm">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold shrink-0">
@@ -237,14 +238,7 @@ export default function BookingDetail() {
                   <p className="text-sm text-gray-900">Phan Thị Minh Diễn</p>
                 </div>
               </div>
-              <div>
-                <p className="text-[11px] text-gray-500 mb-1 flex items-center gap-1">Người theo dõi</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500 font-bold">
-                    <User className="w-3 h-3" />
-                  </div>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>

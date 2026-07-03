@@ -40,7 +40,7 @@ public class ApprovalService {
 
         saveApprovalStep(approver, booking, null, ApprovalStatus.APPROVED, request.getReason());
         
-        notificationService.createNotification(booking.getRequester(), 
+        notificationService.createNotification(booking.getRequester(), approver,
             "Yêu cầu đặt phòng đã được duyệt", 
             "Lịch đặt phòng '" + booking.getTitle() + "' đã được duyệt.", 
             NotificationType.BOOKING_APPROVED);
@@ -58,7 +58,7 @@ public class ApprovalService {
 
         saveApprovalStep(approver, booking, null, ApprovalStatus.REJECTED, request.getReason());
         
-        notificationService.createNotification(booking.getRequester(), 
+        notificationService.createNotification(booking.getRequester(), approver,
             "Yêu cầu đặt phòng bị từ chối", 
             "Lịch đặt phòng '" + booking.getTitle() + "' bị từ chối. Lý do: " + request.getReason(), 
             NotificationType.BOOKING_REJECTED);
@@ -76,7 +76,7 @@ public class ApprovalService {
 
         saveApprovalStep(approver, null, booking, ApprovalStatus.APPROVED, request.getReason());
         
-        notificationService.createNotification(booking.getRequester(), 
+        notificationService.createNotification(booking.getRequester(), approver,
             "Yêu cầu đặt xe đã được duyệt", 
             "Lịch đặt xe từ '" + booking.getDeparture() + "' đi '" + booking.getDestination() + "' đã được duyệt.", 
             NotificationType.BOOKING_APPROVED);
@@ -94,7 +94,7 @@ public class ApprovalService {
 
         saveApprovalStep(approver, null, booking, ApprovalStatus.REJECTED, request.getReason());
         
-        notificationService.createNotification(booking.getRequester(), 
+        notificationService.createNotification(booking.getRequester(), approver,
             "Yêu cầu đặt xe bị từ chối", 
             "Lịch đặt xe từ '" + booking.getDeparture() + "' đi '" + booking.getDestination() + "' bị từ chối. Lý do: " + request.getReason(), 
             NotificationType.BOOKING_REJECTED);

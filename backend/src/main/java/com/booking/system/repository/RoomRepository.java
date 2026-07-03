@@ -18,4 +18,6 @@ public interface RoomRepository extends JpaRepository<Room, String> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM Room r WHERE r.id = :roomId")
     Optional<Room> findByIdWithLock(@Param("roomId") String roomId);
+
+    long countByStatus(com.booking.system.enums.RoomStatus status);
 }

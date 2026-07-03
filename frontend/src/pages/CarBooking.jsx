@@ -61,6 +61,7 @@ export default function CarBooking() {
           start: new Date(b.startTime),
           end: new Date(b.endTime),
           user: b.requester?.fullName || 'User',
+          avatarUrl: b.requester?.avatarUrl,
           status: b.status,
           vehicleId: b.vehicle?.id
         }));
@@ -72,7 +73,10 @@ export default function CarBooking() {
     fetchData();
   }, []);
 
-  const filteredEvents = selectedCar ? events.filter(e => e.vehicleId === selectedCar) : events;
+  const filteredEvents = events.filter(e => 
+    e.status !== 'REJECTED' && e.status !== 'CANCELLED' && 
+    (selectedCar ? e.vehicleId === selectedCar : true)
+  );
 
   return (
     <div className="w-full h-full flex flex-col bg-white">
@@ -139,6 +143,7 @@ export default function CarBooking() {
           onSelectEvent={(event) => navigate(`/admin/approvals/${event.id}`)}
           min={new Date(0, 0, 0, 6, 0, 0)}
           max={new Date(0, 0, 0, 22, 0, 0)}
+          scrollToTime={new Date(1970, 1, 1, 6)}
           formats={{ 
             timeGutterFormat: "H'h'",
           }}

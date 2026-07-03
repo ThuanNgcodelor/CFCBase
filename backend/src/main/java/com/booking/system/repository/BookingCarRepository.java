@@ -15,4 +15,15 @@ public interface BookingCarRepository extends JpaRepository<BookingCar, String> 
     long countOverlappingBookings(@Param("vehicleId") String vehicleId, 
                                   @Param("startTime") LocalDateTime startTime, 
                                   @Param("endTime") LocalDateTime endTime);
+
+    long countByStatus(com.booking.system.enums.BookingStatus status);
+
+    java.util.List<BookingCar> findByStatusAndStartTimeBetweenOrderByStartTimeAsc(
+            com.booking.system.enums.BookingStatus status, 
+            LocalDateTime start, 
+            LocalDateTime end);
+
+    java.util.List<BookingCar> findByRequesterIdAndStartTimeAfterOrderByStartTimeAsc(
+            String requesterId, 
+            LocalDateTime time);
 }

@@ -68,7 +68,7 @@ public class BookingRoomService {
 
         BookingRoom saved = bookingRoomRepository.save(booking);
         
-        notificationService.createNotification(requester, 
+        notificationService.createNotification(requester, null,
             "Tạo yêu cầu đặt phòng thành công", 
             "Yêu cầu đặt phòng '" + saved.getTitle() + "' đã được gửi và đang chờ duyệt.", 
             NotificationType.BOOKING_CREATED);

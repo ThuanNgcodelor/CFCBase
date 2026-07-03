@@ -13,3 +13,14 @@
     color: #111827;
   }
 }
+
+/* React Big Calendar Overrides for Sticky Events */
+.rbc-event {
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.rbc-event-content {
+  height: 100% !important;
+}
