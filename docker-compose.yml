@@ -24,6 +24,15 @@ services:
     volumes:
       - redis_data:/data
 
+  adminer:
+    image: adminer
+    container_name: booking_adminer
+    restart: always
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+
 volumes:
   db_data:
   redis_data:

@@ -5,6 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    host: true, // Mở cho mạng LAN
+  },
   define: {
     global: 'window',
   },
