@@ -27,11 +27,11 @@ spring:
       client:
         registration:
           google:
-            client-id: 443356692274-i2sq4m48gttjfeu1h15m20b5pcdogvq3.apps.googleusercontent.com
+            client-id: 
 
 server:
   port: 8080
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://cfcbooking.io.vn}

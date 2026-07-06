@@ -1,35 +1,35 @@
-# # Frontend
-# frontend/node_modules/
-# frontend/dist/
-# frontend/dist-ssr/
-# frontend/*.local
-# frontend/.env
-# frontend/.env.*
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/.env
+frontend/.env.*
 
-# # Backend (Java / Spring Boot)
-# backend/target/
-# backend/bin/
-# backend/.settings/
-# backend/.classpath
-# backend/.project
-# backend/src/main/resources/application.yml
-# backend/src/main/resources/application-*.yml
+# Backend (Java / Spring Boot)
+backend/target/
+backend/bin/
+backend/.settings/
+backend/.classpath
+backend/.project
+backend/src/main/resources/application.yml
+backend/src/main/resources/application-*.yml
 
-# # IDEs / OS
-# .idea/
-# .vscode/
-# *.swp
-# *.swo
-# .DS_Store
-# Thumbs.db
-# .codegraph/
+# IDEs / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.codegraph/
 
-# # Redis / DB (nếu có lưu local)
-# *.rdb
-# *.sql
+# Redis / DB (nếu có lưu local)
+*.rdb
+*.sql
 
-# # Logs
-# *.log
-# npm-debug.log*
-# yarn-debug.log*
-# yarn-error.log*
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -37,7 +37,8 @@ export default function Notifications() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const socket = new SockJS('http://localhost:8080/ws');
+    const wsUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api/v1', '/ws') : 'http://localhost:8080/ws';
+    const socket = new SockJS(wsUrl);
     const stompClient = Stomp.over(socket);
     stompClient.debug = () => {};
     stompClient.connect({}, () => {

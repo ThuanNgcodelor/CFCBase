@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /login
+
+# Không cho phép Google index các trang nội bộ yêu cầu đăng nhập
+Disallow: /admin/
+Disallow: /rooms/
+Disallow: /cars/
+Disallow: /notifications/
+Disallow: /profile/
+Disallow: /api/
+
+Sitemap: https://cfcbooking.io.vn/sitemap.xml
