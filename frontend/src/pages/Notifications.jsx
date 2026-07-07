@@ -14,6 +14,11 @@ export default function Notifications() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  
+  // Xóa badge số đỏ khi vào trang thông báo (Không còn useAppBadge)
+  // useEffect(() => {
+  //   clearBadge();
+  // }, []);
 
   useEffect(() => {
     setCurrentPage(1);

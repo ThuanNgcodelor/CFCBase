@@ -46,14 +46,19 @@ baseApi.interceptors.response.use(
         const { accessToken, refreshToken: newRefreshToken } = res.data.data;
 
         // Lưu lại token mới
-        Cookies.set('accessToken', accessToken, { expires: 1/48 }); // 30 mins
+        Cookies.set('accessToken', accessToken, { expires: 1/3 }); // 8 tiếng
         Cookies.set('refreshToken', newRefreshToken, { expires: 7 });
 
         // Gắn token mới vào request cũ và gọi lại
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return baseApi(originalRequest);
       } catch (refreshError) {
-        // Nếu refresh cũng lỗi (ví dụ refresh token bị thu hồi hoặc hết hạn), thì văng ra login
+        // Nếu request được đánh dấu `_silent` (polling, background), KHÔNG logout
+        // Tránh trường hợp polling tự động kick user ra ngoài
+        if (originalRequest._silent) {
+          return Promise.reject(refreshError);
+        }
+        // Request thông thường: xóa token và redirect về login
         Cookies.remove('accessToken');
         Cookies.remove('refreshToken');
         Cookies.remove('user');

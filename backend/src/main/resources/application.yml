@@ -22,12 +22,24 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:nguyentrungthuan4177@gmail.com}
+    password: ${MAIL_PASSWORD:ywwu qbni qcah pftb}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
   security:
     oauth2:
       client:
         registration:
           google:
-            client-id: 
+            client-id: 443356692274-i2sq4m48gttjfeu1h15m20b5pcdogvq3.apps.googleusercontent.com
 
 server:
   port: 8080
@@ -35,3 +47,12 @@ server:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://cfcbooking.io.vn}
+
+
+jwt:
+  secret: ${JWT_SECRET:dGhpc2lzYXZlcnlzZWNyZXRrZXl0aGF0aXNhdGxlYXN0MzJieXRlcw==}
+  access:
+    expiration: ${JWT_ACCESS_EXPIRATION:28800000}   # 8 tiếng (8 * 60 * 60 * 1000)
+  refresh:
+    expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 ngày
+

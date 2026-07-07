@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
-import { User, Mail, Briefcase, Shield, Key, Camera } from 'lucide-react';
+import { User, Mail, Briefcase, Shield, Key, Camera, BellRing } from 'lucide-react';
 
 import { authApi } from '../api/authApi';
 

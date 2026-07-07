@@ -33,38 +33,27 @@ export default defineConfig({
           { src: '/icons/icon-maskable-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: '/icons/icon-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // gcm_sender_id đã xóa — dùng VAPID thuần, không cần Firebase legacy
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            // Cache chiến lược NetworkFirst cho API calls
-            urlPattern: /^https:\/\/api\.cfcbooking\.io\.vn\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 }, // 5 phút
-              networkTimeoutSeconds: 10,
-            },
-          },
-          {
-            // Cache Google Fonts
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-cache' },
-          },
-        ],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // runtimeCaching is handled in sw.js when using injectManifest
       },
       devOptions: {
-        enabled: false,
+        enabled: true,
+        type: 'module',
+        navigateFallback: 'index.html',
       },
     }),
   ],
   server: {
     host: true,
-    allowedHosts: ['cfcbooking.io.vn'],
+    allowedHosts: ['cfcbooking.io.vn', 'www.cfcbooking.io.vn'],
+  },
+  preview: {
+    host: true,              // Mở ra để Cloudflare Tunnel có thể kết nối
+    port: 4173,
+    allowedHosts: ['cfcbooking.io.vn', 'www.cfcbooking.io.vn'],
   },
   define: {
     global: 'window',
