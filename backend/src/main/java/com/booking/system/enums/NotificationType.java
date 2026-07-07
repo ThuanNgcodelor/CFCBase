@@ -2,7 +2,13 @@ package com.booking.system.enums;
 
 public enum NotificationType {
     BOOKING_CREATED,
+    BOOKING_PENDING_APPROVAL,
     BOOKING_APPROVED,
     BOOKING_REJECTED,
+    BOOKING_CANCELLED,
+    BOOKING_UPDATED,
+    BOOKING_REMINDER,
+    ROOM_CHANGED,
+    VEHICLE_CHANGED,
     SYSTEM
 }
