@@ -1,15 +1,23 @@
 package com.booking.system.event;
 
 import com.booking.system.dto.NotificationResponse;
+import com.booking.system.entity.PushSubscription;
 import com.booking.system.entity.User;
+import com.booking.system.enums.NotificationType;
 import com.booking.system.repository.UserRepository;
 import com.booking.system.service.EmailService;
 import com.booking.system.service.NotificationService;
+import com.booking.system.service.PushService;
+import com.booking.system.service.PushSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -19,11 +27,15 @@ public class NotificationEventListener {
     private final NotificationService notificationService;
     private final EmailService emailService;
     private final UserRepository userRepository;
+    private final PushService pushService;
+    private final PushSubscriptionService pushSubscriptionService;
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(NotificationEvent event) {
+        NotificationResponse payload = null;
         try {
-            NotificationResponse payload = notificationService.createNotification(
+            payload = notificationService.createNotification(
                     event.recipientId(),
                     event.senderId(),
                     event.type(),
@@ -46,6 +58,12 @@ public class NotificationEventListener {
             sendEmailIfConfigured(event);
         } catch (Exception ex) {
             log.error("Failed to trigger notification email for recipient {}", event.recipientId(), ex);
+        }
+
+        try {
+            sendPushIfSubscribed(event, payload);
+        } catch (Exception ex) {
+            log.error("Failed to trigger Web Push for recipient {}", event.recipientId(), ex);
         }
     }
 
@@ -72,5 +90,36 @@ public class NotificationEventListener {
         } else if (email.type() == NotificationEvent.EmailType.BOOKING_REJECTED) {
             emailService.sendBookingRejectedEmail(recipient.getEmail(), email.resourceType(), email.title(), email.reason());
         }
+    }
+
+    private void sendPushIfSubscribed(NotificationEvent event, NotificationResponse notification) {
+        if (notification == null) {
+            return;
+        }
+
+        Map<String, Object> pushPayload = new LinkedHashMap<>();
+        pushPayload.put("id", notification.getId());
+        pushPayload.put("type", notification.getType());
+        pushPayload.put("title", notification.getTitle());
+        pushPayload.put("message", notification.getMessage());
+        pushPayload.put("description", notification.getDescription());
+        pushPayload.put("targetUrl", resolvePushTargetUrl(event, notification));
+        pushPayload.put("sourceType", notification.getSourceType());
+        pushPayload.put("sourceId", notification.getSourceId());
+        pushPayload.put("priority", notification.getPriority());
+        pushPayload.put("createdAt", notification.getCreatedAt() == null ? null : notification.getCreatedAt().toString());
+
+        for (PushSubscription subscription : pushSubscriptionService.findActiveByUser(event.recipientId())) {
+            pushService.sendPush(subscription, pushPayload);
+        }
+    }
+
+    private String resolvePushTargetUrl(NotificationEvent event, NotificationResponse notification) {
+        if (event.type() == NotificationType.BOOKING_PENDING_APPROVAL
+                && event.sourceId() != null
+                && ("BOOKING_ROOM".equals(event.sourceType()) || "BOOKING_CAR".equals(event.sourceType()))) {
+            return "/admin/approvals/" + event.sourceId();
+        }
+        return notification.getTargetUrl();
     }
 }

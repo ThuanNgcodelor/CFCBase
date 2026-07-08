@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
-import { User, Mail, Briefcase, Shield, Key, Camera, BellRing } from 'lucide-react';
+import { User, Mail, Briefcase, Shield, Key, Camera } from 'lucide-react';
 
 import { authApi } from '../api/authApi';
+import PushNotificationSettings from '../components/PushNotificationSettings';
 
 export default function Profile() {
   const [user, setUser] = useState(authApi.getUser() || {});
@@ -162,6 +163,8 @@ export default function Profile() {
               <Button onClick={handleUpdateProfile}>Lưu thay đổi</Button>
             </div>
           </div>
+
+          <PushNotificationSettings />
 
           {/* Card: Đổi mật khẩu */}
           <div className="bg-white shadow-sm border border-gray-200 rounded-xl p-6 sm:p-8">

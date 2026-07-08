@@ -9,6 +9,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // injectManifest cho phép viết Service Worker riêng (src/sw.js) để xử lý
+      // push event + notificationclick, đồng thời vẫn precache qua Workbox.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       includeAssets: ['logo.png', 'og-image.png', 'icons/*.png'],
       manifest: {
         name: 'CFC Booking',
@@ -33,11 +38,11 @@ export default defineConfig({
           { src: '/icons/icon-maskable-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: '/icons/icon-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        // gcm_sender_id đã xóa — dùng VAPID thuần, không cần Firebase legacy
+
+        gcm_sender_id: '103953800507',
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // runtimeCaching is handled in sw.js when using injectManifest
       },
       devOptions: {
         enabled: true,

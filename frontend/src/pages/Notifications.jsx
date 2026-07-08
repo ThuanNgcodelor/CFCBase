@@ -3,6 +3,7 @@ import { Bell, CheckCircle2, Clock, XCircle, ArrowRight, Search, ChevronLeft, Ch
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi';
 import { useNotificationCenter } from '../contexts/useNotificationCenter';
+import PushNotificationSettings from '../components/PushNotificationSettings';
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -116,6 +117,8 @@ export default function Notifications() {
           </button>
         </div>
       </div>
+
+      <PushNotificationSettings className="mb-6" />
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex-1 overflow-y-auto">
         {displayNotifications.map(notif => {

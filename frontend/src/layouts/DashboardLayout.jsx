@@ -4,6 +4,7 @@ import { LogOut, Home, CalendarRange, CarFront, Bell, CheckSquare, Settings, Men
 import { authApi } from '../api/authApi';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { useNotificationCenter } from '../contexts/useNotificationCenter';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function DashboardLayout() {
   return (
@@ -28,6 +29,7 @@ function DashboardLayoutContent() {
   const isApprover = user.role === 'ADMIN' || user.role === 'MANAGER';
 
   const { notifications, unreadCount, loading: notificationLoading, error: notificationError, markAsRead, markAllAsRead } = useNotificationCenter();
+  usePushNotifications({ autoRegister: true });
 
   // Tự động đóng sidebar trên mobile khi đổi trang
   useEffect(() => {
@@ -46,6 +48,21 @@ function DashboardLayoutContent() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return undefined;
+
+    const handleServiceWorkerMessage = (event) => {
+      if (event.data?.type !== 'NAVIGATE' || !event.data.url) return;
+      const url = new URL(event.data.url, window.location.origin);
+      if (url.origin === window.location.origin) {
+        navigate(`${url.pathname}${url.search}${url.hash}`);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+  }, [navigate]);
 
   const handleLogout = async () => {
     await authApi.logout();

@@ -63,13 +63,6 @@ export function NotificationProvider({ children }) {
         </div>
       </div>
     ));
-
-    if (document.hidden && window.Notification?.permission === 'granted') {
-      new window.Notification(notification.title, {
-        body: notification.message || notification.description,
-        icon: '/icons/icon-192.png',
-      });
-    }
   }, []);
 
   useEffect(() => {

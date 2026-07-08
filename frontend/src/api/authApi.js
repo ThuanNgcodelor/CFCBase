@@ -1,6 +1,7 @@
 import { baseApi } from './baseApi';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { pushApi } from './pushApi';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 const COOKIE_OPTS = { expires: 7, sameSite: 'Strict' };
@@ -44,6 +45,7 @@ export const authApi = {
   },
 
   logout: async () => {
+    await unsubscribeCurrentPushSubscription();
     const refreshToken = Cookies.get('refreshToken');
     if (refreshToken) {
       try {
@@ -62,3 +64,25 @@ export const authApi = {
     return user ? JSON.parse(user) : null;
   }
 };
+
+async function unsubscribeCurrentPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      return;
+    }
+    const { endpoint } = subscription;
+    try {
+      await pushApi.unsubscribe(endpoint);
+    } finally {
+      await subscription.unsubscribe();
+    }
+  } catch (e) {
+    console.error('Push unsubscribe error:', e);
+  }
+}
