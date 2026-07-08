@@ -6,7 +6,7 @@ frontend/*.local
 frontend/.env
 frontend/.env.*
 
-# Backend (Java / Spring Boot)
+# Backend 
 backend/target/
 backend/bin/
 backend/.settings/
@@ -24,7 +24,7 @@ backend/src/main/resources/application-*.yml
 Thumbs.db
 .codegraph/
 
-# Redis / DB (nếu có lưu local)
+# Redis / DB 
 *.rdb
 *.sql
 
