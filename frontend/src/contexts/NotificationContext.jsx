@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Bell } from 'lucide-react';
 import { notificationApi } from '../api/notificationApi';
 import { NotificationContext } from './NotificationContextCore';
+import { syncAppBadge } from '../utils/appBadge';
 
 const getWsUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
@@ -70,6 +71,10 @@ export function NotificationProvider({ children }) {
   }, [loadNotifications]);
 
   useEffect(() => {
+    syncAppBadge(unreadCount);
+  }, [unreadCount]);
+
+  useEffect(() => {
     const token = Cookies.get('accessToken');
     if (!token || clientRef.current) return undefined;
 
@@ -115,7 +120,7 @@ export function NotificationProvider({ children }) {
 
   const markAllAsRead = useCallback(async () => {
     await notificationApi.markAllAsRead();
-    setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true, readAt: item.readAt || new Date().toISOString() })));
     setUnreadCount(0);
   }, []);
 

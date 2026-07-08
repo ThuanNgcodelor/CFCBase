@@ -16,7 +16,7 @@ public class WebPushConfig {
     public nl.martijndwars.webpush.PushService webPushClient(
             @Value("${app.webpush.public-key:}") String publicKey,
             @Value("${app.webpush.private-key:}") String privateKey,
-            @Value("${app.webpush.subject:mailto:ntthuana23127@cusc.ctu.edu.vn}") String subject)
+            @Value("${app.webpush.subject:https://cfcbooking.io.vn}") String subject)
             throws GeneralSecurityException {
         ensureBouncyCastleProvider();
         if (StringUtils.hasText(publicKey) && StringUtils.hasText(privateKey)) {

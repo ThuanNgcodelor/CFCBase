@@ -16,6 +16,7 @@ export default defineConfig({
       filename: 'sw.js',
       includeAssets: ['logo.png', 'og-image.png', 'icons/*.png'],
       manifest: {
+        id: '/',
         name: 'CFC Booking',
         short_name: 'CFC Book',
         description: 'Hệ thống đặt phòng họp và xe nội bộ của CFC',

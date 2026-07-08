@@ -98,6 +98,7 @@ public class NotificationEventListener {
         }
 
         Map<String, Object> pushPayload = new LinkedHashMap<>();
+        long unreadCount = notificationService.getUnreadCount(event.recipientId());
         pushPayload.put("id", notification.getId());
         pushPayload.put("type", notification.getType());
         pushPayload.put("title", notification.getTitle());
@@ -108,6 +109,8 @@ public class NotificationEventListener {
         pushPayload.put("sourceId", notification.getSourceId());
         pushPayload.put("priority", notification.getPriority());
         pushPayload.put("createdAt", notification.getCreatedAt() == null ? null : notification.getCreatedAt().toString());
+        pushPayload.put("unreadCount", unreadCount);
+        pushPayload.put("badgeCount", unreadCount);
 
         for (PushSubscription subscription : pushSubscriptionService.findActiveByUser(event.recipientId())) {
             pushService.sendPush(subscription, pushPayload);

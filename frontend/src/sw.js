@@ -46,21 +46,32 @@ self.addEventListener('push', (event) => {
     payload = { title: 'CFC Booking', message: event.data ? event.data.text() : '' };
   }
 
-  const title = payload.title || 'CFC Booking';
+  const title = normalizeNotificationTitle(payload);
+  const body = normalizeNotificationBody(payload);
+  const badgeCount = normalizeBadgeCount(payload.badgeCount ?? payload.unreadCount);
+  const tag = buildNotificationTag(payload);
   const options = {
-    body: payload.message || payload.description || '',
+    body,
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
+    tag,
+    renotify: true,
+    lang: 'vi-VN',
+    timestamp: resolveTimestamp(payload.createdAt),
     data: {
+      id: payload.id,
       url: buildTargetUrl(payload),
       sourceType: payload.sourceType,
       sourceId: payload.sourceId,
       type: payload.type,
+      badgeCount,
     },
   };
 
   event.waitUntil(
     (async () => {
+      await syncAppBadge(badgeCount);
+
       // Chỉ show notification khi KHÔNG có client đang focused → tránh trùng WS toast.
       const clientList = await self.clients.matchAll({
         type: 'window',
@@ -124,4 +135,89 @@ function buildTargetUrl(payload) {
     return `/admin/approvals/${payload.sourceId}`;
   }
   return '/';
+}
+
+function normalizeNotificationTitle(payload) {
+  const rawTitle = typeof payload.title === 'string' ? payload.title.trim() : '';
+  if (rawTitle) {
+    return rawTitle;
+  }
+
+  switch (payload.type) {
+    case 'BOOKING_PENDING_APPROVAL':
+      return 'Yeu cau can duyet';
+    case 'BOOKING_APPROVED':
+      return 'Yeu cau da duoc duyet';
+    case 'BOOKING_REJECTED':
+      return 'Yeu cau bi tu choi';
+    case 'BOOKING_CANCELLED':
+      return 'Lich dat da bi huy';
+    case 'BOOKING_CREATED':
+      return 'Yeu cau dat lich moi';
+    default:
+      return 'CFC Booking';
+  }
+}
+
+function normalizeNotificationBody(payload) {
+  const rawBody = typeof payload.message === 'string' && payload.message.trim()
+    ? payload.message.trim()
+    : typeof payload.description === 'string' && payload.description.trim()
+      ? payload.description.trim()
+      : '';
+
+  if (rawBody) {
+    return rawBody;
+  }
+
+  return 'Bạn có thông báo mới từ CFC Booking.';
+}
+
+function normalizeBadgeCount(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function buildNotificationTag(payload) {
+  if (payload.id) {
+    return `notification:${payload.id}`;
+  }
+  if (payload.sourceType && payload.sourceId && payload.type) {
+    return `${payload.type}:${payload.sourceType}:${payload.sourceId}`;
+  }
+  return `notification:${Date.now()}`;
+}
+
+function resolveTimestamp(createdAt) {
+  if (!createdAt) {
+    return Date.now();
+  }
+
+  const parsed = Date.parse(createdAt);
+  return Number.isNaN(parsed) ? Date.now() : parsed;
+}
+
+async function syncAppBadge(count) {
+  const badgeApi = self.navigator;
+  if (!badgeApi || typeof badgeApi.setAppBadge !== 'function') {
+    return;
+  }
+
+  try {
+    if (Number.isFinite(count) && count > 0) {
+      await badgeApi.setAppBadge(count);
+      return;
+    }
+
+    if (typeof badgeApi.clearAppBadge === 'function') {
+      await badgeApi.clearAppBadge();
+      return;
+    }
+
+    await badgeApi.setAppBadge(0);
+  } catch {
+  }
 }

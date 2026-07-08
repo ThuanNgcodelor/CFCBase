@@ -28,7 +28,15 @@ function DashboardLayoutContent() {
   const isAdmin = user.role === 'ADMIN';
   const isApprover = user.role === 'ADMIN' || user.role === 'MANAGER';
 
-  const { notifications, unreadCount, loading: notificationLoading, error: notificationError, markAsRead, markAllAsRead } = useNotificationCenter();
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationLoading,
+    error: notificationError,
+    loadNotifications,
+    markAsRead,
+    markAllAsRead,
+  } = useNotificationCenter();
   usePushNotifications({ autoRegister: true });
 
   // Tự động đóng sidebar trên mobile khi đổi trang
@@ -102,12 +110,14 @@ function DashboardLayoutContent() {
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead();
+      await loadNotifications(0, 10);
     } catch (e) {
       console.error(e);
     }
   };
 
   const isCalendarRoute = location.pathname.startsWith('/cars') || location.pathname.startsWith('/rooms');
+  const unreadBadgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 
   return (
     <div className="flex h-[100dvh] bg-[#F9FAFB] font-sans text-gray-900 overflow-hidden relative">
@@ -221,7 +231,9 @@ function DashboardLayoutContent() {
                   >
                     <Bell className="w-4 h-4" />
                     {unreadCount > 0 && (
-                      <span className="absolute top-1.5 right-1/4 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+                      <span className="absolute -top-1 right-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-white">
+                        {unreadBadgeLabel}
+                      </span>
                     )}
                   </button>
 
@@ -229,7 +241,16 @@ function DashboardLayoutContent() {
                     <div className="absolute bottom-full left-0 mb-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
                       <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <span className="font-semibold text-gray-900">Thông báo</span>
-                        <button onClick={handleMarkAllAsRead} className="text-xs text-blue-600 font-medium">Đã đọc tất cả</button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAllAsRead();
+                          }}
+                          className="text-xs font-medium text-blue-600 disabled:text-gray-400"
+                          disabled={unreadCount === 0}
+                        >
+                          Đã đọc tất cả
+                        </button>
                       </div>
                       <div className="max-h-[300px] overflow-y-auto">
                         {notificationLoading && (
@@ -334,7 +355,9 @@ function DashboardLayoutContent() {
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+                    <span className="absolute -top-1 -right-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-white">
+                      {unreadBadgeLabel}
+                    </span>
                   )}
                 </button>
 
@@ -342,7 +365,16 @@ function DashboardLayoutContent() {
                   <div className="absolute bottom-full left-12 mb-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
                     <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                       <span className="font-semibold text-gray-900">Thông báo</span>
-                      <button onClick={handleMarkAllAsRead} className="text-xs text-blue-600 font-medium">Đã đọc tất cả</button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkAllAsRead();
+                        }}
+                        className="text-xs font-medium text-blue-600 disabled:text-gray-400"
+                        disabled={unreadCount === 0}
+                      >
+                        Đã đọc tất cả
+                      </button>
                     </div>
                     <div className="max-h-[300px] overflow-y-auto">
                       {notificationLoading && (

@@ -2,6 +2,7 @@ import { baseApi } from './baseApi';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { pushApi } from './pushApi';
+import { clearAppBadge } from '../utils/appBadge';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 const COOKIE_OPTS = { expires: 7, sameSite: 'Strict' };
@@ -57,6 +58,7 @@ export const authApi = {
     Cookies.remove('accessToken');
     Cookies.remove('refreshToken');
     Cookies.remove('user');
+    await clearAppBadge();
   },
 
   getUser: () => {

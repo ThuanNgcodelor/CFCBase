@@ -57,7 +57,7 @@ export default function Notifications() {
     if (!notif.isRead) {
       try {
         await markAsRead(notif);
-        setNotifications(notifications.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+        setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)));
       } catch (e) {
         console.error(e);
       }
@@ -78,7 +78,13 @@ export default function Notifications() {
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead();
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      const data = await loadNotifications(currentPage - 1, itemsPerPage);
+      if (data?.content) {
+        setNotifications(data.content);
+        setTotalElements(data.totalElements);
+      } else {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      }
     } catch (e) {
       console.error(e);
     }
@@ -112,7 +118,11 @@ export default function Notifications() {
               className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
-          <button onClick={handleMarkAllAsRead} className="shrink-0 text-sm font-medium text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-2 rounded-lg transition-colors">
+          <button
+            onClick={handleMarkAllAsRead}
+            disabled={!displayNotifications.some((notif) => !notif.isRead)}
+            className="shrink-0 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-800 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+          >
             Đánh dấu đã đọc tất cả
           </button>
         </div>
