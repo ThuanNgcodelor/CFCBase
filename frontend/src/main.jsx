@@ -7,11 +7,8 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
 import './index.css'
 
-// Đăng ký Service Worker PWA — tự reload khi có bản cập nhật mới
 registerSW({
   onNeedRefresh() {
-    // Tự reload ngay khi có bản mới (không hỏi user)
-    // Nếu muốn hỏi user, có thể thêm toast notification ở đây
     window.location.reload();
   },
   onOfflineReady() {

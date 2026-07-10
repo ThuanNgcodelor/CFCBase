@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { authApi } from '../api/authApi';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -14,6 +15,7 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Đọc email đã lưu khi mở trang
   useEffect(() => {
@@ -49,6 +51,28 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    setGoogleLoading(true);
+
+    try {
+      if (!credentialResponse?.credential) {
+        throw new Error('Không nhận được token Google');
+      }
+
+      const data = await authApi.googleLogin(credentialResponse.credential);
+      saveAuthData(data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Lỗi đăng nhập Google. Vui lòng thử lại.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Không thể đăng nhập bằng Google. Vui lòng thử lại hoặc dùng email/mật khẩu.');
   };
 
   return (
@@ -134,6 +158,30 @@ export default function Login() {
             {loading ? 'Đang xử lý...' : 'Đăng nhập'}
           </Button>
         </form>
+
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs font-medium uppercase text-gray-400">Hoặc</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <div className="mb-4 flex justify-center">
+          {googleLoading ? (
+            <Button type="button" className="w-full" disabled>
+              Đang xử lý Google...
+            </Button>
+          ) : (
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              theme="outline"
+              size="large"
+              text="signin_with"
+              shape="rectangular"
+              width="100%"
+            />
+          )}
+        </div>
 
         <p className="text-center text-sm text-gray-600">
           Chưa có tài khoản?{' '}

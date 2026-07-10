@@ -45,6 +45,12 @@ export const authApi = {
     return response.data.data;
   },
 
+  googleLogin: async (idToken) => {
+    const response = await baseApi.post('/auth/google', { idToken });
+    authApi.setAuthData(response.data.data);
+    return response.data.data;
+  },
+
   requestRegisterOtp: async (email) => {
     const response = await baseApi.post('/auth/register/request-otp', { email });
     return response.data;

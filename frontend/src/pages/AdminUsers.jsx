@@ -8,7 +8,7 @@ import SEOHead from '../components/SEOHead';
 const initialForm = {
   email: '',
   password: '',
-  role: 'CLIENT',
+  role: 'EMPLOYEE',
   departmentId: '',
 };
 
@@ -49,7 +49,7 @@ export default function AdminUsers() {
       email: form.email.trim(),
       password: form.password,
       role: form.role,
-      departmentId: form.departmentId ? Number(form.departmentId) : null,
+      departmentId: form.departmentId || null,
     };
 
     setLoading(true);
@@ -114,7 +114,7 @@ export default function AdminUsers() {
                 onChange={(event) => updateField('role', event.target.value)}
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
               >
-                <option value="CLIENT">CLIENT</option>
+                <option value="EMPLOYEE">EMPLOYEE</option>
                 <option value="MANAGER">MANAGER</option>
                 <option value="ADMIN">ADMIN</option>
               </select>
