@@ -95,8 +95,9 @@ export default function Login() {
           </div>
         )}
 
+        {/* 
         <form onSubmit={handleStandardLogin} className="space-y-4 mb-4">
-          {/* Email */}
+          {/* Email * /}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Email công ty</label>
             <input
@@ -109,7 +110,7 @@ export default function Login() {
             />
           </div>
 
-          {/* Mật khẩu + toggle hiện/ẩn */}
+          {/* Mật khẩu + toggle hiện/ẩn * /}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Mật khẩu</label>
             <div className="relative">
@@ -133,7 +134,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Remember Me */}
+          {/* Remember Me * /}
           <div className="flex items-center gap-2">
             <input
               id="rememberMe"
@@ -160,6 +161,7 @@ export default function Login() {
             <span className="px-2 bg-white text-gray-500">Hoặc</span>
           </div>
         </div>
+        */}
 
         <div className="flex justify-center w-full">
           <GoogleLogin
