@@ -15,6 +15,10 @@ backend/.project
 backend/src/main/resources/application.yml
 backend/src/main/resources/application-*.yml
 
+# Cloudflare Tunnel config (chứa tunnel ID, đường dẫn credentials nhạy cảm)
+cloudflared-config.yml
+
+
 # IDEs / OS
 .idea/
 .vscode/
