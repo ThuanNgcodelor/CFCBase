@@ -14,5 +14,10 @@ export const userApi = {
   getDepartments: async () => {
     const response = await baseApi.get('/departments');
     return response.data.data;
+  },
+
+  createUser: async (payload) => {
+    const response = await baseApi.post('/users', payload);
+    return response.data.data;
   }
 };

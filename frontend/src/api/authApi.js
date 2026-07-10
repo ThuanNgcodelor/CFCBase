@@ -45,6 +45,26 @@ export const authApi = {
     return response.data.data;
   },
 
+  requestRegisterOtp: async (email) => {
+    const response = await baseApi.post('/auth/register/request-otp', { email });
+    return response.data;
+  },
+
+  verifyRegisterOtp: async ({ email, otp, password }) => {
+    const response = await baseApi.post('/auth/register/verify', { email, otp, password });
+    return response.data;
+  },
+
+  requestForgotPasswordOtp: async (email) => {
+    const response = await baseApi.post('/auth/forgot-password/request-otp', { email });
+    return response.data;
+  },
+
+  resetPasswordWithOtp: async ({ email, otp, newPassword }) => {
+    const response = await baseApi.post('/auth/forgot-password/reset', { email, otp, newPassword });
+    return response.data;
+  },
+
   logout: async () => {
     await unsubscribeCurrentPushSubscription();
     const refreshToken = Cookies.get('refreshToken');

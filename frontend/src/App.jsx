@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useState, useEffect } from 'react';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import RoomBooking from './pages/RoomBooking';
@@ -9,6 +11,7 @@ import CarBooking from './pages/CarBooking';
 import AdminApprovals from './pages/AdminApprovals';
 import AdminProfileApprovals from './pages/AdminProfileApprovals';
 import AdminProfileApprovalDetail from './pages/AdminProfileApprovalDetail';
+import AdminUsers from './pages/AdminUsers';
 import BookingDetail from './pages/BookingDetail';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
@@ -83,6 +86,16 @@ function App() {
           <Login />
         </LoginRoute>
       } />
+      <Route path="/register" element={
+        <LoginRoute>
+          <Register />
+        </LoginRoute>
+      } />
+      <Route path="/forgot-password" element={
+        <LoginRoute>
+          <ForgotPassword />
+        </LoginRoute>
+      } />
 
       {/* Protected Routes */}
       <Route path="/" element={
@@ -116,6 +129,11 @@ function App() {
           <Route path="profile-approvals/:id" element={
             <AdminRoute>
               <AdminProfileApprovalDetail />
+            </AdminRoute>
+          } />
+          <Route path="users" element={
+            <AdminRoute>
+              <AdminUsers />
             </AdminRoute>
           } />
           {/* Bạn có thể thêm các route quản lý tài nguyên khác vào đây */}

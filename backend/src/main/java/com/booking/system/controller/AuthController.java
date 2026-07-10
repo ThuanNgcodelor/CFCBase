@@ -2,10 +2,14 @@ package com.booking.system.controller;
 
 import com.booking.system.dto.ApiResponse;
 import com.booking.system.dto.AuthResponse;
+import com.booking.system.dto.ForgotPasswordOtpRequest;
 import com.booking.system.dto.GoogleLoginRequest;
 import com.booking.system.dto.LoginRequest;
 import com.booking.system.dto.LogoutRequest;
 import com.booking.system.dto.RefreshTokenRequest;
+import com.booking.system.dto.RegisterOtpRequest;
+import com.booking.system.dto.RegisterVerifyRequest;
+import com.booking.system.dto.ResetPasswordRequest;
 import com.booking.system.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +23,7 @@ public class AuthController {
 
     private final AuthService authService;
 
+    // Đăng nhập bằng email và mật khẩu.
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         try {
@@ -34,11 +39,55 @@ public class AuthController {
         try {
             // Uncomment line below to bypass real Google Verification if you don't have Client ID configured yet
             // AuthResponse response = authService.authenticateDummyForDev("admin@booking.com");
-            
+
             AuthResponse response = authService.authenticateWithGoogle(request.getIdToken());
             return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập thành công"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(401, e.getMessage()));
+        }
+    }
+
+    // Gửi OTP để đăng ký tài khoản mới.
+    @PostMapping("/register/request-otp")
+    public ResponseEntity<ApiResponse<Void>> requestRegisterOtp(@Valid @RequestBody RegisterOtpRequest request) {
+        try {
+            authService.requestRegisterOtp(request.email());
+            return ResponseEntity.ok(ApiResponse.success(null, "Đã gửi mã OTP đăng ký tới email"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
+        }
+    }
+
+    // Xác thực OTP và tạo tài khoản email/password.
+    @PostMapping("/register/verify")
+    public ResponseEntity<ApiResponse<Void>> verifyRegisterOtp(@Valid @RequestBody RegisterVerifyRequest request) {
+        try {
+            authService.verifyRegisterOtp(request.email(), request.otp(), request.password());
+            return ResponseEntity.ok(ApiResponse.success(null, "Đăng ký tài khoản thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
+        }
+    }
+
+    // Gửi OTP để đặt lại mật khẩu.
+    @PostMapping("/forgot-password/request-otp")
+    public ResponseEntity<ApiResponse<Void>> requestForgotPasswordOtp(@Valid @RequestBody ForgotPasswordOtpRequest request) {
+        try {
+            authService.requestForgotPasswordOtp(request.email());
+            return ResponseEntity.ok(ApiResponse.success(null, "Đã gửi mã OTP đặt lại mật khẩu tới email"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
+        }
+    }
+
+    // Xác thực OTP và cập nhật mật khẩu mới.
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPasswordWithOtp(@Valid @RequestBody ResetPasswordRequest request) {
+        try {
+            authService.resetPasswordWithOtp(request.email(), request.otp(), request.newPassword());
+            return ResponseEntity.ok(ApiResponse.success(null, "Đổi mật khẩu thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }
     }
 

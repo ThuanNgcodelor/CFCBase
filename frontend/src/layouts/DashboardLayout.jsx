@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Home, CalendarRange, CarFront, Bell, CheckSquare, Settings, Menu, FileCheck2 } from 'lucide-react';
+import { LogOut, Home, CalendarRange, CarFront, Bell, CheckSquare, Settings, Menu, FileCheck2, Users } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { useNotificationCenter } from '../contexts/useNotificationCenter';
@@ -86,6 +86,7 @@ function DashboardLayoutContent() {
   const adminNavItems = [
     { name: 'Duyệt yêu cầu', path: '/admin/approvals', icon: CheckSquare, show: isApprover },
     { name: 'Duyệt hồ sơ', path: '/admin/profile-approvals', icon: FileCheck2, show: isAdmin },
+    { name: 'Tài khoản', path: '/admin/users', icon: Users, show: isAdmin },
     { name: 'Tài nguyên', path: '/admin/resources', icon: Settings, show: isAdmin },
   ];
 

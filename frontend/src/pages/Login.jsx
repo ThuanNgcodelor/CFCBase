@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleLogin } from '@react-oauth/google';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { authApi } from '../api/authApi';
-import { baseApi } from '../api/baseApi';
 import { Eye, EyeOff } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from '../components/ui/Button';
 import SEOHead from '../components/SEOHead';
 
 const REMEMBER_KEY = 'cfc_remember_email';
 
 export default function Login() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,21 +51,6 @@ export default function Login() {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    try {
-      const res = await baseApi.post('/auth/google', {
-        idToken: credentialResponse.credential,
-      });
-      saveAuthData(res.data.data);
-    } catch (error) {
-      toast.error('Đăng nhập Google thất bại: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  const handleGoogleError = () => {
-    toast.error('Không thể kết nối với Google. Vui lòng thử lại.');
-  };
-
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center p-4 font-sans text-gray-900">
       <SEOHead
@@ -95,9 +76,7 @@ export default function Login() {
           </div>
         )}
 
-        {/* 
         <form onSubmit={handleStandardLogin} className="space-y-4 mb-4">
-          {/* Email * /}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Email công ty</label>
             <input
@@ -110,7 +89,6 @@ export default function Login() {
             />
           </div>
 
-          {/* Mật khẩu + toggle hiện/ẩn * /}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Mật khẩu</label>
             <div className="relative">
@@ -134,18 +112,22 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Remember Me * /}
-          <div className="flex items-center gap-2">
-            <input
-              id="rememberMe"
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer accent-blue-600"
-            />
-            <label htmlFor="rememberMe" className="text-sm text-gray-600 cursor-pointer select-none">
-              Nhớ email đăng nhập
-            </label>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer accent-blue-600"
+              />
+              <label htmlFor="rememberMe" className="text-sm text-gray-600 cursor-pointer select-none">
+                Nhớ email
+              </label>
+            </div>
+            <Link to="/forgot-password" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+              Quên mật khẩu?
+            </Link>
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
@@ -153,29 +135,11 @@ export default function Login() {
           </Button>
         </form>
 
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Hoặc</span>
-          </div>
-        </div>
-        */}
-
-        <div className="flex justify-center w-full">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            theme="outline"
-            size="large"
-            text="signin_with"
-            shape="rectangular"
-          />
-        </div>
-
-        <p className="text-xs text-center text-gray-400 mt-8">
-          Sử dụng tài khoản Google Workspace hoặc tài khoản hệ thống được cấp.
+        <p className="text-center text-sm text-gray-600">
+          Chưa có tài khoản?{' '}
+          <Link to="/register" className="font-medium text-blue-600 hover:text-blue-700">
+            Đăng ký bằng email
+          </Link>
         </p>
       </div>
     </div>
