@@ -551,3 +551,129 @@ Vì hệ thống nội bộ và có nhu cầu Admin tạo account bằng passwor
 Giải pháp phù hợp nhất cho BookingBase hiện tại là chuyển sang Email/Mật khẩu + OTP qua Email. Cách này ổn định hơn cho Safari, iOS và PWA, không phụ thuộc popup/cookie/cross-site behavior của Google Login.
 
 Triển khai nên làm theo hướng bổ sung auth flow mới, hạn chế đụng các module profile, booking, approval hiện có.
+
+
+
+Trạng thái hiện tại theo file tree:
+
+Đã làm
+Backend
+Đã thêm/sửa các phần chính cho Email + OTP:
+
+Đã thêm DTO:
+
+AdminCreateUserRequest.java
+ForgotPasswordOtpRequest.java
+RegisterOtpRequest.java
+RegisterVerifyRequest.java
+ResetPasswordRequest.java
+Đã thêm service:
+
+OtpService.java
+OtpMailService.java
+Đã sửa:
+
+AuthController.java
+AuthService.java
+UserController.java
+UserRepository.java
+Mục tiêu các phần này là:
+
+Gửi OTP đăng ký.
+Xác thực OTP và tạo user.
+Gửi OTP quên mật khẩu.
+Reset password bằng OTP.
+Admin tạo user bằng email/password.
+Frontend
+Đã thêm/sửa:
+
+Đã ẩn Google Login trong Login.jsx.
+
+Đã thêm link:
+
+/register
+/forgot-password
+Đã thêm trang:
+
+Register.jsx
+ForgotPassword.jsx
+AdminUsers.jsx
+Đã sửa:
+
+authApi.js
+userApi.js
+App.jsx
+DashboardLayout.jsx
+Mục tiêu các phần này là:
+
+Login chỉ còn Email/Mật khẩu.
+Người dùng tự đăng ký bằng Email + OTP.
+Người dùng quên mật khẩu bằng Email + OTP.
+Admin có menu “Tài khoản” để tạo user mới.
+Chưa làm / Chưa xác minh
+Các phần còn thiếu quan trọng:
+
+Chưa chạy backend test/build
+
+Chưa chạy:
+
+cd backend && ./mvnw test
+Hoặc:
+
+cd backend && ./mvnw clean package
+Chưa chạy frontend build
+
+Chưa chạy:
+
+cd frontend && npm run build
+Chưa kiểm tra compile error Có khả năng vẫn còn lỗi do:
+
+field trong User không đúng với code tạo user;
+enum role/status không khớp;
+DTO validation import chưa đúng;
+route mới trong App.jsx chưa được format/verify;
+AdminUsers.jsx có thể lệch format/lint;
+backend mail/redis config có thể chưa sẵn runtime.
+Chưa kiểm tra SecurityConfig Tôi đã cố hạn chế không đụng mạnh SecurityConfig.java, nhưng cần xác minh các endpoint public mới có được permit chưa:
+
+/api/v1/auth/register/request-otp
+/api/v1/auth/register/verify
+/api/v1/auth/forgot-password/request-otp
+/api/v1/auth/forgot-password/reset
+Chưa xác minh Redis/Mail runtime Code OTP được thêm theo hướng dùng service OTP/mail, nhưng cần kiểm tra:
+
+project có Redis chạy chưa;
+cấu hình mail đã đủ chưa;
+nếu mail chưa cấu hình, build có thể vẫn pass nhưng gửi OTP runtime sẽ lỗi.
+Kết luận ngắn
+Hiện tại đang ở trạng thái: đã implement phần lớn code, nhưng chưa đạt trạng thái “xong an toàn”.
+
+Bạn nên sửa plan thành trạng thái:
+
+Đã triển khai bản nháp Email/Login + OTP + Admin Create User. Cần bước kiểm tra compile/build, rà soát SecurityConfig, xác minh Redis/Mail trước khi coi là hoàn tất.
+
+Đề xuất cập nhật plan
+Thêm một mục mới trước “Kết luận”:
+
+Bước 7: Rà soát và sửa lỗi sau build
+Chạy backend ./mvnw test hoặc ./mvnw clean package.
+Chạy frontend npm run build.
+Nếu backend lỗi:
+kiểm tra User fields;
+kiểm tra RoleEnum, UserStatus;
+kiểm tra repository methods;
+kiểm tra inject service/mail/redis.
+Nếu frontend lỗi:
+kiểm tra import route trong App.jsx;
+kiểm tra AdminUsers.jsx;
+kiểm tra API response structure.
+Rà lại SecurityConfig.java chỉ để permit endpoint auth OTP nếu bị chặn.
+Test thủ công:
+login email/password cũ;
+register request OTP;
+register verify;
+forgot password request OTP;
+reset password;
+admin create user;
+profile vẫn hoạt động.
+Sau khi bạn chỉnh plan xong, chuyển lại Act mode để tôi chạy build/test và sửa lỗi còn lại.
