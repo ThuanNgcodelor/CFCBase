@@ -4,9 +4,9 @@ chcp 65001 >nul
 
 set "ROOT=%~dp0"
 set "BACKEND_DIR=%ROOT%backend"
-set "JAR=%BACKEND_DIR%\target\booking-system-0.0.1-SNAPSHOT.jar"
-set "CLOUDFLARED=C:\Program Files (x86)\cloudflared\cloudflared.exe"
-set "TUNNEL_ID=745ab8be-c55c-4e72-b985-d918206ca82f"
+set "JAR_NAME=booking-system-0.0.1-SNAPSHOT.jar"
+set "JAR=%BACKEND_DIR%\target\%JAR_NAME%"
+set "TUNNEL_SCRIPT=%ROOT%start-tunnel.bat"
 set "JAVA_OPTS=-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Dfile.encoding=UTF-8"
 
 echo =======================================================
@@ -34,17 +34,17 @@ if errorlevel 1 (
 )
 echo.
 
-echo [2/3] Khoi dong Spring Boot production jar...
+echo [2/3] Khoi dong Backend + Frontend production jar...
 echo       RAM Java: %JAVA_OPTS%
-start "BookingBase - Backend PROD" cmd /k "cd /d ""%BACKEND_DIR%"" && java %JAVA_OPTS% -jar ""%JAR%"" --spring.profiles.active=prod"
+start "BookingBase - Backend PROD" /D "%BACKEND_DIR%" cmd /k java %JAVA_OPTS% -jar "target\%JAR_NAME%" --spring.profiles.active=prod
 echo.
 
 echo [3/3] Khoi dong Cloudflare Tunnel...
-if exist "%CLOUDFLARED%" (
-  start "BookingBase - Tunnel" cmd /k """%CLOUDFLARED%"" tunnel --config ""%ROOT%cloudflared-config.yml"" run %TUNNEL_ID%"
+if exist "%TUNNEL_SCRIPT%" (
+  start "BookingBase - Tunnel" /D "%ROOT%" cmd /k call "%TUNNEL_SCRIPT%"
 ) else (
-  echo [WARN] Khong tim thay cloudflared tai:
-  echo        %CLOUDFLARED%
+  echo [WARN] Khong tim thay tunnel script:
+  echo        %TUNNEL_SCRIPT%
   echo        Bo qua tunnel, app van chay local tai http://localhost:8080
 )
 
