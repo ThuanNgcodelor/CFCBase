@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.jar.JarException;
 
 @Service
 @RequiredArgsConstructor
@@ -71,8 +72,6 @@ public class PushService {
         int attempts = Math.max(1, maxAttempts);
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
-                // Dùng AES128GCM (RFC 8291) thay vì AESGCM legacy mặc định.
-                // AES128GCM được iOS Safari 16.4+ hỗ trợ và là encoding chuẩn hiện đại.
                 var response = webPushClient.send(notification, Encoding.AES128GCM);
                 int statusCode = response.getStatusLine().getStatusCode();
 
@@ -81,38 +80,53 @@ public class PushService {
                 }
 
                 if (isRetryableStatus(statusCode) && attempt < attempts) {
-                    backoffBeforeRetry(subscription, attempt, attempts, "status " + statusCode);
+                    if (!backoffBeforeRetry(subscription, attempt, attempts, "status " + statusCode)) {
+                        return;
+                    }
                     continue;
                 }
 
                 log.warn("Push send returned status {} for subscription {} after {} attempt(s)",
                         statusCode, subscription.getId(), attempt);
                 return;
-
             } catch (GeneralSecurityException ex) {
-                // Lỗi crypto cố định (InvalidKeyException, NoSuchAlgorithmException, v.v.)
-                // Retry không có tác dụng — log error ngay và dừng.
-                log.error("Permanent crypto error sending Web Push to subscription {} — will not retry: {}",
+                log.error("Permanent crypto error sending Web Push to subscription {} - will not retry: {}",
                         subscription.getId(), ex.getMessage(), ex);
                 return;
-
+            } catch (SecurityException ex) {
+                log.error("Permanent JCE provider error sending Web Push to subscription {} - will not retry: {}",
+                        subscription.getId(), ex.getMessage(), ex);
+                return;
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                log.warn("Web Push send interrupted for subscription {}", subscription.getId());
+                return;
             } catch (IOException ex) {
-                // Lỗi I/O tạm thời — có thể retry.
                 if (attempt < attempts) {
-                    backoffBeforeRetry(subscription, attempt, attempts, ex.getClass().getSimpleName());
+                    if (!backoffBeforeRetry(subscription, attempt, attempts, ex.getClass().getSimpleName())) {
+                        return;
+                    }
                     continue;
                 }
-                log.error("Failed to send Web Push to subscription {} after {} attempt(s) (IOException)",
+                log.error("Network error sending Web Push to subscription {} after {} attempt(s)",
                         subscription.getId(), attempt, ex);
-
+                return;
             } catch (Exception ex) {
-                // Exception không xác định — retry một lần, sau đó log và dừng.
-                if (attempt < attempts) {
-                    backoffBeforeRetry(subscription, attempt, attempts, ex.getClass().getSimpleName());
-                    continue;
+                if (isNetworkFailure(ex)) {
+                    if (attempt < attempts) {
+                        if (!backoffBeforeRetry(subscription, attempt, attempts, "network failure")) {
+                            return;
+                        }
+                        continue;
+                    }
+                    log.error("Network error sending Web Push to subscription {} after {} attempt(s)",
+                            subscription.getId(), attempt, ex);
+                    return;
                 }
-                log.error("Failed to send Web Push to subscription {} after {} attempt(s)",
-                        subscription.getId(), attempt, ex);
+
+                log.error("Permanent Web Push failure for subscription {} - will not retry: {}",
+                        subscription.getId(), ex.getMessage(), ex);
+                return;
             }
         }
     }
@@ -122,7 +136,7 @@ public class PushService {
             pushSubscriptionService.markSendSuccess(subscription.getId());
             return true;
         }
-        if (statusCode == 404 || statusCode == 410 || statusCode == 403) {
+        if (statusCode == 403 || statusCode == 404 || statusCode == 410) {
             pushSubscriptionService.deactivate(subscription.getId());
             log.info("Push subscription {} deactivated after status {}", subscription.getId(), statusCode);
             return true;
@@ -131,7 +145,6 @@ public class PushService {
             log.warn("Push payload too large for subscription {}", subscription.getId());
             return true;
         }
-
         return false;
     }
 
@@ -139,18 +152,41 @@ public class PushService {
         return statusCode == 408 || statusCode == 429 || statusCode >= 500;
     }
 
-    private void backoffBeforeRetry(PushSubscription subscription, int attempt, int attempts, String reason) {
+    private boolean isNetworkFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SecurityException
+                    || current instanceof GeneralSecurityException
+                    || current instanceof JarException) {
+                return false;
+            }
+            if (current instanceof IOException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean backoffBeforeRetry(
+            PushSubscription subscription,
+            int attempt,
+            int attempts,
+            String reason
+    ) {
         log.warn("Retrying Web Push for subscription {} after {} (attempt {}/{})",
                 subscription.getId(), reason, attempt + 1, attempts);
 
         if (retryBackoffMillis <= 0) {
-            return;
+            return true;
         }
 
         try {
             Thread.sleep(retryBackoffMillis);
+            return true;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            return false;
         }
     }
 

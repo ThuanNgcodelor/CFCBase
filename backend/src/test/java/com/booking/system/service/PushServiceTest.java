@@ -10,6 +10,8 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,12 +19,15 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.InvalidKeyException;
 import java.security.KeyPairGenerator;
 import java.security.Security;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.util.Base64;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.jar.JarException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -82,16 +87,100 @@ class PushServiceTest {
         verify(pushSubscriptionService, never()).deactivate(subscription.getId());
     }
 
-    @Test
-    void doesNotRetryGoneSubscriptionAndDeactivates() throws Exception {
+    @ParameterizedTest
+    @ValueSource(ints = {403, 404, 410})
+    void doesNotRetryPermanentEndpointStatusAndDeactivates(int statusCode) throws Exception {
         PushSubscription subscription = subscription();
-        when(webPushClient.send(any(Notification.class), any(Encoding.class))).thenReturn(response(410));
+        when(webPushClient.send(any(Notification.class), any(Encoding.class))).thenReturn(response(statusCode));
 
         pushService.sendPush(subscription, Map.of("title", "Hello"));
 
         verify(webPushClient, times(1)).send(any(Notification.class), any(Encoding.class));
         verify(pushSubscriptionService).deactivate(subscription.getId());
         verify(pushSubscriptionService, never()).markSendSuccess(subscription.getId());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {408, 429})
+    void retriesTransientClientStatusThenMarksSuccess(int statusCode) throws Exception {
+        PushSubscription subscription = subscription();
+        when(webPushClient.send(any(Notification.class), any(Encoding.class)))
+                .thenReturn(response(statusCode))
+                .thenReturn(response(201));
+
+        pushService.sendPush(subscription, Map.of("title", "Hello"));
+
+        verify(webPushClient, times(2)).send(any(Notification.class), any(Encoding.class));
+        verify(pushSubscriptionService).markSendSuccess(subscription.getId());
+        verify(pushSubscriptionService, never()).deactivate(subscription.getId());
+    }
+
+    @Test
+    void doesNotRetryPayloadTooLarge() throws Exception {
+        PushSubscription subscription = subscription();
+        when(webPushClient.send(any(Notification.class), any(Encoding.class))).thenReturn(response(413));
+
+        pushService.sendPush(subscription, Map.of("title", "Hello"));
+
+        verify(webPushClient, times(1)).send(any(Notification.class), any(Encoding.class));
+        verify(pushSubscriptionService, never()).markSendSuccess(subscription.getId());
+        verify(pushSubscriptionService, never()).deactivate(subscription.getId());
+    }
+
+    @Test
+    void doesNotRetryPermanentCryptoFailure() throws Exception {
+        PushSubscription subscription = subscription();
+        when(webPushClient.send(any(Notification.class), any(Encoding.class)))
+                .thenThrow(new InvalidKeyException("Not an EC key: ECDH"));
+
+        pushService.sendPush(subscription, Map.of("title", "Hello"));
+
+        verify(webPushClient, times(1)).send(any(Notification.class), any(Encoding.class));
+        verify(pushSubscriptionService, never()).markSendSuccess(subscription.getId());
+        verify(pushSubscriptionService, never()).deactivate(subscription.getId());
+    }
+
+    @Test
+    void doesNotRetryJceProviderAuthenticationFailure() throws Exception {
+        PushSubscription subscription = subscription();
+        SecurityException providerFailure = new SecurityException(
+                "JCE cannot authenticate the provider BC",
+                new JarException("bcprov has unsigned entries")
+        );
+        when(webPushClient.send(any(Notification.class), any(Encoding.class)))
+                .thenThrow(new ExecutionException(providerFailure));
+
+        pushService.sendPush(subscription, Map.of("title", "Hello"));
+
+        verify(webPushClient, times(1)).send(any(Notification.class), any(Encoding.class));
+        verify(pushSubscriptionService, never()).markSendSuccess(subscription.getId());
+        verify(pushSubscriptionService, never()).deactivate(subscription.getId());
+    }
+
+    @Test
+    void retriesWrappedNetworkFailureThenMarksSuccess() throws Exception {
+        PushSubscription subscription = subscription();
+        when(webPushClient.send(any(Notification.class), any(Encoding.class)))
+                .thenThrow(new ExecutionException(new IOException("network")))
+                .thenReturn(response(201));
+
+        pushService.sendPush(subscription, Map.of("title", "Hello"));
+
+        verify(webPushClient, times(2)).send(any(Notification.class), any(Encoding.class));
+        verify(pushSubscriptionService).markSendSuccess(subscription.getId());
+    }
+
+    @Test
+    void doesNotRetryUnknownFailure() throws Exception {
+        PushSubscription subscription = subscription();
+        when(webPushClient.send(any(Notification.class), any(Encoding.class)))
+                .thenThrow(new IllegalStateException("unexpected"));
+
+        pushService.sendPush(subscription, Map.of("title", "Hello"));
+
+        verify(webPushClient, times(1)).send(any(Notification.class), any(Encoding.class));
+        verify(pushSubscriptionService, never()).markSendSuccess(subscription.getId());
+        verify(pushSubscriptionService, never()).deactivate(subscription.getId());
     }
 
     private PushSubscription subscription() throws Exception {

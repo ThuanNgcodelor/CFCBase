@@ -7,8 +7,6 @@ import com.booking.system.entity.User;
 import com.booking.system.repository.PushSubscriptionRepository;
 import com.booking.system.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -17,10 +15,10 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PushSubscriptionService {
 
     private final PushSubscriptionRepository pushSubscriptionRepository;
@@ -37,44 +35,22 @@ public class PushSubscriptionService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        PushSubscription subscription = pushSubscriptionRepository.findByEndpoint(request.getEndpoint())
-                .orElseGet(PushSubscription::new);
-
         LocalDateTime now = LocalDateTime.now();
-        subscription.setUser(user);
-        subscription.setEndpoint(request.getEndpoint());
-        subscription.setP256dhKey(p256dh);
-        subscription.setAuthKey(auth);
-        subscription.setExpirationTime(toLocalDateTime(request.getExpirationTime()));
-        subscription.setDeviceType(request.getDeviceType());
-        subscription.setUserAgent(limit(request.getUserAgent(), 500));
-        subscription.setActive(true);
-        subscription.setLastSeenAt(now);
-        subscription.setRevokedAt(null);
+        pushSubscriptionRepository.upsert(
+                UUID.randomUUID().toString(),
+                user.getId(),
+                request.getEndpoint(),
+                p256dh,
+                auth,
+                toLocalDateTime(request.getExpirationTime()),
+                request.getDeviceType(),
+                limit(request.getUserAgent(), 500),
+                now
+        );
 
-        try {
-            return PushSubscriptionResponse.from(pushSubscriptionRepository.save(subscription));
-        } catch (DataIntegrityViolationException ex) {
-            // Race condition: hai request subscribe đồng thời INSERT cùng endpoint.
-            // Request thứ hai vi phạm unique constraint → fallback: đọc bản ghi đã tồn tại,
-            // cập nhật fields và save. Đảm bảo API idempotent.
-            log.warn("Duplicate endpoint detected for user {} — falling back to existing subscription ({})",
-                    userId, request.getEndpoint());
-            PushSubscription existing = pushSubscriptionRepository.findByEndpoint(request.getEndpoint())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Push subscription conflict nhưng không tìm thấy bản ghi endpoint: "
-                                    + request.getEndpoint()));
-            existing.setUser(user);
-            existing.setP256dhKey(p256dh);
-            existing.setAuthKey(auth);
-            existing.setExpirationTime(toLocalDateTime(request.getExpirationTime()));
-            existing.setDeviceType(request.getDeviceType());
-            existing.setUserAgent(limit(request.getUserAgent(), 500));
-            existing.setActive(true);
-            existing.setLastSeenAt(now);
-            existing.setRevokedAt(null);
-            return PushSubscriptionResponse.from(pushSubscriptionRepository.save(existing));
-        }
+        PushSubscription subscription = pushSubscriptionRepository.findByEndpoint(request.getEndpoint())
+                .orElseThrow(() -> new IllegalStateException("Push subscription was not persisted"));
+        return PushSubscriptionResponse.from(subscription);
     }
 
     @Transactional

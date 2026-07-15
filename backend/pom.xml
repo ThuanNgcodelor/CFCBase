@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<booking.build.directory>${project.basedir}/target</booking.build.directory>
 	</properties>
 	<dependencies>
 
@@ -142,6 +143,7 @@
 	</dependencies>
 
 	<build>
+		<directory>${booking.build.directory}</directory>
 		<resources>
 			<resource>
 				<directory>src/main/resources</directory>
@@ -157,6 +159,12 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<requiresUnpack>
+						<dependency>
+							<groupId>org.bouncycastle</groupId>
+							<artifactId>bcprov-jdk18on</artifactId>
+						</dependency>
+					</requiresUnpack>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>
