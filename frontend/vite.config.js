@@ -85,7 +85,7 @@ export default defineConfig({
     headers: googlePopupHeaders,
   },
   preview: {
-    host: true,              // Mở ra để Cloudflare Tunnel có thể kết nối
+    host: true,
     port: 4173,
     allowedHosts: ['cfcbooking.io.vn', 'www.cfcbooking.io.vn'],
     headers: googlePopupHeaders,

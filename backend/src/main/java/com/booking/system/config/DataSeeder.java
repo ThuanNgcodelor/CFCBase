@@ -41,13 +41,8 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        createAdminIfNotExists("admin1@booking.base.vn", "Admin One", "admin123");
-        User duy = createAdminIfNotExists("nduy@booking.base.vn", "Nguyễn Thanh Duy", "admin123");
-        createAdminIfNotExists("pdien@booking.base.vn", "Phan Thị Minh Diễn", "admin123");
-        createAdminIfNotExists("btho@booking.base.vn", "Bùi Hữu Thọ", "admin123");
-        
-        // Tài khoản admin mới được yêu cầu thêm
-        createAdminIfNotExists("cfcbooking@gamil.com", "Admin CFC", "admin123@");
+        User duy = createAdminIfNotExists("cfcbooking@gamil.com", "Admin CFC", "admin123@");
+        createAdminIfNotExists("dienpm@gamil.com", "Phan Thị Minh Diễn", "admin123@");
 
         seedDepartments();
         Room pTruyenThong = seedRooms();
