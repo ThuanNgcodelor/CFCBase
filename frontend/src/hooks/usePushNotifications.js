@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { pushApi } from '../api/pushApi';
 
+/**
+ * Module-level single-flight guard cho subscribe.
+ * Đảm bảo tại bất kỳ thời điểm nào chỉ có một quá trình subscribe đang chạy,
+ * dù nhiều tab, re-render hay PWA lifecycle cùng gọi ensureSubscription.
+ */
+let _subscribeInProgress = null;
+
 const getPermission = () => {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   return window.Notification.permission;
@@ -84,7 +91,7 @@ export function usePushNotifications({ autoRegister = false } = {}) {
     }
   }, []);
 
-  const ensureSubscription = useCallback(async ({ promptForPermission }) => {
+  const _doEnsureSubscription = useCallback(async ({ promptForPermission }) => {
     if (!isPushSupported()) {
       throw new Error('Trình duyệt không hỗ trợ thông báo đẩy.');
     }
@@ -150,6 +157,21 @@ export function usePushNotifications({ autoRegister = false } = {}) {
     setSubscribed(true);
     return true;
   }, [needsHomeScreenInstall]);
+
+  /**
+   * Single-flight wrapper: nếu đang có một quá trình subscribe chạy (từ tab khác,
+   * re-render, hay PWA lifecycle), trả về cùng promise thay vì gửi request mới.
+   * Reset _subscribeInProgress về null sau khi promise settle (success hoặc error).
+   */
+  const ensureSubscription = useCallback(async (opts) => {
+    if (_subscribeInProgress) {
+      return _subscribeInProgress;
+    }
+    _subscribeInProgress = _doEnsureSubscription(opts).finally(() => {
+      _subscribeInProgress = null;
+    });
+    return _subscribeInProgress;
+  }, [_doEnsureSubscription]);
 
   const enableNotifications = useCallback(async () => {
     setLoading(true);

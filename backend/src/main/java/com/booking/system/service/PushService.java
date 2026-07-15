@@ -4,11 +4,15 @@ import com.booking.system.entity.PushSubscription;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import nl.martijndwars.webpush.Encoding;
 import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.Urgency;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 
 @Service
 @RequiredArgsConstructor
@@ -67,7 +71,9 @@ public class PushService {
         int attempts = Math.max(1, maxAttempts);
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
-                var response = webPushClient.send(notification);
+                // Dùng AES128GCM (RFC 8291) thay vì AESGCM legacy mặc định.
+                // AES128GCM được iOS Safari 16.4+ hỗ trợ và là encoding chuẩn hiện đại.
+                var response = webPushClient.send(notification, Encoding.AES128GCM);
                 int statusCode = response.getStatusLine().getStatusCode();
 
                 if (handleStatus(subscription, statusCode)) {
@@ -82,7 +88,25 @@ public class PushService {
                 log.warn("Push send returned status {} for subscription {} after {} attempt(s)",
                         statusCode, subscription.getId(), attempt);
                 return;
+
+            } catch (GeneralSecurityException ex) {
+                // Lỗi crypto cố định (InvalidKeyException, NoSuchAlgorithmException, v.v.)
+                // Retry không có tác dụng — log error ngay và dừng.
+                log.error("Permanent crypto error sending Web Push to subscription {} — will not retry: {}",
+                        subscription.getId(), ex.getMessage(), ex);
+                return;
+
+            } catch (IOException ex) {
+                // Lỗi I/O tạm thời — có thể retry.
+                if (attempt < attempts) {
+                    backoffBeforeRetry(subscription, attempt, attempts, ex.getClass().getSimpleName());
+                    continue;
+                }
+                log.error("Failed to send Web Push to subscription {} after {} attempt(s) (IOException)",
+                        subscription.getId(), attempt, ex);
+
             } catch (Exception ex) {
+                // Exception không xác định — retry một lần, sau đó log và dừng.
                 if (attempt < attempts) {
                     backoffBeforeRetry(subscription, attempt, attempts, ex.getClass().getSimpleName());
                     continue;

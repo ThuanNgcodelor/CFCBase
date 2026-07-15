@@ -1,6 +1,7 @@
 package com.booking.system.service;
 
 import com.booking.system.entity.PushSubscription;
+import nl.martijndwars.webpush.Encoding;
 import nl.martijndwars.webpush.Notification;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpVersion;
@@ -55,13 +56,13 @@ class PushServiceTest {
     @Test
     void retriesNetworkErrorThenMarksSuccess() throws Exception {
         PushSubscription subscription = subscription();
-        when(webPushClient.send(any(Notification.class)))
+        when(webPushClient.send(any(Notification.class), any(Encoding.class)))
                 .thenThrow(new IOException("network"))
                 .thenReturn(response(201));
 
         pushService.sendPush(subscription, Map.of("title", "Hello"));
 
-        verify(webPushClient, times(2)).send(any(Notification.class));
+        verify(webPushClient, times(2)).send(any(Notification.class), any(Encoding.class));
         verify(pushSubscriptionService).markSendSuccess(subscription.getId());
         verify(pushSubscriptionService, never()).deactivate(subscription.getId());
     }
@@ -69,14 +70,14 @@ class PushServiceTest {
     @Test
     void retriesServerErrorWithLimit() throws Exception {
         PushSubscription subscription = subscription();
-        when(webPushClient.send(any(Notification.class)))
+        when(webPushClient.send(any(Notification.class), any(Encoding.class)))
                 .thenReturn(response(500))
                 .thenReturn(response(502))
                 .thenReturn(response(503));
 
         pushService.sendPush(subscription, Map.of("title", "Hello"));
 
-        verify(webPushClient, times(3)).send(any(Notification.class));
+        verify(webPushClient, times(3)).send(any(Notification.class), any(Encoding.class));
         verify(pushSubscriptionService, never()).markSendSuccess(subscription.getId());
         verify(pushSubscriptionService, never()).deactivate(subscription.getId());
     }
@@ -84,11 +85,11 @@ class PushServiceTest {
     @Test
     void doesNotRetryGoneSubscriptionAndDeactivates() throws Exception {
         PushSubscription subscription = subscription();
-        when(webPushClient.send(any(Notification.class))).thenReturn(response(410));
+        when(webPushClient.send(any(Notification.class), any(Encoding.class))).thenReturn(response(410));
 
         pushService.sendPush(subscription, Map.of("title", "Hello"));
 
-        verify(webPushClient, times(1)).send(any(Notification.class));
+        verify(webPushClient, times(1)).send(any(Notification.class), any(Encoding.class));
         verify(pushSubscriptionService).deactivate(subscription.getId());
         verify(pushSubscriptionService, never()).markSendSuccess(subscription.getId());
     }
