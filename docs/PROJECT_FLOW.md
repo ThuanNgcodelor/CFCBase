@@ -1,6 +1,6 @@
 # Luồng Dự Án BookingBase
 
-Cập nhật: 2026-07-12
+Cập nhật: 2026-07-20
 
 File này mô tả flow nghiệp vụ hiện tại bằng tiếng Việt. Giữ nguyên thuật ngữ kỹ thuật như `JWT`, `DTO`, `WebSocket`, `Service Worker`, `PWA`, `Redis`, `range-based fetch`.
 
@@ -13,21 +13,28 @@ Login:
 4. Frontend lưu token/user vào cookie.
 5. Protected route kiểm tra token; nếu hết access token nhưng còn refresh token thì gọi silent refresh.
 
-Google login:
-1. Frontend lấy Google id token.
-2. Gửi tới `POST /api/v1/auth/google`.
-3. Backend xác minh và trả token.
+Google login đang ẩn trên UI. Existing account vẫn phải `ACTIVE`; Google user mới không được tự tạo để bỏ qua OTP/Admin approval.
 
 Register OTP:
 1. User gửi email tới `/api/v1/auth/register/request-otp`.
 2. Backend tạo OTP và lưu Redis TTL.
 3. Backend gửi email OTP.
-4. User verify qua `/api/v1/auth/register/verify`.
+4. User verify qua `/api/v1/auth/register/verify`, đồng thời nhập họ tên và mật khẩu.
+5. Backend tạo user `PENDING_APPROVAL` và thông báo cho Admin.
+6. Admin duyệt/từ chối ở `/admin/users?tab=pending`.
+7. User nhận email kết quả; chỉ `ACTIVE` mới login được.
 
 Forgot password OTP:
 1. User gửi email tới `/api/v1/auth/forgot-password/request-otp`.
 2. Backend gửi OTP nếu email tồn tại.
 3. User reset password qua `/api/v1/auth/forgot-password/reset`.
+
+Register/Forgot UI đều nhắc kiểm tra Spam/Thư rác khi chưa thấy OTP.
+
+Session:
+- Access token mặc định 8 giờ.
+- Refresh token 90 ngày và tách session/device bằng `refreshToken:{email}:{sessionId}`.
+- Frontend silent-refresh để duy trì login PWA iOS/Android.
 
 Quy tắc:
 - Không đổi login/profile flow nếu task không yêu cầu.
@@ -85,9 +92,9 @@ Room/vehicle phải được lock trước overlap check nếu chưa có giải 
 
 1. Approver mở approval list hoặc booking detail.
 2. Approver approve/reject.
-3. Frontend gửi `reason`; legacy `note` vẫn được backend nhận để backward compatibility.
+3. Reject reason là optional; legacy `note` vẫn được backend nhận để backward compatibility.
 4. Backend lấy approver từ `@AuthenticationPrincipal`.
-5. Backend enforce `ADMIN` hoặc `MANAGER`.
+5. Approve cho `ADMIN` hoặc `MANAGER`; reject theo flow hiện tại chỉ `ADMIN`.
 6. Backend ignore `approverId` từ body.
 7. Backend lưu `ApprovalStep` với approver thật và reason.
 8. Booking status chuyển `APPROVED` hoặc `REJECTED`.
@@ -97,7 +104,9 @@ Reject reason phải hiển thị được ở booking detail.
 
 ## 6. Cancel Booking
 
-Luồng cancel cần giữ nguyên các quy tắc bảo mật:
+Admin có thể hủy booking đã `APPROVED` tại trang chi tiết bằng hộp xác nhận, không yêu cầu nhập lý do.
+
+Luồng cancel giữ nguyên các quy tắc bảo mật:
 - Canceller phải lấy từ authenticated principal.
 - Không tin `cancellerId` từ request body.
 - Cần preserve status/cancel reason.
@@ -125,8 +134,8 @@ Không để notification list update làm Calendar render lại nếu không li
 
 ## 8. Admin Approval List Và Booking Detail
 
-Admin approval list:
-- Hiển thị booking pending/approved/rejected theo API hiện tại.
+Admin approval/history list:
+- Hiển thị và phân trang booking đã xử lý; có filter/sort/status/type/keyword.
 - Không dùng dữ liệu mẫu cho người duyệt.
 
 Booking detail:
@@ -134,7 +143,7 @@ Booking detail:
 - Load approval steps.
 - Hiển thị approver thật, role/department nếu có.
 - Hiển thị reject/approve reason.
-- Cho phép approve/reject nếu user là `ADMIN` hoặc `MANAGER` và booking còn xử lý được.
+- Cho phép approve nếu user là `ADMIN`/`MANAGER`; reject và cancel approved booking chỉ cho `ADMIN` theo flow hiện tại.
 
 ## 9. Notification Database
 
@@ -152,6 +161,14 @@ Notification nên có:
 Idempotency:
 - Tránh duplicate notification theo source type/source id/event.
 - Không rollback business transaction vì notification side effect fail.
+
+Deep link:
+- Booking pending mở `/admin/approvals/{id}`.
+- Profile request mở `/admin/profile-approvals/{id}`.
+- Account registration mở `/admin/users?tab=pending`.
+- Resolver dùng `type/sourceType/sourceId`, không đoán theo title.
+
+Schema hiện tại dùng `notifications.type VARCHAR(64)` và `source_type VARCHAR(64)` để NotificationType mới không bị MySQL ENUM cũ từ chối.
 
 ## 10. Realtime Qua WebSocket
 
@@ -175,11 +192,10 @@ Rule:
 - Email gửi async.
 - Email fail chỉ log, không rollback booking.
 - Không đưa email vào booking transaction.
-- Link email cần đúng domain/environment.
+- Link email lấy từ `app.frontend-url` / `${FRONTEND_URL}`.
 - Không log SMTP password hoặc secret.
-
-Rủi ro đã biết:
-- Cần verify frontend URL config cho email trước production email rollout.
+- Tất cả mail dùng chung responsive `EmailTemplateService`.
+- Mail booking có resource, địa điểm/hành trình, ngày và giờ bắt đầu-kết thúc.
 
 ## 12. Web Push
 
@@ -197,6 +213,7 @@ Send:
 PWA:
 - Required notification gate chỉ áp dụng khi app chạy dạng installed PWA trên Android/iOS.
 - Web không thể tự bật permission nếu user đã block; user phải bật lại trong Settings.
+- Người chưa từng login chưa có subscription gắn user; registration push được gửi cho active Admin devices, còn applicant nhận UI/email.
 
 ## 13. Scheduler Reminder/Completed
 
@@ -208,10 +225,11 @@ Chưa phải trọng tâm hiện tại. Nếu thêm scheduler:
 
 ## 14. Docker Và Deploy
 
-Production hiện tại:
-- `build-prod.bat`: build frontend + package backend jar.
-- `run.bat`: start `db`, `redis`, Spring Boot jar, Cloudflare Tunnel.
-- `stop-prod.bat`: stop production.
+Production Fedora hiện tại:
+- `deployserver/linux/build-prod.sh`: build frontend + package backend JAR + Web Push smoke test.
+- `deployserver/linux/run.sh`: start DB/Redis, backend systemd unit, health-check, rồi tunnel.
+- `deployserver/linux/stop-prod.sh`: stop production.
+- Windows scripts vẫn được giữ để tương thích.
 
 Docker:
 - MySQL/Redis được constrain để giảm RAM.

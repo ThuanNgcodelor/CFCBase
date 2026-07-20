@@ -1,6 +1,8 @@
 # Handoff sự cố Web Push/PWA
 
-Cập nhật: 2026-07-15
+Cập nhật trạng thái: 2026-07-20 (nội dung điều tra gốc: 2026-07-15)
+
+> Trạng thái: sự cố crypto đã được xử lý và production Fedora hiện đang chạy JAR đã smoke-test. Backend/tunnel active, local/public HTTP 200. Tài liệu bên dưới giữ lại chi tiết incident lịch sử; các câu lệnh Windows là bối cảnh tại thời điểm 15/07. Luồng deploy hiện tại xem `CURRENT_WORK_STATUS.md` và `deployserver/linux/`.
 
 ## 1. Trạng thái hiện tại
 
@@ -12,7 +14,7 @@ Production JAR mới đã được build tại:
 backend/target/booking-system-0.0.1-SNAPSHOT.jar
 ```
 
-JAR có timestamp `2026-07-15 22:01:30`. Server cũ đã được dừng; có thể chạy `run.bat` để runtime nạp artifact mới.
+Artifact ngày 15/07 đã được thay thế bởi các production JAR mới hơn. Fedora/Linux hiện dùng `deployserver/linux/build-prod.sh` và `deployserver/linux/run.sh`.
 
 Không sửa hoặc rollback thay đổi riêng của người dùng trong:
 
@@ -85,6 +87,7 @@ Backend runtime:
 - `backend/src/main/java/nl/martijndwars/webpush/HttpEce.java`
 - `backend/pom.xml`
 - `build-prod.bat`
+- `deployserver/linux/build-prod.sh` (luồng production hiện tại)
 
 Tests:
 
@@ -134,7 +137,7 @@ provider=file:/.../Temp/.../bcprov-jdk18on-1.84.jar
 
 Kết quả này xác nhận Spring Boot đã unpack BC ra file thật trước khi Java xác thực signed JCE provider.
 
-`build-prod.bat` hiện build vào staging trước. Chỉ khi frontend/backend build thành công, script mới dừng Backend/Tunnel cũ và thay production JAR. Luồng deploy là `build-prod.bat` rồi `run.bat`.
+Luồng hiện tại trên Fedora build vào staging, smoke-test fat JAR, giữ `.previous`, sau đó `deployserver/linux/run.sh` restart backend, health-check rồi mới start tunnel.
 
 ### Frontend
 
@@ -148,7 +151,7 @@ Pass, còn warning main chunk lớn khoảng 750 kB
 
 ## 6. Việc cần test thủ công
 
-Automated test không thể thay thế thiết bị thật. Sau khi chạy lại `run.bat`:
+Automated test không thể thay thế thiết bị thật. Sau khi deploy bằng Linux scripts:
 
 1. iOS: mở installed PWA từ Home Screen, bật notification, tạo booking và approve/reject.
 2. Android: bật notification, tạo booking và approve/reject.

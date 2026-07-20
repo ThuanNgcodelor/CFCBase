@@ -1,6 +1,6 @@
 # Ngữ Cảnh AI Cho BookingBase
 
-Cập nhật: 2026-07-12
+Cập nhật: 2026-07-20
 
 File này là context tiếng Việt cho AI agent. Code và config hiện tại luôn là `Source of Truth`. Giữ nguyên thuật ngữ kỹ thuật như `Frontend`, `Backend`, `JWT`, `DTO`, `PWA`, `Service Worker`, `WebSocket`, `STOMP`, `runtime cache`.
 
@@ -19,7 +19,7 @@ Docs chỉ là tham khảo. Nếu docs khác code, ưu tiên code.
 
 BookingBase là hệ thống booking nội bộ cho phòng họp và xe công ty. Repo hiện triển khai:
 
-- Authentication bằng email/password, Google login, OTP register/forgot password.
+- Authentication chính bằng email/password, OTP register/forgot password và Admin approval cho tài khoản mới.
 - Booking phòng họp và xe.
 - Approval workflow.
 - Dashboard.
@@ -53,10 +53,10 @@ Backend:
 - Async notification/email/push event handling.
 
 Infra/config:
-- `docker-compose.yml`: MySQL + Redis, Adminer không được start bởi `run.bat`.
+- `docker-compose.yml`: MySQL + Redis; Adminer không thuộc production startup path.
 - Production direction: frontend `dist` được embed vào Spring Boot jar.
 - Cloudflare Tunnel trỏ web/API về backend port `8080`.
-- `run.bat` chỉ start production artifact; `build-prod.bat` mới build artifact.
+- Fedora/Linux là production chính với scripts trong `deployserver/linux/`; Windows scripts vẫn được giữ để tương thích.
 
 ## Sơ Đồ Thư Mục
 
@@ -95,13 +95,13 @@ Quy tắc bảo mật cần giữ:
 - Approval approver lấy từ `@AuthenticationPrincipal`.
 - Cancel canceller phải lấy từ `@AuthenticationPrincipal` khi chạm luồng cancel.
 - Không tin `requesterId`, `approverId`, `cancellerId` từ request body.
-- Approve/reject chỉ cho `ADMIN` hoặc `MANAGER`.
+- Approve cho `ADMIN` hoặc `MANAGER`; reject và cancel approved booking theo flow hiện tại chỉ `ADMIN`.
 - Protected API phải trả 401 nếu không có token.
 - Admin API phải trả 403 nếu user không đủ quyền.
 
 ## Entities Chính
 
-- `User`: email, fullName, password, avatarUrl, jobPosition, role, status, department.
+- `User`: email, fullName, password, avatarUrl, jobPosition, role, department, status và audit xét duyệt đăng ký.
 - `Room`: name, location, capacity, equipment, imageUrl, status.
 - `Vehicle`: licensePlate, vehicleType, seatCount, status.
 - `BookingRoom`: room, requester, title, startTime, endTime, attendeeCount, note, status, cancel info.
@@ -153,13 +153,20 @@ Resource/User/Profile:
 - `GET /api/v1/resources/cars`
 - `GET /api/v1/users/me`
 - `GET /api/v1/users/approvers`
+- `GET /api/v1/users/registration-approvals`
+- `GET /api/v1/users/registration-approvals/count`
+- `PATCH /api/v1/users/{id}/approve-registration`
+- `PATCH /api/v1/users/{id}/reject-registration`
 - `GET /api/v1/profile-requests/...`
 
 ## Trạng Thái Authentication
 
-- Access token và refresh token được lưu bằng cookie phía frontend.
-- Refresh token được lưu Redis theo key dạng `refreshToken:{email}`.
-- OTP register/forgot password dùng Redis TTL.
+- Frontend dùng `authStorage.js` để đồng bộ token và user session.
+- Access token mặc định 8 giờ; refresh token 90 ngày.
+- Refresh token tách theo thiết bị/session: `refreshToken:{email}:{sessionId}`; key legacy vẫn được migrate.
+- OTP register/forgot password dùng Redis TTL 5 phút.
+- Register tạo user `PENDING_APPROVAL`; chỉ user `ACTIVE` được login hoặc refresh.
+- Google Login đang ẩn; tài khoản Google mới không được tự tạo bỏ qua OTP/Admin approval.
 - Login flow/profile flow không nên thay đổi nếu task không yêu cầu.
 
 ## Tóm Tắt Luồng Booking
@@ -202,6 +209,16 @@ Approval:
 - Push failure không được rollback booking.
 - Permanent push failures 403/404/410 không retry và deactivate subscription.
 - Notification context đã tách unread count khỏi notification list.
+- Notification click dựa trên `type/sourceType/sourceId` và deep-link đúng booking/profile/account approval.
+- Account registration notification được lưu cho Admin và push tới active Admin subscriptions.
+- Người chưa từng login chưa có Push Subscription; trạng thái đăng ký của họ dùng UI/email.
+
+## Tóm Tắt Email
+
+- Mọi email dùng chung responsive `EmailTemplateService`.
+- Link CTA lấy từ `app.frontend-url` / `${FRONTEND_URL}`.
+- Email booking có resource, địa điểm/hành trình, ngày, giờ bắt đầu-kết thúc và trạng thái.
+- OTP register/forgot cùng format; UI nhắc kiểm tra Spam/Thư rác.
 
 ## Trạng Thái PWA Hiện Tại
 
@@ -215,12 +232,19 @@ Approval:
 
 ## Trạng Thái Runtime Production
 
-- `build-prod.bat`: build frontend và package backend jar.
-- `run.bat`: start Docker `db` + `redis`, chạy jar với profile `prod`, bật Cloudflare Tunnel.
-- `stop-prod.bat`: stop production windows và Docker services.
+- `deployserver/linux/build-prod.sh`: build frontend, package backend JAR và smoke-test Web Push.
+- `deployserver/linux/run.sh`: start DB/Redis, backend systemd unit, health-check, rồi start tunnel unit.
+- `deployserver/linux/stop-prod.sh`: stop production Linux.
 - Spring Boot serve SPA static files từ jar.
 - Cloudflare web/API domain đều trỏ backend `8080`.
-- Java runtime trong `run.bat` giới hạn RAM bằng `-Xms256m -Xmx768m`.
+- Java runtime Linux giới hạn RAM mặc định bằng `-Xms256m -Xmx768m`.
+- Cloudflare Tunnel đang dùng named tunnel `bookingbase`.
+
+## Trạng Thái Schema Quan Trọng
+
+- `users.status` là `VARCHAR(32)`, không còn MySQL ENUM cũ.
+- `notifications.type` là `VARCHAR(64)` và `notifications.source_type` là `VARCHAR(64)`.
+- Chưa có Flyway/Liquibase; schema quan trọng cần SQL deploy và verify dữ liệu trước/sau.
 
 ## Trạng Thái Verification
 
@@ -230,8 +254,9 @@ Approval:
 - `git diff --check`: pass, chỉ có warning LF/CRLF Windows.
 
 Backend test:
-- `.\mvnw.cmd test` từng pass sau 7.9/7.11.
-- Sau đó test fail trên JDK 23 vì Mockito/ByteBuddy không self-attach. Cần dùng JDK 21 hoặc cấu hình Mockito Java agent.
+- 45 tests pass khi chạy với ByteBuddy Java agent trên JDK hiện tại.
+- Executable production JAR Web Push smoke test pass.
+- Production local/public health check trả HTTP 200 sau deploy ngày 2026-07-20.
 
 ## Quy Tắc Bắt Buộc
 

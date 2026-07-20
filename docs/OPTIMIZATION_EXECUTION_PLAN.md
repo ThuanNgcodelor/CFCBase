@@ -1,6 +1,6 @@
 # Kế Hoạch Thực Thi Tối Ưu BookingBase
 
-Cập nhật: 2026-07-12
+Cập nhật: 2026-07-20
 
 File này là kế hoạch tối ưu bằng tiếng Việt. Giữ nguyên thuật ngữ kỹ thuật: `JWT`, `DTO`, `PWA`, `WebSocket`, `Service Worker`, `runtime cache`, `React Profiler`, `EXPLAIN`, `rollback`.
 
@@ -15,7 +15,7 @@ Mục tiêu:
 Checklist:
 - `npm.cmd run lint`
 - `npm.cmd run build`
-- `.\mvnw.cmd test` hoặc ghi rõ lý do fail môi trường.
+- `./mvnw test` với ByteBuddy agent nếu JDK không cho Mockito self-attach.
 - `git diff --check`
 
 ## Giai Đoạn 1 - Production Blockers Và Security
@@ -44,7 +44,7 @@ File liên quan:
 Mục tiêu:
 - Approval approver lấy từ authenticated principal.
 - Reject reason dùng `reason`, legacy `note` vẫn là alias.
-- Enforce `ADMIN` hoặc `MANAGER`.
+- Approve cho `ADMIN` hoặc `MANAGER`; reject/cancel approved booking chỉ cho `ADMIN` theo flow hiện tại.
 - Cancel flow nếu chạm vào phải lấy canceller từ principal.
 
 Đã xong:
@@ -53,7 +53,7 @@ Mục tiêu:
 - Đã thêm approval steps response với approver thật.
 
 Chưa chốt:
-- Cancel flow cần audit riêng khi task động tới cancel.
+- Admin cancel approved booking đã dùng authenticated principal và xác nhận không cần lý do; tiếp tục giữ test bảo mật khi sửa flow.
 
 ### Tác Vụ 1.3 - Dashboard/Admin API Lockdown
 
@@ -94,7 +94,7 @@ Mục tiêu:
 
 Trạng thái:
 - Chưa làm.
-- Frontend vẫn warning main chunk khoảng 750 KB.
+- Frontend vẫn warning main chunk khoảng 773 KB.
 
 ### Tác Vụ 2.2 - Calendar Stale Request Guard
 
@@ -122,7 +122,8 @@ Mục tiêu:
 - Dùng detail endpoint hoặc range/pagination.
 
 Trạng thái:
-- Cần đo thêm trước khi refactor.
+- Admin approval history đã có pagination/filter/sort.
+- Tiếp tục tránh all-bookings load ở các màn hình khác nếu data tăng.
 
 ## Giai Đoạn 3 - Backend Và Database
 
@@ -132,7 +133,9 @@ Mục tiêu:
 - Dùng migration framework thay vì chỉ `ddl-auto`.
 
 Trạng thái:
-- Chưa làm.
+- Chưa có framework.
+- Đã áp dụng thủ công và bảo toàn dữ liệu cho `users.status VARCHAR(32)`, `notifications.type VARCHAR(64)` và `notifications.source_type VARCHAR(64)`.
+- Migration tiếp theo phải được version hóa thay vì tiếp tục phụ thuộc `ddl-auto`.
 
 ### Tác Vụ 3.2 - Booking Overlap Indexes
 
@@ -162,7 +165,8 @@ Mục tiêu:
 - Dùng config/env như `app.frontend-url`.
 
 Trạng thái:
-- Còn là known risk.
+- Đã xong: `app.frontend-url` lấy từ `${FRONTEND_URL}`.
+- Tất cả mail dùng shared responsive template; booking mail có ngày giờ.
 
 ### Tác Vụ 4.2 - Bounded Async Executor
 
@@ -186,6 +190,17 @@ Mục tiêu:
 Trạng thái:
 - Một phần đã có trong `NotificationService`.
 - Cần đo/test thêm nếu thấy duplicate.
+
+### Tác Vụ 4.5 - Registration Notification Và Deep Link
+
+Đã xong:
+- Account registration events được lưu cho Admin và push tới active Admin subscriptions.
+- Notification click dùng `type/sourceType/sourceId` cho booking/profile/account routes.
+- `notifications.type` không còn bị MySQL ENUM cũ chặn.
+
+Cần test thêm:
+- End-to-end trên iOS/Android thật với Admin PWA đã subscribe.
+- Applicant chưa từng login chỉ nhận UI/email vì chưa có Push Subscription.
 
 ## Giai Đoạn 5 - PWA Android/iOS
 
@@ -221,10 +236,10 @@ Trạng thái:
 ### Tác Vụ 6.1 - Production Runtime Scripts
 
 Đã xong:
-- `build-prod.bat`.
-- `run.bat`.
-- `stop-prod.bat`.
-- `run.bat` không build và không `npm install`.
+- `deployserver/linux/build-prod.sh` có staging, previous JAR và Web Push smoke test.
+- `deployserver/linux/run.sh` có backend health-check trước khi start tunnel.
+- `deployserver/linux/stop-prod.sh`.
+- Windows scripts vẫn được giữ để tương thích.
 - Java có RAM limit.
 - Docker chỉ start `db` + `redis`.
 
@@ -239,25 +254,20 @@ Trạng thái:
 ## Giai Đoạn 7 - Tests, Monitoring, Logging
 
 Mục tiêu:
-- Fix backend tests trên JDK 21 hoặc Mockito agent.
+- Duy trì backend tests với JDK/Mockito agent tương thích.
 - Add smoke tests cho production URL.
 - Add Playwright mobile screenshots.
 - Add logging/metrics nếu cần.
 
 Trạng thái hiện tại:
 - Frontend lint/build pass.
-- Backend tests bị chặn bởi Mockito/ByteBuddy attach issue trên JDK 23.
+- Backend 45 tests pass với ByteBuddy Java agent.
+- Production JAR Web Push smoke test và local/public HTTP health check pass.
 
-## PR Tiếp Theo Gợi Ý
+## Ưu Tiên Tiếp Theo
 
-Tên gợi ý: `fix/backend-test-runtime-and-production-smoke`
-
-Phạm vi:
-1. Chuẩn hóa JDK test về Java 21 hoặc cấu hình Mockito Java agent.
-2. Chạy lại `.\mvnw.cmd test`.
-3. Chạy `build-prod.bat`.
-4. Smoke test `run.bat`:
-   - `http://localhost:8080`
-   - SPA deep link refresh.
-   - `/api/v1/auth/...`
-5. Ghi kết quả vào `CURRENT_WORK_STATUS.md`.
+1. Thêm Flyway/Liquibase và đưa migration `users.status`, `notifications.type/source_type` vào version control.
+2. Thêm integration test register -> Admin notification/push -> approve -> login.
+3. Test PWA notification click trên thiết bị iOS/Android thật.
+4. Tách route frontend để giảm bundle.
+5. Đưa secrets production hoàn toàn ra environment và rotate.

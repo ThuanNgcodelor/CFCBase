@@ -1,146 +1,165 @@
 # Trạng Thái Công Việc Hiện Tại
 
-Cập nhật lần cuối: 2026-07-12
+Cập nhật lần cuối: 2026-07-20
 
-## Mục Đích
+## Trạng Thái Production
 
-File này là context bàn giao ngắn cho các phiên Codex sau. Khi mở chat mới, hãy đính kèm file này để AI nắm nhanh: đang làm tới đâu, phần nào đã xong, phần nào còn rủi ro, và file nào quan trọng.
-
-## Trọng Tâm Hiện Tại
-
-- BookingBase đã được tối ưu hướng chạy production/local để tránh chạy Node/Vite preview trong production.
-- Hướng production hiện tại: build frontend trước, sau đó package `frontend/dist` vào Spring Boot jar.
-- `run.bat` hiện là production starter. Nó không build, không chạy `npm install`, không chạy `npm run build`.
-
-## Mô Hình Chạy
-
-### Test / Development Bình Thường
-
-- Có thể tiếp tục test frontend/backend riêng như trước.
-- Frontend test/build: chạy `npm.cmd run build` trong thư mục `frontend`.
-- Backend test/run: chạy riêng trong thư mục `backend`.
-
-### Luồng Production
-
-1. Test code bình thường.
-2. Chạy `build-prod.bat`.
-3. Nếu production cũ đang chạy, chạy `stop-prod.bat`.
-4. Chạy `run.bat`.
-
-### Ý Nghĩa Script
-
-- `build-prod.bat`: build frontend `dist`, sau đó package backend jar kèm static assets của frontend.
-- `run.bat`: bật Docker `db` + `redis`, chạy Spring Boot jar với profile `prod` và giới hạn RAM, sau đó bật Cloudflare Tunnel nếu có.
-- `stop-prod.bat`: tắt cửa sổ backend/tunnel production và stop Docker `db` + `redis`.
-
-## Kiến Trúc Production
-
-- Frontend static files được Spring Boot serve từ jar đã package.
-- Backend API vẫn nằm dưới `/api/v1/**`.
-- SPA deep link được forward về `index.html` bằng `SpaForwardController`.
-- Cloudflare domain trỏ về backend port `8080`:
+- Production đang chạy trên Fedora bằng Spring Boot JAR tại port `8080`.
+- Frontend `dist` được đóng gói và serve trực tiếp từ Spring Boot JAR.
+- Cloudflare Tunnel `bookingbase` (`745ab8be-c55c-4e72-b985-d918206ca82f`) phục vụ:
   - `https://cfcbooking.io.vn`
   - `https://www.cfcbooking.io.vn`
   - `https://api.cfcbooking.io.vn`
-- `npm run preview` không còn nằm trong production startup path.
+- Backend và tunnel chạy dưới transient user systemd units:
+  - `bookingbase-backend.service`
+  - `bookingbase-tunnel.service`
+- MySQL và Redis chạy bằng Docker, dữ liệu dùng named volumes.
+- Lần verify gần nhất: local HTTP `200`, public HTTP `200`, backend/tunnel đều `active`.
 
-## File Quan Trọng
+## Script Deploy
 
-- `run.bat`
-- `build-prod.bat`
-- `stop-prod.bat`
-- `docker-compose.yml`
-- `cloudflared-config.yml`
-- `backend/pom.xml`
-- `backend/src/main/resources/application-prod.yml`
-- `backend/src/main/java/com/booking/system/controller/SpaForwardController.java`
-- `backend/src/main/java/com/booking/system/config/SecurityConfig.java`
-- `frontend/vite.config.js`
+Linux, nguồn triển khai hiện tại:
 
-## Tổng Hợp Việc Đã Làm
+- `deployserver/linux/build-prod.sh`: build frontend, package JAR vào staging, smoke-test Web Push, backup JAR cũ và kích hoạt JAR mới.
+- `deployserver/linux/build-prod.sh --build-only`: chỉ build/kích hoạt artifact, không restart runtime.
+- `deployserver/linux/run.sh`: start DB/Redis, restart backend, health-check port `8080`, sau đó start Cloudflare Tunnel.
+- `deployserver/linux/stop-prod.sh`: stop backend/tunnel và Docker DB/Redis.
+- Các file `.desktop` chỉ là launcher cho desktop Linux; không chạy bằng shell như script `.sh`.
 
-### Approval / Reject Reason
+Các script Windows vẫn được giữ để tương thích nhưng Fedora/Linux hiện là môi trường production chính.
 
-- Approve/reject lấy người xử lý từ authenticated principal, không tin body ID.
-- Backend ignore `requesterId` / `approverId` giả mạo.
-- Chỉ `ADMIN` hoặc `MANAGER` được approve/reject.
-- Chuẩn hóa `reason` và legacy `note` để reject reason được lưu đúng.
-- Approval steps trả về approver thật và reason.
+## Authentication Và Tài Khoản
 
-### Calendar
+- Login chính thức dùng email/password; Google Login đang ẩn khỏi giao diện.
+- Tài khoản Google mới không được tự động tạo; người dùng phải đăng ký email và xác minh OTP.
+- Access token mặc định 8 giờ.
+- Refresh token có thời hạn 90 ngày và tách theo thiết bị/session trong Redis:
+  - `refreshToken:{email}:{sessionId}`
+- Frontend tự silent-refresh và đồng bộ auth storage, phục vụ phiên PWA iOS dài hạn.
+- Có backward compatibility để migrate refresh token Redis dạng legacy.
+- User status hiện có: `PENDING_APPROVAL`, `ACTIVE`, `INACTIVE`, `REJECTED`.
 
-- Range-based fetch có `AbortController` và request sequence guard.
-- Calendar event mapping/filtering dùng `useMemo`.
-- Khi chọn resource, API nhận `roomId` hoặc `vehicleId`.
-- Responsive calendar hook xử lý resize/orientation.
-- Event quá khứ vẫn giữ để xem lịch sử và có màu riêng.
+### Register Mới
 
-### Notifications / WebSocket
+1. Người dùng nhập email và nhận OTP có TTL 5 phút.
+2. Người dùng nhập OTP, họ tên và mật khẩu.
+3. Tài khoản được tạo ở trạng thái `PENDING_APPROVAL`.
+4. Tài khoản chờ duyệt hoặc bị từ chối không thể login/refresh token.
+5. Admin nhận database notification, realtime/Web Push nếu thiết bị có active subscription, và badge tài khoản chờ duyệt.
+6. Admin duyệt hoặc từ chối tại `/admin/users?tab=pending`.
+7. Người đăng ký nhận email kết quả; chỉ tài khoản `ACTIVE` mới login được.
 
-- Notification provider value đã memo hóa.
-- STOMP subscription có cleanup để tránh duplicate subscription.
-- Unread count đã tách riêng context:
-  - `NotificationUnreadContext`
-  - `NotificationListContext`
-- Navbar badge chỉ đọc unread count; dropdown mới đọc notification list.
+Giới hạn đúng của Web Push: người vừa đăng ký nhưng chưa từng login chưa có Push Subscription gắn với user, vì vậy họ nhận trạng thái qua UI/email. Push đăng ký mới hướng tới thiết bị Admin đã đăng nhập và cấp quyền.
 
-### Web Push / PWA
+### Forgot Password
 
-- Push retry có giới hạn cho lỗi network/408/429/5xx.
-- Lỗi permanent 403/404/410 deactivate subscription và không retry.
-- Thêm bounded Spring async executor.
-- Service Worker `NAVIGATE` listener chuyển ra React component global.
-- Thêm offline navigation fallback.
-- Không runtime-cache booking/API responses.
-- PWA Android/iOS có thể hiện required notification gate sau login.
+- OTP đặt lại mật khẩu có TTL 5 phút.
+- Màn hình Register và Forgot Password đều nhắc người dùng kiểm tra Spam/Thư rác nếu chưa thấy email.
+- Profile có chức năng đổi mật khẩu cho tài khoản email/password.
+- Avatar được cập nhật trực tiếp, không cần tạo profile approval request.
 
-### Production Runtime
+## Quản Trị Tài Khoản Và Navbar
 
-- Frontend `dist` được embed vào backend jar.
-- Thêm Spring profile `prod` với compression, DB pool nhỏ hơn, Tomcat thread thấp hơn.
-- Docker MySQL/Redis được constrain để giảm RAM.
-- Adminer không chạy mặc định trong `run.bat`.
+- Trang Admin Users có hai tab: `Chờ phê duyệt` và `Tạo tài khoản`.
+- Danh sách chờ duyệt có pagination, approve/reject và số lượng pending.
+- Navbar Admin hiển thị badge pending account.
+- Các nhãn đã rõ nghiệp vụ hơn: `Lịch phòng họp`, `Lịch xe`, `Duyệt đặt chỗ`, `Duyệt hồ sơ`, `Tài khoản`.
+- Mục `Tài nguyên` chưa có chức năng đã được loại khỏi navbar.
+- Dashboard header ưu tiên hiển thị tên thật lấy từ `/users/me`, không phụ thuộc full name trong JWT.
 
-## Rủi Ro / Chưa Xong
+## Booking, Approval Và Lịch Sử
 
-- Backend test gần đây fail trên JDK 23 vì Mockito/ByteBuddy không self-attach được. Đây giống lỗi môi trường JDK/Mockito agent hơn là lỗi business-code. Nên dùng JDK 21 để test hoặc cấu hình Mockito Java agent.
-- Frontend build vẫn warning main chunk lớn khoảng 750 KB.
-- Chưa thêm/chạy Playwright mobile screenshots.
-- PWA push và required notification gate cần test trên Android/iOS installed PWA thật.
-- Email link/domain config vẫn là rủi ro cần verify trước production email rollout.
-- Production secrets phải lấy từ environment variables, không dùng committed defaults.
+- Booking phòng/xe lấy requester từ authenticated principal.
+- Giữ validation `startTime < endTime`, resource locking và overlap check chuẩn.
+- Blocking statuses vẫn là `PENDING` và `APPROVED`.
+- Reject booking không bắt buộc lý do và chỉ Admin được reject theo flow hiện tại.
+- Admin có trang lịch sử xử lý với filter/sort/pagination.
+- Admin có thể hủy booking đã được duyệt tại trang chi tiết.
+- Hủy booking đã duyệt chỉ cần hộp xác nhận, không yêu cầu nhập lý do.
+- Canceller lấy từ authenticated principal, không tin ID từ request body.
 
-## Lệnh Đã Verify Gần Đây
+## Notification, PWA Và Deep Link
 
-- `npm.cmd run build`: pass.
-- `npm.cmd run lint`: pass, còn một warning cũ ở `CustomDateHeader.jsx`.
-- `git diff --check`: pass, chỉ có warning LF/CRLF trên Windows.
-- `.\mvnw.cmd test`: hiện fail trên máy này vì Mockito/ByteBuddy attach dưới JDK 23.
+- Database notification là Source of Truth; WebSocket chỉ realtime delivery.
+- Notification click được resolve theo `type/sourceType/sourceId`, không đoán theo title.
+- Mapping chính:
+  - Booking pending -> `/admin/approvals/{id}`
+  - Profile approval -> `/admin/profile-approvals/{id}`
+  - Account registration -> `/admin/users?tab=pending`
+  - Profile result -> `/profile`
+- Cùng resolver được dùng cho notification page, navbar dropdown và Service Worker.
+- Web Push chỉ gửi cho active subscription.
+- Lỗi 403/404/410 deactivate subscription; network/408/429/5xx retry có giới hạn.
+- PWA không runtime-cache booking API động.
 
-## Ghi Chú Crash Log
+## Email
 
-- `hs_err_pid*.log` và `replay_pid*.log` là JVM crash/debug files.
-- Chúng không phải source code và không nên commit.
-- `.gitignore` đã ignore `*.log`, nên JVM crash logs sau này sẽ bị Git bỏ qua.
-- Nếu JVM crash lại, chỉ giữ file `hs_err_pid*.log` mới nhất khi cần debug crash.
+- Tất cả email dùng chung responsive HTML template `EmailTemplateService`.
+- Template có CFC Booking branding, tone theo trạng thái, detail card, CTA và footer.
+- Nội dung do người dùng nhập được HTML-escape.
+- Link lấy từ `${FRONTEND_URL}` qua `app.frontend-url`, mặc định `https://cfcbooking.io.vn`.
+- OTP register/forgot, account pending/approved/rejected, booking và profile mail đều dùng cùng format.
+- Email booking phòng/xe chứa người yêu cầu, resource, địa điểm/hành trình, ngày, giờ bắt đầu-kết thúc, trạng thái và lý do nếu có.
+- Mail/push chạy độc lập sau commit; lỗi side effect không rollback booking.
 
-## Docs Context Nên Đọc
+## Profile, Avatar Và SEO
 
-- `docs/CURRENT_WORK_STATUS.md`
-- `docs/AI_PROJECT_CONTEXT.md`
-- `docs/PROJECT_FLOW.md`
-- `docs/PERFORMANCE_AUDIT.md`
-- `docs/OPTIMIZATION_EXECUTION_PLAN.md`
+- Profile hỗ trợ đổi mật khẩu email/password.
+- Update avatar trực tiếp, không cần Admin duyệt.
+- Admin profile approval hiển thị avatar hiện tại thay vì dữ liệu Google cũ.
+- Favicon/title dùng asset web hiện tại.
+- Open Graph dùng `og-image.png`/asset versioned tương ứng; cache social preview bên ngoài có thể cần cache-busting hoặc purge phía nền tảng.
 
-Các docs dài/cũ/trùng lặp đã được prune để giảm token cho AI. Dùng 5 file trên làm context set hiện tại.
+## Database Migration Đã Áp Dụng
+
+Do MySQL ENUM cũ không tự nhận enum Java mới:
+
+- `users.status` đã chuyển từ `enum('ACTIVE','INACTIVE')` sang `VARCHAR(32)`.
+- `notifications.type` đã chuyển sang `VARCHAR(64)`.
+- `notifications.source_type` giới hạn `VARCHAR(64)` để unique index nằm trong giới hạn MySQL.
+- Migration notification đã được kiểm tra bảo toàn dữ liệu:
+  - Trước: 40 dòng.
+  - Sau: 40 dòng.
+  - Checksum trước/sau: `91856053349`.
+- Backup trước migration: `/tmp/booking_notifications_before_type_migration_20260720.sql` trên máy deploy tại thời điểm thực hiện.
+- SQL áp dụng lại được lưu ở `deployserver/fix-user-status.sql` (file deploy local có thể bị Git ignore).
+
+## Verification Gần Nhất
+
+- Frontend `npm run lint`: pass, còn 1 warning cũ ở `CustomDateHeader.jsx`.
+- Frontend `npm run build`: pass; còn warning main chunk khoảng 773 KB.
+- Backend: 45 tests pass với ByteBuddy Java agent trên JDK hiện tại.
+- Production JAR build: pass.
+- Executable JAR Web Push smoke test: pass.
+- `git diff --check`: pass.
+
+## Rủi Ro / Việc Còn Lại
+
+- Chưa có migration framework chính thức; hiện vẫn dựa trên `ddl-auto: update` và SQL deploy thủ công cho thay đổi enum/index quan trọng.
+- Production secrets/default secrets cần được đưa hoàn toàn ra environment variables và rotate.
+- Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
+- Cần test end-to-end PWA push trên nhiều thiết bị iOS/Android thật, đặc biệt notification click khi app đóng.
+- Cần test social preview cache trên các nền tảng gửi link khác nhau.
+- Có orphan `booking_adminer` container được Docker Compose cảnh báo; chưa xóa vì không liên quan runtime chính và tránh thao tác phá hủy ngoài yêu cầu.
+
+## File Quan Trọng Hiện Tại
+
+- `backend/src/main/java/com/booking/system/service/AuthService.java`
+- `backend/src/main/java/com/booking/system/service/AccountRegistrationService.java`
+- `backend/src/main/java/com/booking/system/service/EmailTemplateService.java`
+- `backend/src/main/java/com/booking/system/event/NotificationEventListener.java`
+- `frontend/src/api/authStorage.js`
+- `frontend/src/utils/notificationNavigation.js`
+- `frontend/src/components/admin/AdminPendingRegistrations.jsx`
+- `frontend/src/layouts/DashboardLayout.jsx`
+- `frontend/src/sw.js`
+- `deployserver/linux/build-prod.sh`
+- `deployserver/linux/run.sh`
 
 ## Bước Tiếp Theo Gợi Ý
 
-1. Fix backend test environment bằng JDK 21 hoặc Mockito/ByteBuddy Java agent.
-2. Sau khi test ổn, chạy `build-prod.bat`.
-3. Chạy `run.bat` và verify:
-   - `http://localhost:8080`
-   - `https://cfcbooking.io.vn`
-   - `https://api.cfcbooking.io.vn/api/v1/...`
-4. Test PWA install/push trên Android và iOS.
-5. Cân nhắc Playwright mobile screenshots cho `/rooms`, `/cars`, và PWA notification gate.
+1. Thêm migration framework (Flyway/Liquibase) trước các thay đổi schema tiếp theo.
+2. Thêm integration test cho register -> Admin notification -> approve -> login.
+3. Test Web Push registration thật trên iOS/Android với Admin subscription active.
+4. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
+5. Tách route frontend để giảm main bundle.
