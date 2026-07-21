@@ -110,7 +110,7 @@ public class EmailService {
     @Async
     public void sendAccountRegistrationApprovedEmail(String email, String fullName) {
         send(email, "Tài khoản đã được phê duyệt", template.render(
-                "Tài khoản CFC Booking của bạn đã được kích hoạt.",
+                "Tài khoản CFC Base của bạn đã được kích hoạt.",
                 "Tài khoản đã được kích hoạt", fullName,
                 "Quản trị viên đã phê duyệt tài khoản. Bạn có thể đăng nhập và sử dụng hệ thống ngay.", Tone.SUCCESS,
                 List.of(new Detail("Email", email), new Detail("Trạng thái", "Đã kích hoạt")),
@@ -178,7 +178,7 @@ public class EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(fromEmail, "CFC Booking");
+            helper.setFrom(fromEmail, "CFC Base");
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(html, true);

@@ -2,22 +2,22 @@ import { Helmet } from 'react-helmet-async';
 
 /**
  * SEOHead - Component tái sử dụng để inject meta tags SEO động theo từng trang
- * @param {string} title - Tiêu đề trang (không cần thêm " | CFC Booking", sẽ tự thêm)
+ * @param {string} title - Tiêu đề trang (không cần thêm " | CFC Base", sẽ tự thêm)
  * @param {string} description - Mô tả trang
  * @param {string} image - URL ảnh Open Graph (mặc định dùng og-image chung)
  * @param {string} url - URL trang hiện tại (mặc định là trang chủ)
  * @param {string} noIndex - Nếu true, yêu cầu Google không index trang này
  */
 export default function SEOHead({
-  title = 'CFC Booking | Hệ thống đặt phòng họp & xe nội bộ',
-  description = 'CFC Booking - Hệ thống đặt phòng họp và xe công nội bộ của CFC. Đặt lịch nhanh chóng, tiện lợi, quản lý tập trung.',
+  title = 'CFC Base | Hệ thống đặt phòng họp & xe nội bộ',
+  description = 'CFC Base - Hệ thống đặt phòng họp và xe công nội bộ của CFC. Đặt lịch nhanh chóng, tiện lợi, quản lý tập trung.',
   image = 'https://cfcbooking.io.vn/og-image-20260717.png',
   url = 'https://cfcbooking.io.vn/',
   noIndex = false,
 }) {
-  const fullTitle = title.includes('CFC Booking')
+  const fullTitle = title.includes('CFC Base')
     ? title
-    : `${title} | CFC Booking`;
+    : `${title} | CFC Base`;
 
   return (
     <Helmet>

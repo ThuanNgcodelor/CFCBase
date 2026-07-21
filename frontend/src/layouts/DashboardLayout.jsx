@@ -57,7 +57,7 @@ function DashboardLayoutContent() {
     if (!isAdmin) return;
     userApi.getPendingRegistrationCount()
       .then(count => setPendingRegistrationCount(Number(count) || 0))
-      .catch(() => {});
+      .catch(() => { });
   }, [isAdmin, location.pathname]);
 
   // Tự động đóng sidebar trên mobile khi đổi trang
@@ -106,7 +106,7 @@ function DashboardLayoutContent() {
         bg-white border-r border-gray-200 flex flex-col shrink-0
       `}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-          {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-blue-700">CFC Booking</span>}
+          {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-blue-700">CFC Base</span>}
           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 hidden md:block">
             <Menu className="w-5 h-5" />
           </button>
@@ -124,7 +124,7 @@ function DashboardLayoutContent() {
                   key={item.path}
                   to={item.path}
                   title={!isSidebarOpen ? item.name : ""}
-                    className={`relative flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
+                  className={`relative flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
                     ? 'bg-blue-50 text-blue-700 font-medium'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
@@ -271,7 +271,7 @@ function DashboardLayoutContent() {
           <div className={`flex-1 flex flex-col ${isCalendarRoute ? 'p-0' : 'p-4 sm:p-8'}`}>
             <Outlet />
           </div>
-          
+
           {/* System Footer */}
           <footer className="mt-auto border-t border-gray-200 bg-white px-4 py-6 sm:px-8 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -324,9 +324,8 @@ function NotificationMenu({ expanded = false, navigate }) {
       >
         <Bell className={expanded ? 'w-4 h-4' : 'w-5 h-5'} />
         {unreadCount > 0 && (
-          <span className={`absolute inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-white ${
-            expanded ? '-top-1 right-2' : '-top-1 -right-1'
-          }`}>
+          <span className={`absolute inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-white ${expanded ? '-top-1 right-2' : '-top-1 -right-1'
+            }`}>
             {unreadBadgeLabel}
           </span>
         )}
@@ -375,9 +374,8 @@ function NotificationDropdown({ expanded, navigate, unreadCount, onClose }) {
   };
 
   return (
-    <div className={`absolute bottom-full mb-2 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg z-50 ${
-      expanded ? 'left-0' : 'left-12'
-    }`}>
+    <div className={`absolute bottom-full mb-2 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg z-50 ${expanded ? 'left-0' : 'left-12'
+      }`}>
       <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
         <span className="font-semibold text-gray-900">Thông báo</span>
         <button

@@ -73,17 +73,16 @@ public class AccountRegistrationService {
                 : NotificationEvent.EmailType.ACCOUNT_REGISTRATION_REJECTED;
         String title = approved ? "Tài khoản đã được phê duyệt" : "Đăng ký tài khoản bị từ chối";
         String message = approved
-                ? "Tài khoản của bạn đã được kích hoạt. Bạn có thể đăng nhập vào CFC Booking."
+                ? "Tài khoản của bạn đã được kích hoạt. Bạn có thể đăng nhập vào CFC Base."
                 : "Yêu cầu đăng ký tài khoản của bạn không được chấp thuận."
-                    + (reason == null ? "" : " Lý do: " + reason);
+                        + (reason == null ? "" : " Lý do: " + reason);
 
         eventPublisher.publishEvent(new NotificationEvent(
                 account.getId(), admin.getId(), type, title, message, "/login",
                 "ACCOUNT_REGISTRATION", account.getId(),
                 approved ? NotificationPriority.NORMAL : NotificationPriority.HIGH,
                 new NotificationEvent.EmailInstruction(
-                        emailType, "tài khoản", account.getFullName(), title, reason)
-        ));
+                        emailType, "tài khoản", account.getFullName(), title, reason)));
     }
 
     private User requirePending(String userId) {

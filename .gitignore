@@ -24,6 +24,8 @@ cloudflared-config.yml
 .vscode/
 *.swp
 *.swo
+__pycache__/
+*.py[cod]
 .DS_Store
 Thumbs.db
 .codegraph/
@@ -38,3 +40,13 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# HR workbooks contain employee PII and must remain local-only
+/docs/Danh sách nhân sự *.xlsx
+/docs/hr-normalized/
+/docs/hr-template/*
+!/docs/hr-template/README.md
+!/docs/hr-template/PHASE_0_TEMPLATE_REPORT.md
+!/docs/hr-template/template-v1-manifest.json
+!/docs/hr-template/PHASE_0_TEMPLATE_V2_CLEAN_REPORT.md
+!/docs/hr-template/template-v2-clean-manifest.json

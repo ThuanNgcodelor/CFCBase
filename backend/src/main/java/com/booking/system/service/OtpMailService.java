@@ -21,12 +21,12 @@ public class OtpMailService {
     private String fromEmail;
 
     public void sendRegisterOtp(String email, String otp) {
-        sendOtp(email, "Mã OTP đăng ký CFC Booking", "Xác minh email đăng ký",
+        sendOtp(email, "Mã OTP đăng ký CFC Base", "Xác minh email đăng ký",
                 "Dùng mã bên dưới để xác minh email và tiếp tục đăng ký tài khoản.", otp);
     }
 
     public void sendForgotPasswordOtp(String email, String otp) {
-        sendOtp(email, "Mã OTP đặt lại mật khẩu CFC Booking", "Đặt lại mật khẩu",
+        sendOtp(email, "Mã OTP đặt lại mật khẩu CFC Base", "Đặt lại mật khẩu",
                 "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.", otp);
     }
 
@@ -35,11 +35,12 @@ public class OtpMailService {
                 subject, heading, null, message, EmailTemplateService.Tone.INFO,
                 List.of(new EmailTemplateService.Detail("Mã OTP", otp),
                         new EmailTemplateService.Detail("Hiệu lực", "5 phút")),
-                null, null, "Không chia sẻ mã OTP này cho bất kỳ ai. Nếu bạn không thực hiện yêu cầu, hãy bỏ qua email.");
+                null, null,
+                "Không chia sẻ mã OTP này cho bất kỳ ai. Nếu bạn không thực hiện yêu cầu, hãy bỏ qua email.");
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
-            helper.setFrom(fromEmail, "CFC Booking");
+            helper.setFrom(fromEmail, "CFC Base");
             helper.setTo(email);
             helper.setSubject(subject);
             helper.setText(html, true);

@@ -96,7 +96,7 @@ export function usePushNotifications({ autoRegister = false } = {}) {
       throw new Error('Trình duyệt không hỗ trợ thông báo đẩy.');
     }
     if (needsHomeScreenInstall) {
-      throw new Error('Trên iOS, hãy thêm CFC Booking vào màn hình chính rồi mở từ icon đó.');
+      throw new Error('Trên iOS, hãy thêm CFC Base vào màn hình chính rồi mở từ icon đó.');
     }
 
     let currentPermission = getPermission();
@@ -140,7 +140,7 @@ export function usePushNotifications({ autoRegister = false } = {}) {
       }
 
       if (keyMismatch) {
-        await pushApi.unsubscribe(subscription.endpoint).catch(() => {});
+        await pushApi.unsubscribe(subscription.endpoint).catch(() => { });
         await subscription.unsubscribe();
         subscription = null;
       }
@@ -238,7 +238,7 @@ export function usePushNotifications({ autoRegister = false } = {}) {
 
     autoRegisteredRef.current = true;
     ensureSubscription({ promptForPermission: false })
-      .catch(() => {})
+      .catch(() => { })
       .finally(refreshState);
   }, [autoRegister, ensureSubscription, needsHomeScreenInstall, permission, refreshState, subscribed, supported]);
 

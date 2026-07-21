@@ -147,10 +147,10 @@ function getMessage({ supported, denied, permission }) {
     return 'PWA này cần Web Push để hoạt động đầy đủ. Hãy cập nhật hệ điều hành hoặc mở bằng trình duyệt hỗ trợ thông báo đẩy.';
   }
   if (denied) {
-    return 'Bạn đã chặn quyền thông báo. Hãy mở cài đặt ứng dụng hoặc trình duyệt, cho phép thông báo cho CFC Booking, rồi quay lại bấm Kiểm tra lại.';
+    return 'Bạn đã chặn quyền thông báo. Hãy mở cài đặt ứng dụng hoặc trình duyệt, cho phép thông báo cho CFC Base, rồi quay lại bấm Kiểm tra lại.';
   }
   if (permission === 'granted') {
     return 'Quyền thông báo đã được cấp, nhưng thiết bị này chưa đăng ký nhận push. Hãy đăng ký thiết bị để tiếp tục.';
   }
-  return 'Hãy cho phép CFC Booking gửi thông báo trên thiết bị này để tiếp tục sử dụng app.';
+  return 'Hãy cho phép CFC Base gửi thông báo trên thiết bị này để tiếp tục sử dụng app.';
 }

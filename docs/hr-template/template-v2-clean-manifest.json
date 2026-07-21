@@ -1,0 +1,506 @@
+{
+  "contract_version": 2,
+  "generated_at_utc": "2026-07-21T09:40:38+00:00",
+  "privacy": {
+    "manifest_contains_pii": false,
+    "workbooks_contain_pii": true,
+    "workbook_files_are_local_only": true,
+    "workbooks_must_not_be_packaged_in_application_jar": true
+  },
+  "source_template_v1": {
+    "name": "Danh sách nhân sự 2026 - template-v1.xlsx",
+    "size_bytes": 1356804,
+    "sha256": "03f5b8dd8da693220f0229db42e2f7e776b6349931957dada1d03f43c3cb2357",
+    "zip_part_count": 141
+  },
+  "template_v2": {
+    "name": "Danh sách nhân sự 2026 - template-v2-clean.xlsx",
+    "size_bytes": 1356815,
+    "sha256": "9bcaa607481ce60e138c76e4cadd066b91f224158b6301b2f66b431ce1627f56",
+    "zip_part_count": 141
+  },
+  "visibility_contract": {
+    "mode": "CLEAN_VIEW_HIDE_UNUSED_SHEETS",
+    "source_template_version": 1,
+    "visible_sheets": [
+      "GIAM",
+      "TĂNG",
+      "T1-26",
+      "T2-26",
+      "T3-26",
+      "T4-26 ",
+      "T5-26",
+      "T6-26"
+    ],
+    "visible_business_sheet_count": 8,
+    "hidden_sheet_count": 25,
+    "renamed_sheets": {},
+    "active_sheet": "T6-26",
+    "first_visible_sheet": "GIAM",
+    "delete_worksheets": false,
+    "preserve_formula_dependencies": true,
+    "allowed_changed_ooxml_parts": [
+      "xl/workbook.xml"
+    ]
+  },
+  "preserved_v1_invariants": {
+    "workbook": {
+      "sheet_count": 33,
+      "visible_sheet_count": 28,
+      "hidden_sheet_count": 5,
+      "sheets": [
+        {
+          "name": "GIAM",
+          "state": "visible",
+          "part": "xl/worksheets/sheet1.xml"
+        },
+        {
+          "name": "Sheet8",
+          "state": "visible",
+          "part": "xl/worksheets/sheet2.xml"
+        },
+        {
+          "name": "Sheet10",
+          "state": "visible",
+          "part": "xl/worksheets/sheet3.xml"
+        },
+        {
+          "name": "Sheet9",
+          "state": "visible",
+          "part": "xl/worksheets/sheet4.xml"
+        },
+        {
+          "name": "TĂNG",
+          "state": "visible",
+          "part": "xl/worksheets/sheet5.xml"
+        },
+        {
+          "name": "GS 25",
+          "state": "visible",
+          "part": "xl/worksheets/sheet6.xml"
+        },
+        {
+          "name": "T1-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet7.xml"
+        },
+        {
+          "name": "T2-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet8.xml"
+        },
+        {
+          "name": "T3-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet9.xml"
+        },
+        {
+          "name": "T4-26 ",
+          "state": "visible",
+          "part": "xl/worksheets/sheet10.xml"
+        },
+        {
+          "name": "T5-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet11.xml"
+        },
+        {
+          "name": "T6-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet12.xml"
+        },
+        {
+          "name": "Trang tính1",
+          "state": "visible",
+          "part": "xl/worksheets/sheet13.xml"
+        },
+        {
+          "name": "Sheet1 (2)",
+          "state": "visible",
+          "part": "xl/worksheets/sheet14.xml"
+        },
+        {
+          "name": "Sheet1",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet15.xml"
+        },
+        {
+          "name": "Gián tiếp",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet16.xml"
+        },
+        {
+          "name": "công nhân",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet17.xml"
+        },
+        {
+          "name": "TN",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet18.xml"
+        },
+        {
+          "name": "làm thẻ",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet19.xml"
+        },
+        {
+          "name": "Sheet2",
+          "state": "visible",
+          "part": "xl/worksheets/sheet20.xml"
+        },
+        {
+          "name": "Sheet5",
+          "state": "visible",
+          "part": "xl/worksheets/sheet21.xml"
+        },
+        {
+          "name": "Sheet7",
+          "state": "visible",
+          "part": "xl/worksheets/sheet22.xml"
+        },
+        {
+          "name": "Sheet3",
+          "state": "visible",
+          "part": "xl/worksheets/sheet23.xml"
+        },
+        {
+          "name": "Sheet4",
+          "state": "visible",
+          "part": "xl/worksheets/sheet24.xml"
+        },
+        {
+          "name": "chuyển xếp 2024",
+          "state": "visible",
+          "part": "xl/worksheets/sheet25.xml"
+        },
+        {
+          "name": "Sheet6",
+          "state": "visible",
+          "part": "xl/worksheets/sheet26.xml"
+        },
+        {
+          "name": "BHXH 4-2026",
+          "state": "visible",
+          "part": "xl/worksheets/sheet27.xml"
+        },
+        {
+          "name": "CD 2024",
+          "state": "visible",
+          "part": "xl/worksheets/sheet28.xml"
+        },
+        {
+          "name": "CD 2024 (2)",
+          "state": "visible",
+          "part": "xl/worksheets/sheet29.xml"
+        },
+        {
+          "name": "T12-24 (2)",
+          "state": "visible",
+          "part": "xl/worksheets/sheet30.xml"
+        },
+        {
+          "name": "KHO KHAN",
+          "state": "visible",
+          "part": "xl/worksheets/sheet31.xml"
+        },
+        {
+          "name": "T12-25 (2)",
+          "state": "visible",
+          "part": "xl/worksheets/sheet32.xml"
+        },
+        {
+          "name": "tien khokhan",
+          "state": "visible",
+          "part": "xl/worksheets/sheet33.xml"
+        }
+      ],
+      "formula_count": 27343,
+      "formula_fingerprint_sha256": "48f55818d3d4785fd46436cb0d7467ea88e46ba3db892f3ddaeff84229171388",
+      "merge_count": 191,
+      "comment_count": 261,
+      "comment_part_count": 22,
+      "hidden_row_count": 6,
+      "hidden_column_range_count": 24,
+      "cached_formula_errors": {
+        "#N/A": 562,
+        "#REF!": 664
+      },
+      "external_link_count": 1,
+      "printer_settings_part_count": 23,
+      "vml_drawing_part_count": 22,
+      "cell_style_count": 1370,
+      "has_calc_chain": true
+    },
+    "canonical_sheet": {
+      "name": "T6-26",
+      "part": "xl/worksheets/sheet12.xml",
+      "dimension": "A1:CQ720",
+      "auto_filter": "A4:CQ362",
+      "freeze_pane": {
+        "activePane": "topRight",
+        "state": "frozen",
+        "topLeftCell": "F1",
+        "xSplit": "5"
+      },
+      "merge_refs": [
+        "B1:T1",
+        "B2:T2",
+        "A335:B335",
+        "A336:B336"
+      ],
+      "cell_count": 15366,
+      "nonempty_cell_count": 11251,
+      "formula_count": 4150,
+      "formula_fingerprint_sha256": "0245a339c5db6175a3a510682a48aa12d7b6e8621541d4e6260d2508a74ac08a",
+      "comment_count": 18,
+      "cached_formula_errors": {
+        "#N/A": 160,
+        "#REF!": 5
+      },
+      "employee_row_range": "5:333",
+      "employee_row_count": 329,
+      "unique_employee_code_count": 329,
+      "leave_column": "AM",
+      "leave_cell_count": 330,
+      "leave_header": "NGÀY NGHỈ PHÉP",
+      "leave_body_styles_match_al": true,
+      "auxiliary_nonempty_cell_count_an_to_cq_row_101": 56,
+      "relationships": {
+        "comments": "xl/comments9.xml",
+        "vmlDrawing": "xl/drawings/vmlDrawing9.vml",
+        "printerSettings": "xl/printerSettings/printerSettings9.bin"
+      }
+    }
+  },
+  "template_v2_invariants": {
+    "workbook": {
+      "sheet_count": 33,
+      "visible_sheet_count": 8,
+      "hidden_sheet_count": 25,
+      "sheets": [
+        {
+          "name": "GIAM",
+          "state": "visible",
+          "part": "xl/worksheets/sheet1.xml"
+        },
+        {
+          "name": "Sheet8",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet2.xml"
+        },
+        {
+          "name": "Sheet10",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet3.xml"
+        },
+        {
+          "name": "Sheet9",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet4.xml"
+        },
+        {
+          "name": "TĂNG",
+          "state": "visible",
+          "part": "xl/worksheets/sheet5.xml"
+        },
+        {
+          "name": "GS 25",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet6.xml"
+        },
+        {
+          "name": "T1-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet7.xml"
+        },
+        {
+          "name": "T2-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet8.xml"
+        },
+        {
+          "name": "T3-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet9.xml"
+        },
+        {
+          "name": "T4-26 ",
+          "state": "visible",
+          "part": "xl/worksheets/sheet10.xml"
+        },
+        {
+          "name": "T5-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet11.xml"
+        },
+        {
+          "name": "T6-26",
+          "state": "visible",
+          "part": "xl/worksheets/sheet12.xml"
+        },
+        {
+          "name": "Trang tính1",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet13.xml"
+        },
+        {
+          "name": "Sheet1 (2)",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet14.xml"
+        },
+        {
+          "name": "Sheet1",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet15.xml"
+        },
+        {
+          "name": "Gián tiếp",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet16.xml"
+        },
+        {
+          "name": "công nhân",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet17.xml"
+        },
+        {
+          "name": "TN",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet18.xml"
+        },
+        {
+          "name": "làm thẻ",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet19.xml"
+        },
+        {
+          "name": "Sheet2",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet20.xml"
+        },
+        {
+          "name": "Sheet5",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet21.xml"
+        },
+        {
+          "name": "Sheet7",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet22.xml"
+        },
+        {
+          "name": "Sheet3",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet23.xml"
+        },
+        {
+          "name": "Sheet4",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet24.xml"
+        },
+        {
+          "name": "chuyển xếp 2024",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet25.xml"
+        },
+        {
+          "name": "Sheet6",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet26.xml"
+        },
+        {
+          "name": "BHXH 4-2026",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet27.xml"
+        },
+        {
+          "name": "CD 2024",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet28.xml"
+        },
+        {
+          "name": "CD 2024 (2)",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet29.xml"
+        },
+        {
+          "name": "T12-24 (2)",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet30.xml"
+        },
+        {
+          "name": "KHO KHAN",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet31.xml"
+        },
+        {
+          "name": "T12-25 (2)",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet32.xml"
+        },
+        {
+          "name": "tien khokhan",
+          "state": "hidden",
+          "part": "xl/worksheets/sheet33.xml"
+        }
+      ],
+      "formula_count": 27343,
+      "formula_fingerprint_sha256": "48f55818d3d4785fd46436cb0d7467ea88e46ba3db892f3ddaeff84229171388",
+      "merge_count": 191,
+      "comment_count": 261,
+      "comment_part_count": 22,
+      "hidden_row_count": 6,
+      "hidden_column_range_count": 24,
+      "cached_formula_errors": {
+        "#N/A": 562,
+        "#REF!": 664
+      },
+      "external_link_count": 1,
+      "printer_settings_part_count": 23,
+      "vml_drawing_part_count": 22,
+      "cell_style_count": 1370,
+      "has_calc_chain": true
+    },
+    "canonical_sheet": {
+      "name": "T6-26",
+      "part": "xl/worksheets/sheet12.xml",
+      "dimension": "A1:CQ720",
+      "auto_filter": "A4:CQ362",
+      "freeze_pane": {
+        "activePane": "topRight",
+        "state": "frozen",
+        "topLeftCell": "F1",
+        "xSplit": "5"
+      },
+      "merge_refs": [
+        "B1:T1",
+        "B2:T2",
+        "A335:B335",
+        "A336:B336"
+      ],
+      "cell_count": 15366,
+      "nonempty_cell_count": 11251,
+      "formula_count": 4150,
+      "formula_fingerprint_sha256": "0245a339c5db6175a3a510682a48aa12d7b6e8621541d4e6260d2508a74ac08a",
+      "comment_count": 18,
+      "cached_formula_errors": {
+        "#N/A": 160,
+        "#REF!": 5
+      },
+      "employee_row_range": "5:333",
+      "employee_row_count": 329,
+      "unique_employee_code_count": 329,
+      "leave_column": "AM",
+      "leave_cell_count": 330,
+      "leave_header": "NGÀY NGHỈ PHÉP",
+      "leave_body_styles_match_al": true,
+      "auxiliary_nonempty_cell_count_an_to_cq_row_101": 56,
+      "relationships": {
+        "comments": "xl/comments9.xml",
+        "vmlDrawing": "xl/drawings/vmlDrawing9.vml",
+        "printerSettings": "xl/printerSettings/printerSettings9.bin"
+      }
+    }
+  }
+}

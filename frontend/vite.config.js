@@ -21,9 +21,9 @@ export default defineConfig({
       includeAssets: ['logo.png', 'og-image.png', 'icons/*.png'],
       manifest: {
         id: '/',
-        name: 'CFC Booking',
+        name: 'CFC Base',
         short_name: 'CFC Book',
-        description: 'Hệ thống đặt phòng họp và xe nội bộ của CFC',
+        description: 'Hệ thống nội bộ CFC',
         theme_color: '#16a34a',
         background_color: '#ffffff',
         display: 'standalone',

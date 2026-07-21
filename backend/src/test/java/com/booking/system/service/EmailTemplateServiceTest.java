@@ -19,7 +19,7 @@ class EmailTemplateServiceTest {
                 "Mở hệ thống", "https://cfcbooking.io.vn/login", "Ghi chú");
 
         assertThat(html)
-                .contains("CFC Booking")
+                .contains("CFC Base")
                 .contains("width=\"100%\"")
                 .contains("Nguyễn &lt;Admin&gt;")
                 .contains("Nội dung &amp; kết quả")

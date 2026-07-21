@@ -51,7 +51,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center p-4 font-sans text-gray-900">
-      <SEOHead title="CFC Booking | Đăng ký tài khoản" url="https://cfcbooking.io.vn/register" />
+      <SEOHead title="CFC Base | Đăng ký tài khoản" url="https://cfcbooking.io.vn/register" />
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <div className="text-center mb-8">
           <img src="/logo2.png" alt="CFC Logo" className="w-20 h-20 object-contain mx-auto mb-3" />

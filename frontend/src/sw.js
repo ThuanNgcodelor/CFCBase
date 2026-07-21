@@ -2,7 +2,7 @@
 
 /* eslint-disable no-restricted-globals */
 /**
- * Service Worker — CFC Booking PWA
+ * Service Worker — CFC Base PWA
  *
  * Vai trò:
  *  1. Precache asset (qua Workbox, manifest precache được vite-plugin-pwa inject).
@@ -67,7 +67,7 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: 'CFC Booking', message: event.data ? event.data.text() : '' };
+    payload = { title: 'CFC Base', message: event.data ? event.data.text() : '' };
   }
 
   const title = normalizeNotificationTitle(payload);
@@ -172,7 +172,7 @@ function normalizeNotificationTitle(payload) {
     case 'BOOKING_CREATED':
       return 'Yeu cau dat lich moi';
     default:
-      return 'CFC Booking';
+      return 'CFC Base';
   }
 }
 
@@ -187,7 +187,7 @@ function normalizeNotificationBody(payload) {
     return rawBody;
   }
 
-  return 'Bạn có thông báo mới từ CFC Booking.';
+  return 'Bạn có thông báo mới từ CFC Base.';
 }
 
 function normalizeBadgeCount(value) {

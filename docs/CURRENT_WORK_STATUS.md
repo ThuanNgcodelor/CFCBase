@@ -1,6 +1,6 @@
 # Trạng Thái Công Việc Hiện Tại
 
-Cập nhật lần cuối: 2026-07-20
+Cập nhật lần cuối: 2026-07-21
 
 ## Trạng Thái Production
 
@@ -95,7 +95,7 @@ Giới hạn đúng của Web Push: người vừa đăng ký nhưng chưa từn
 ## Email
 
 - Tất cả email dùng chung responsive HTML template `EmailTemplateService`.
-- Template có CFC Booking branding, tone theo trạng thái, detail card, CTA và footer.
+- Template có CFC Base branding, tone theo trạng thái, detail card, CTA và footer.
 - Nội dung do người dùng nhập được HTML-escape.
 - Link lấy từ `${FRONTEND_URL}` qua `app.frontend-url`, mặc định `https://cfcbooking.io.vn`.
 - OTP register/forgot, account pending/approved/rejected, booking và profile mail đều dùng cùng format.
@@ -134,6 +134,19 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Giữ 24 bản gần nhất; bản thứ 25 trở đi mới bị xóa sau khi backup mới thành công.
 - Restore có xác nhận `RESTORE`, tạo backup khẩn cấp trước rồi import toàn bộ database bằng root credential bên trong container.
 - Hướng dẫn vận hành: `docs/DATABASE_BACKUP.md`.
+
+## Phân Hệ HR — Phase 0 Template
+
+- Đã chốt kiến trúc `Employee` độc lập hoàn toàn với `User`; không có `user_id` hoặc đồng bộ ngầm.
+- Phòng ban, chức vụ và điều kiện lao động HR sẽ dùng bảng riêng; chỉ role `MANAGER` được truy cập module HR.
+- `T6-26` trong `docs/Danh sách nhân sự 2026.xlsx` là canonical sheet.
+- Đã khóa SHA-256 source: `3e88290c865b73870c6557ff06b8273fcff012f22225c094526d020c39359a60`.
+- Đã tạo template v1 local-only, dùng cột trống `AM` cho `NGÀY NGHỈ PHÉP` và không insert/shift `AN:CQ`.
+- Builder/verifier chỉ patch `sheet12.xml`; mọi OOXML part khác, formula fingerprint, comment, merge, cached errors, print settings và external link được giữ nguyên.
+- Workbook có PII được ignore khỏi Git và đặt quyền `600`; không đóng gói vào backend JAR.
+- Kế hoạch: `docs/HR_MANAGEMENT_IMPLEMENTATION_PLAN.md`.
+- Báo cáo/command: `docs/hr-template/PHASE_0_TEMPLATE_REPORT.md`.
+- Phase 0 không thay đổi backend, frontend, database hoặc runtime production.
 
 ## Verification Gần Nhất
 

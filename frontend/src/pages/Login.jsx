@@ -54,8 +54,8 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center p-4 font-sans text-gray-900">
       <SEOHead
-        title="CFC Booking | Đăng nhập hệ thống đặt phòng & xe nội bộ"
-        description="Đăng nhập vào CFC Booking — hệ thống quản lý đặt phòng họp và xe công nội bộ của CFC. Nhanh chóng, tiện lợi, bảo mật."
+        title="CFC Base | Đăng nhập hệ thống đặt phòng & xe nội bộ"
+        description="Đăng nhập vào CFC Base — hệ thống quản lý đặt phòng họp và xe công nội bộ của CFC. Nhanh chóng, tiện lợi, bảo mật."
         url="https://cfcbooking.io.vn/login"
       />
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-gray-100">
@@ -64,9 +64,9 @@ export default function Login() {
           <div className="w-20 h-20 flex items-center justify-center mb-2">
             <img src="/logo2.png" alt="CFC Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mt-2">CFC Booking</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mt-2">CFC Base</h1>
           <p className="text-sm text-gray-500 mt-2 text-center">
-            Hệ thống đặt phòng họp và xe nội bộ
+            Hệ thống nội bộ CFC
           </p>
         </div>
 
