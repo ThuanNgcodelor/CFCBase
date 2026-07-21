@@ -1,0 +1,10 @@
+[Unit]
+Description=BookingBase hourly MySQL backup
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/Works/BookingBase/deployserver/linux/backup-database.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

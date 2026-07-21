@@ -57,6 +57,7 @@ Infra/config:
 - Production direction: frontend `dist` được embed vào Spring Boot jar.
 - Cloudflare Tunnel trỏ web/API về backend port `8080`.
 - Fedora/Linux là production chính với scripts trong `deployserver/linux/`; Windows scripts vẫn được giữ để tương thích.
+- Systemd user timer `bookingbase-backup.timer` dump toàn bộ MySQL mỗi giờ, giữ 24 bản trong `backups/database/`.
 
 ## Sơ Đồ Thư Mục
 

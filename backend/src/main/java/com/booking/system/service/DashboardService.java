@@ -18,9 +18,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,11 +43,13 @@ public class DashboardService {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
 
-        List<BookingRoom> roomsToday = bookingRoomRepository.findByStatusAndStartTimeBetweenOrderByStartTimeAsc(BookingStatus.APPROVED, startOfDay, endOfDay);
-        List<BookingCar> carsToday = bookingCarRepository.findByStatusAndStartTimeBetweenOrderByStartTimeAsc(BookingStatus.APPROVED, startOfDay, endOfDay);
+        List<BookingRoom> roomsToday = bookingRoomRepository
+                .findByStatusAndStartTimeBetweenOrderByStartTimeAsc(BookingStatus.APPROVED, startOfDay, endOfDay);
+        List<BookingCar> carsToday = bookingCarRepository
+                .findByStatusAndStartTimeBetweenOrderByStartTimeAsc(BookingStatus.APPROVED, startOfDay, endOfDay);
 
         List<DashboardActivity> todayActivities = new ArrayList<>();
-        
+
         for (BookingRoom r : roomsToday) {
             todayActivities.add(DashboardActivity.builder()
                     .id(r.getId())
@@ -90,8 +90,10 @@ public class DashboardService {
 
     public ClientDashboardStats getClientStats(String userId) {
         LocalDateTime now = LocalDateTime.now();
-        List<BookingRoom> upcomingRooms = bookingRoomRepository.findByRequesterIdAndStartTimeAfterOrderByStartTimeAsc(userId, now);
-        List<BookingCar> upcomingCars = bookingCarRepository.findByRequesterIdAndStartTimeAfterOrderByStartTimeAsc(userId, now);
+        List<BookingRoom> upcomingRooms = bookingRoomRepository
+                .findByRequesterIdAndStartTimeAfterOrderByStartTimeAsc(userId, now);
+        List<BookingCar> upcomingCars = bookingCarRepository
+                .findByRequesterIdAndStartTimeAfterOrderByStartTimeAsc(userId, now);
 
         List<DashboardActivity> upcomingActivities = new ArrayList<>();
 

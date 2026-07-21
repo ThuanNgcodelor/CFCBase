@@ -124,6 +124,17 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Backup trước migration: `/tmp/booking_notifications_before_type_migration_20260720.sql` trên máy deploy tại thời điểm thực hiện.
 - SQL áp dụng lại được lưu ở `deployserver/fix-user-status.sql` (file deploy local có thể bị Git ignore).
 
+## Backup Database Tự Động
+
+- `bookingbase-backup.timer` đang active và chạy mỗi giờ vào phút `05`.
+- User linger đang bật để timer hoạt động sau logout/reboot mà không cần mở terminal.
+- Backup toàn bộ schema/data MySQL bằng `mysqldump --single-transaction`, có triggers/routines/events.
+- File `.sql.gz` nằm trong `backups/database/`, quyền `600`; thư mục quyền `700` và bị Git ignore.
+- Ghi file theo kiểu temp -> validate -> atomic rename; không xóa bản tốt nếu dump mới thất bại.
+- Giữ 24 bản gần nhất; bản thứ 25 trở đi mới bị xóa sau khi backup mới thành công.
+- Restore có xác nhận `RESTORE`, tạo backup khẩn cấp trước rồi import toàn bộ database bằng root credential bên trong container.
+- Hướng dẫn vận hành: `docs/DATABASE_BACKUP.md`.
+
 ## Verification Gần Nhất
 
 - Frontend `npm run lint`: pass, còn 1 warning cũ ở `CustomDateHeader.jsx`.
@@ -155,6 +166,8 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - `frontend/src/sw.js`
 - `deployserver/linux/build-prod.sh`
 - `deployserver/linux/run.sh`
+- `deployserver/linux/backup-database.sh`
+- `deployserver/linux/restore-database.sh`
 
 ## Bước Tiếp Theo Gợi Ý
 

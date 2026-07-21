@@ -235,6 +235,12 @@ Docker:
 - MySQL/Redis được constrain để giảm RAM.
 - Adminer không start mặc định trong production script.
 
+Database backup:
+- `bookingbase-backup.timer` chạy vào phút `05` mỗi giờ và giữ 24 bản gần nhất.
+- Dump chứa toàn bộ schema/data/triggers/routines/events, được gzip và validate trước atomic rename.
+- Restore tạo backup khẩn cấp, yêu cầu xác nhận `RESTORE`, rồi import toàn bộ database.
+- Chi tiết vận hành xem `docs/DATABASE_BACKUP.md`.
+
 Cloudflare:
 - Web/API đều trỏ backend `8080`.
 - Spring Boot serve SPA static files.
