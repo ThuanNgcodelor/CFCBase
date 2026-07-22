@@ -3,6 +3,7 @@ package com.booking.system.hr.entity;
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrEmploymentStatus;
 import jakarta.persistence.Column;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -11,6 +12,7 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -73,4 +75,16 @@ public class HrEmployee extends HrBaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_import_batch_id", foreignKey = @ForeignKey(name = "fk_hr_employee_source_batch"))
     private HrExcelImportBatch sourceImportBatch;
+
+    @OneToOne(mappedBy = "employee", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private HrEmployeeEmployment employment;
+
+    @OneToOne(mappedBy = "employee", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private HrEmployeeIdentity identity;
+
+    @OneToOne(mappedBy = "employee", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private HrEmployeeInsurance insurance;
+
+    @OneToOne(mappedBy = "employee", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private HrEmployeeContact contact;
 }

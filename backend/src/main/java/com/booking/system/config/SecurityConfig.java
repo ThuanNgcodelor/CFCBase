@@ -15,6 +15,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -47,7 +49,9 @@ public class SecurityConfig {
                         "/manifest.webmanifest",
                         "/login",
                         "/register",
-                        "/forgot-password"
+                        "/forgot-password",
+                        "/manager",
+                        "/manager/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET,
                         "/",
@@ -62,12 +66,19 @@ public class SecurityConfig {
                         "/cars/**",
                         "/notifications/**",
                         "/profile/**",
-                        "/admin/**"
+                        "/admin/**",
+                        "/manager/**"
                 ).permitAll()
                 .requestMatchers("/api/v1/auth/**").permitAll() // Mở endpoint đăng nhập
                 .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/api/v1/hr/**").hasRole("MANAGER")
                 .anyRequest().authenticated()
-            );
+            )
+            .exceptionHandling(exceptions -> exceptions
+                    .authenticationEntryPoint((request, response, exception) ->
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                    .accessDeniedHandler((request, response, exception) ->
+                            response.sendError(HttpServletResponse.SC_FORBIDDEN)));
 
         http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

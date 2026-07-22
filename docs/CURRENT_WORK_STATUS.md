@@ -187,11 +187,23 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - MySQL 8.0.46 container tạm đã confirm/rollback cả baseline thật 329 dòng và pass V1/V2, JSON contract, conflict atomicity, retention cùng read-only verifier; container không dùng volume và đã tự xóa.
 - Tài liệu: `docs/HR_PHASE_2_BASELINE_IMPORT.md`; script test: `scripts/hr-schema/verify-phase2-mysql.sh`.
 
+## Phân Hệ HR — Phase 3 Security, API Và UI Manager
+
+- Phase 3 hoàn thành ở source/test cô lập ngày `2026-07-22`; không tạo account Manager, không restart/deploy và không thay đổi database production.
+- `/api/v1/hr/**` chỉ cho đúng role `MANAGER`: thiếu token trả `401`; `ADMIN`/`EMPLOYEE` trả `403`; `MANAGER` trả `200`.
+- Actor ghi audit/import lấy từ authenticated `User` đang active; request không nhận `actorId`/`managerId` từ client.
+- API có overview; nhân sự phân trang/filter/sort; detail DTO masked; tạo/sửa hồ sơ `DRAFT`; danh mục HR; import; movement/roster/audit read-only.
+- Edit dùng `rowVersion`, chặn hồ sơ ngoài `DRAFT`, không round-trip chuỗi mask và không xóa lương/CCCD/BHXH/BHYT/liên hệ khi client để trống.
+- Mapping chi tiết HR cascade remove đúng vòng đời nên rollback baseline Phase 2 vẫn xóa sạch dữ liệu import có guard.
+- `MANAGER` login, silent refresh hoặc mở PWA tại `/` đều chuyển tới `/manager/hr`; deep link `/manager/**` được SPA forward.
+- Giao diện responsive dùng chung DashboardLayout/notification/push: overview, list/detail/form, danh mục, import; movement/roster/audit ở chế độ read-only.
+- Route HR được lazy-load. Action Tăng/Giảm, mở/chốt tháng và export Excel đúng template chưa được giả lập; vẫn thuộc Phase 5–6.
+
 ## Verification Gần Nhất
 
 - Frontend `npm run lint`: pass, còn 1 warning cũ ở `CustomDateHeader.jsx`.
-- Frontend `npm run build`: pass; còn warning main chunk khoảng 773 KB.
-- Backend: 65 test methods pass trong các lượt kiểm tra hiện tại, gồm toàn bộ test cũ, Phase 1/2 và import baseline thật; 0 failure/error.
+- Frontend `npm run build`: pass; các trang HR đã tách chunk, main chunk hiện khoảng 780,51 KB.
+- Backend: 71 test methods pass, 1 test biến thể môi trường được skip; gồm toàn bộ regression cũ, Phase 1/2/3, security 401/403/200, masked update và rollback baseline; 0 failure/error.
 - MySQL 8 integration: 5 test methods pass, gồm Flyway V1/V2, constraints/ORM, upload/preview/validate/confirm baseline thật, conflict atomicity, rollback, retention, JSON type và production-style schema verifier.
 - Production JAR build: pass.
 - Executable JAR Web Push smoke test: pass.
@@ -202,6 +214,7 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Flyway đã có V1/V2 cho HR nhưng production đang tắt và chưa thực hiện one-time baseline/migrate; `ddl-auto: update` chỉ còn quyền trên schema legacy qua filter.
 - Production secrets/default secrets cần được đưa hoàn toàn ra environment variables và rotate.
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
+- Phase 5–6 chưa triển khai thao tác Tăng/Giảm, mở/chốt snapshot tháng và export Excel đúng template; các màn hình hiện tại chủ động read-only.
 - Cần test end-to-end PWA push trên nhiều thiết bị iOS/Android thật, đặc biệt notification click khi app đóng.
 - Cần test social preview cache trên các nền tảng gửi link khác nhau.
 - Có orphan `booking_adminer` container được Docker Compose cảnh báo; chưa xóa vì không liên quan runtime chính và tránh thao tác phá hủy ngoài yêu cầu.
@@ -213,6 +226,9 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - `backend/src/main/java/com/booking/system/service/EmailTemplateService.java`
 - `backend/src/main/java/com/booking/system/hr/importer/HrBaselineImportService.java`
 - `backend/src/main/java/com/booking/system/hr/importer/HrBaselineWorkbookParser.java`
+- `backend/src/main/java/com/booking/system/hr/api/HrManagementController.java`
+- `backend/src/main/java/com/booking/system/hr/api/HrImportController.java`
+- `backend/src/main/java/com/booking/system/hr/service/HrManagementService.java`
 - `backend/src/main/resources/db/migration/V2__add_hr_import_payload_retention.sql`
 - `backend/src/main/java/com/booking/system/event/NotificationEventListener.java`
 - `frontend/src/api/authStorage.js`
@@ -227,9 +243,10 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 
 ## Bước Tiếp Theo Gợi Ý
 
-1. Triển khai Phase 3: `/api/v1/hr/**`, actor từ authenticated principal, `ROLE_MANAGER`, DTO/masking và test 401/403.
-2. Chỉ áp dụng Flyway baseline `0` + V1/V2 trong cửa sổ deploy riêng, có full backup, đối chiếu và chạy verifier; chưa import baseline chỉ vì migration đã sẵn sàng.
-3. Thêm integration test cho register -> Admin notification -> approve -> login.
-4. Test Web Push registration thật trên iOS/Android với Admin subscription active.
-5. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
-6. Tách route frontend để giảm main bundle.
+1. Chỉ áp dụng Flyway baseline `0` + V1/V2 trong cửa sổ deploy riêng, có full backup, đối chiếu và chạy verifier; chưa import baseline chỉ vì migration đã sẵn sàng.
+2. Sau khi deploy Phase 3 và tạo account role `MANAGER`, smoke-test `/manager/hr`, API 401/403 và import preview trước khi confirm baseline thật.
+3. Triển khai Phase 5 cho Tăng/Giảm và snapshot tháng; không biến màn hình read-only hiện tại thành thao tác ghi trước khi khóa rule nghiệp vụ.
+4. Thêm integration test cho register -> Admin notification -> approve -> login.
+5. Test Web Push registration thật trên iOS/Android với Admin subscription active.
+6. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
+7. Tiếp tục tách vendor/shared chunk frontend để giảm main bundle.

@@ -17,7 +17,9 @@ public class SpaForwardController {
             "/notifications",
             "/profile",
             "/admin",
-            "/admin/**"
+            "/admin/**",
+            "/manager",
+            "/manager/**"
     })
     public String forwardSpaRoutes() {
         return "forward:/index.html";

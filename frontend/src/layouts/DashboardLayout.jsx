@@ -1,6 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Home, CalendarRange, CarFront, Bell, CheckSquare, Menu, FileCheck2, Users } from 'lucide-react';
+import {
+  ArrowUpDown,
+  Bell,
+  CalendarRange,
+  CarFront,
+  CheckSquare,
+  ContactRound,
+  FileCheck2,
+  History,
+  Home,
+  LayoutDashboard,
+  Library,
+  LogOut,
+  Menu,
+  TableProperties,
+  Upload,
+  Users,
+} from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { userApi } from '../api/userApi';
 import { NotificationProvider } from '../contexts/NotificationContext';
@@ -27,6 +44,7 @@ function DashboardLayoutContent() {
   const [pendingRegistrationCount, setPendingRegistrationCount] = useState(0);
 
   const isAdmin = user.role === 'ADMIN';
+  const isManager = user.role === 'MANAGER';
   const isApprover = user.role === 'ADMIN' || user.role === 'MANAGER';
 
   const pushState = usePushNotifications({ autoRegister: true });
@@ -73,16 +91,26 @@ function DashboardLayoutContent() {
   };
 
   const mainNavItems = [
-    { name: 'Trang chủ', path: '/', icon: Home, show: true },
-    { name: 'Lịch phòng họp', path: '/rooms', icon: CalendarRange, show: true },
-    { name: 'Lịch xe', path: '/cars', icon: CarFront, show: true },
+    { name: 'Trang chủ', path: '/', icon: Home, show: !isManager },
+    { name: 'Lịch phòng họp', path: '/rooms', icon: CalendarRange, show: !isManager },
+    { name: 'Lịch xe', path: '/cars', icon: CarFront, show: !isManager },
     { name: 'Thông báo', path: '/notifications', icon: Bell, show: true },
   ];
 
   const adminNavItems = [
-    { name: 'Duyệt đặt chỗ', path: '/admin/approvals', icon: CheckSquare, show: isApprover },
+    { name: 'Duyệt đặt chỗ', path: '/admin/approvals', icon: CheckSquare, show: isApprover && !isManager },
     { name: 'Duyệt hồ sơ', path: '/admin/profile-approvals', icon: FileCheck2, show: isAdmin },
     { name: 'Tài khoản', path: '/admin/users', icon: Users, show: isAdmin, badge: pendingRegistrationCount },
+  ];
+
+  const hrNavItems = [
+    { name: 'Tổng quan HR', path: '/manager/hr', icon: LayoutDashboard },
+    { name: 'Nhân sự', path: '/manager/hr/employees', icon: ContactRound },
+    { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
+    { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
+    { name: 'Danh mục HR', path: '/manager/hr/catalogs', icon: Library },
+    { name: 'Import baseline', path: '/manager/hr/imports', icon: Upload },
+    { name: 'Nhật ký thay đổi', path: '/manager/hr/audit', icon: History },
   ];
 
   const isCalendarRoute = location.pathname.startsWith('/cars') || location.pathname.startsWith('/rooms');
@@ -142,7 +170,7 @@ function DashboardLayoutContent() {
           </div>
 
           {/* Nhóm quản trị */}
-          {(isAdmin || isApprover) && (
+          {adminNavItems.some((item) => item.show) && (
             <div className="space-y-1">
               {isSidebarOpen && <div className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">Quản trị hệ thống</div>}
               {adminNavItems.filter(item => item.show).map((item) => {
@@ -165,6 +193,34 @@ function DashboardLayoutContent() {
                         {item.badge > 99 ? '99+' : item.badge}
                       </span>
                     )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* HR là phân hệ độc lập và chỉ hiển thị cho MANAGER. */}
+          {isManager && (
+            <div className="space-y-1">
+              {isSidebarOpen && <div className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">Quản lý nhân sự</div>}
+              {hrNavItems.map((item) => {
+                const Icon = item.icon;
+                const isOverview = item.path === '/manager/hr';
+                const isActive = isOverview
+                  ? location.pathname === item.path
+                  : location.pathname.startsWith(item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    title={!isSidebarOpen ? item.name : ''}
+                    className={`relative flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
+                      ? 'bg-emerald-50 text-emerald-700 font-medium'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                  >
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-emerald-700' : 'text-gray-400'}`} />
+                    {isSidebarOpen && <span className="flex-1">{item.name}</span>}
                   </Link>
                 );
               })}
@@ -261,7 +317,9 @@ function DashboardLayoutContent() {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-medium text-gray-800">
-              {[...mainNavItems, ...adminNavItems].find(item => location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/'))?.name || 'Hệ thống'}
+              {[...hrNavItems, ...adminNavItems, ...mainNavItems]
+                .filter(item => location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/'))
+                .sort((left, right) => right.path.length - left.path.length)[0]?.name || 'Hệ thống'}
             </h1>
           </div>
         </header>

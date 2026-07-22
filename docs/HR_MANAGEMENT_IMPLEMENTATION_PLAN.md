@@ -1,7 +1,7 @@
 # Kế Hoạch Triển Khai Phân Hệ Quản Lý Nhân Sự
 
 Cập nhật: 2026-07-22
-Trạng thái: **Phase 0.1 và Phase 1 hoàn thành ở source code; chưa deploy production**
+Trạng thái: **Phase 0.1, Phase 1, Phase 2 và Phase 3 hoàn thành ở source code; chưa deploy production**
 
 ## 1. Mục tiêu
 
@@ -192,17 +192,28 @@ Chi tiết: [HR Phase 2 — Import baseline T6-26](HR_PHASE_2_BASELINE_IMPORT.md
 
 ### Phase 3 — Security và API
 
+Trạng thái: **hoàn thành ngày 2026-07-22 ở source code và test cô lập; chưa chạy production**.
+
 - Enforce `ROLE_MANAGER` cho `/api/v1/hr/**`.
 - List API có pagination, sort, filter; detail dùng DTO và mask PII.
-- CRUD, tăng/giảm, mở/chốt tháng, import preview/confirm và export.
-- Test 401 khi thiếu token; 403 với `ADMIN`/`EMPLOYEE`.
+- Actor của thao tác ghi luôn lấy từ authenticated principal; request body không được truyền actor giả.
+- Có overview; list/detail; tạo và sửa hồ sơ `DRAFT`; CRUD/ngừng dùng danh mục HR riêng.
+- Expose flow import Phase 2 qua HTTP: history, upload, preview, validate, confirm và rollback.
+- Có API read-only cho movement, roster, roster item và audit để phục vụ kiểm tra dữ liệu hiện có.
+- PII/compensation không xuất hiện ở list, detail được mask; edit không làm mất giá trị đã che khi client bỏ trống.
+- Test HTTP đạt: `401` khi thiếu token, `403` với `ADMIN`/`EMPLOYEE`, `200` chỉ với `MANAGER`.
+- Tăng/giảm, mở/chốt tháng và export đúng template vẫn thuộc Phase 5–6; Phase 3 không tạo action giả.
 
 ### Phase 4 — Giao diện quản lý HR
 
-- Layout/nav riêng cho Manager.
-- List/detail/form thêm-sửa, filter, sort, pagination.
-- Xác nhận rõ trước giảm nhân sự, xóa bản nháp sai hoặc export PII.
-- Không load toàn bộ nhân sự một lần.
+Trạng thái: **phần giao diện vận hành cốt lõi đã được triển khai sớm cùng Phase 3 theo yêu cầu ngày 2026-07-22**.
+
+- `MANAGER` login/silent refresh/PWA root tự chuyển tới `/manager/hr`; deep link được SPA forward.
+- Dùng chung `DashboardLayout`, notification và push hiện tại; có nav HR responsive riêng cho Manager.
+- Có overview, list/detail/form hồ sơ `DRAFT`, filter/sort/pagination, quản lý danh mục và import baseline.
+- Có màn hình read-only cho Tăng/Giảm, danh sách tháng và audit, ghi rõ chức năng ghi thuộc Phase 5–6.
+- Route HR lazy-load; danh sách không tải toàn bộ nhân sự một lần.
+- Chưa triển khai xác nhận giảm nhân sự, mở/chốt tháng, xóa bản nháp hoặc export PII vì phụ thuộc Phase 5–6.
 
 ### Phase 5 — Tăng/Giảm và snapshot tháng
 
@@ -239,7 +250,7 @@ Chi tiết: [HR Phase 2 — Import baseline T6-26](HR_PHASE_2_BASELINE_IMPORT.md
 - UAT đối chiếu DB, UI và Excel với dữ liệu thực.
 - Tài liệu vận hành, backup/restore và rollback.
 
-## 7. Gate sau Phase 2, trước Phase 3
+## 7. Gate triển khai hiện tại
 
 Phase 0.1 đã đạt:
 
@@ -267,7 +278,16 @@ Phase 2 đã đạt:
 - Không seed 329 nhân sự hoặc 9 tăng/2 giảm bằng migration schema.
 - Không deploy/restart server và không thay đổi database production.
 
-Trước Phase 3 vẫn phải giữ nguyên nguyên tắc: production chỉ migrate V1/V2 trong cửa sổ riêng sau backup; API phải lấy actor từ authenticated principal và enforce `ROLE_MANAGER`.
+Phase 3 đã đạt:
+
+- `/api/v1/hr/**` chỉ cho đúng role `MANAGER`; `ADMIN` không tự kế thừa quyền HR.
+- API ghi lấy actor từ authenticated principal; list/detail dùng DTO, pagination và masking.
+- Edit hồ sơ chỉ cho `DRAFT`, có optimistic `rowVersion` và giữ nguyên PII/lương khi field bảo vệ bị bỏ trống.
+- Frontend `MANAGER` tự vào `/manager/hr`; deep link, PWA root, responsive nav và route lazy-load đã có.
+- Frontend lint/build và toàn bộ backend regression suite đạt; rollback import Phase 2 vẫn hoạt động sau mapping Phase 3.
+- Không tạo account Manager, không deploy/restart server và không thay đổi database production.
+
+Trước khi dùng production vẫn phải giữ nguyên nguyên tắc: chỉ migrate V1/V2 trong cửa sổ riêng sau full backup và verifier; việc import baseline là thao tác Manager riêng, không tự chạy cùng migration.
 
 ## 8. Nguyên tắc không được vi phạm
 

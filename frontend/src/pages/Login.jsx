@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import SEOHead from '../components/SEOHead';
+import { getRoleLandingPath } from '../utils/roleNavigation';
 
 const REMEMBER_KEY = 'cfc_remember_email';
 
 export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +28,7 @@ export default function Login() {
 
   const saveAuthData = (data) => {
     authApi.setAuthData(data);
-    window.location.href = '/';
+    navigate(getRoleLandingPath(data?.user?.role || authApi.getRole()), { replace: true });
   };
 
   const handleStandardLogin = async (e) => {

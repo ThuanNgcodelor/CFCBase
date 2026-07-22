@@ -3,12 +3,25 @@ package com.booking.system.hr.repository;
 import com.booking.system.hr.entity.HrEmployeeMovement;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.Collection;
 import java.util.List;
 
 public interface HrEmployeeMovementRepository extends HrRepository<HrEmployeeMovement, String> {
+    @EntityGraph(attributePaths = {
+            "employee",
+            "fromDepartment",
+            "toDepartment",
+            "fromPosition",
+            "toPosition",
+            "fromWorkingCondition",
+            "toWorkingCondition"
+    })
+    @Query("select movement from HrEmployeeMovement movement")
+    Page<HrEmployeeMovement> findActivityPage(Pageable pageable);
+
     Page<HrEmployeeMovement> findByEmployee_IdOrderByEffectiveDateDesc(String employeeId, Pageable pageable);
 
     List<HrEmployeeMovement> findAllByImportBatch_Id(String batchId);

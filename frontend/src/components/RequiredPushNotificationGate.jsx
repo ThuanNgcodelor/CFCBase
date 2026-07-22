@@ -91,7 +91,7 @@ export default function RequiredPushNotificationGate({ pushState }) {
         <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-3 text-sm text-blue-800">
           <div className="flex gap-2">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>Thông báo là bắt buộc trong PWA để không bỏ lỡ booking, duyệt hoặc từ chối yêu cầu.</span>
+            <span>Thông báo là bắt buộc trong PWA để không bỏ lỡ lịch đặt, phê duyệt hoặc tác vụ quan trọng.</span>
           </div>
         </div>
 
