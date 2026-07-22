@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface HrExcelTemplateVersionRepository extends HrRepository<HrExcelTemplateVersion, String> {
     Optional<HrExcelTemplateVersion> findByTemplateKeyAndVersionCode(String templateKey, String versionCode);
+
+    Optional<HrExcelTemplateVersion> findByFileSha256(String fileSha256);
 }

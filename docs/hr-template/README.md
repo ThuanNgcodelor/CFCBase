@@ -1,6 +1,6 @@
 # HR Excel — Phase 0.1
 
-Trạng thái: **hoàn thành ngày 2026-07-22**. Phase 1 chưa bắt đầu.
+Trạng thái baseline: **hoàn thành ngày 2026-07-22**. Phase 1 và lõi import Phase 2 đã hoàn thành ở source/test cô lập; chưa chạy production.
 
 ## Artifact đang dùng
 
@@ -59,6 +59,7 @@ Verifier kiểm tra deterministic transform, ZIP/OOXML relationships, sheet/rang
 
 ## Bước tiếp theo
 
-- Chỉ bắt đầu Phase 1 khi có yêu cầu riêng của người dùng.
-- Phase 2 sẽ preview/validate dữ liệu tại `T6-26!A4:AH333`; không insert trực tiếp khi upload.
+- Phase 2 preview/validate dữ liệu tại `T6-26!A4:AH333`; không insert trực tiếp khi upload.
+- Contract, retention và kết quả kiểm thử Phase 2: [HR_PHASE_2_BASELINE_IMPORT.md](../HR_PHASE_2_BASELINE_IMPORT.md).
+- Phase 3 sẽ cung cấp API bảo vệ bằng `ROLE_MANAGER`; Phase 4 mới cung cấp UI.
 - Blank template dành cho import/export sẽ là artifact riêng ở Phase 6, không dùng baseline có PII để phát tán.

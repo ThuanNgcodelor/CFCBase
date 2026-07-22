@@ -6,11 +6,11 @@ DATABASE_NAME="${BOOKINGBASE_DB_NAME:-booking_db}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_SNAPSHOT="${BOOKINGBASE_HR_LEGACY_SNAPSHOT:-}"
 EXPECTED_TABLE_COUNT=15
-EXPECTED_CHECK_COUNT=61
+EXPECTED_CHECK_COUNT=62
 EXPECTED_FOREIGN_KEY_COUNT=26
 EXPECTED_UNIQUE_COUNT=17
-EXPECTED_NAMED_INDEX_COUNT=28
-EXPECTED_CONTRACT_COLUMN_COUNT=22
+EXPECTED_NAMED_INDEX_COUNT=29
+EXPECTED_CONTRACT_COLUMN_COUNT=25
 
 log() {
   printf '[BookingBase HR Verify] %s\n' "$*"
@@ -77,9 +77,9 @@ all_hr_table_count="$(read_query "
 migration_count="$(read_query "
   SELECT COUNT(*)
   FROM flyway_schema_history
-  WHERE version = '1' AND success = 1 AND checksum IS NOT NULL;
+  WHERE version IN ('1', '2') AND success = 1 AND checksum IS NOT NULL;
 ")"
-[[ "$migration_count" == 1 ]] || fail "Khong tim thay Flyway migration V1 thanh cong."
+[[ "$migration_count" == 2 ]] || fail "Khong tim thay du Flyway migration V1/V2 thanh cong."
 
 user_fk_count="$(read_query "
   SELECT COUNT(*)
@@ -170,6 +170,9 @@ contract_column_count="$(read_query "
       'hr_monthly_roster_items.snapshot_payload',
       'hr_excel_import_batches.attempt_number',
       'hr_excel_import_batches.confirmation_key',
+      'hr_excel_import_batches.payload_retention_until',
+      'hr_excel_import_batches.payload_purged_at',
+      'hr_excel_import_batches.payload_purged_by_actor',
       'hr_excel_import_rows.raw_payload',
       'hr_excel_import_rows.normalized_payload',
       'hr_audit_events.actor_subject'
@@ -177,6 +180,17 @@ contract_column_count="$(read_query "
 ")"
 [[ "$contract_column_count" == "$EXPECTED_CONTRACT_COLUMN_COUNT" ]] \
   || fail "Core column contract drift: $contract_column_count/$EXPECTED_CONTRACT_COLUMN_COUNT."
+
+nullable_raw_payload_count="$(read_query "
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'hr_excel_import_rows'
+    AND column_name = 'raw_payload'
+    AND is_nullable = 'YES';
+")"
+[[ "$nullable_raw_payload_count" == 1 ]] \
+  || fail "V2 retention yeu cau hr_excel_import_rows.raw_payload cho phep NULL."
 
 if [[ -n "$LEGACY_SNAPSHOT" ]]; then
   [[ -r "$LEGACY_SNAPSHOT" ]] || fail "Khong doc duoc legacy snapshot: $LEGACY_SNAPSHOT"
@@ -191,4 +205,4 @@ if [[ -n "$LEGACY_SNAPSHOT" ]]; then
   trap - EXIT
 fi
 
-log "PASS: V1 dung table/column/constraint/index contract, khong co HR -> users va khong co migration loi."
+log "PASS: V1/V2 dung table/column/constraint/index/retention contract, khong co HR -> users va khong co migration loi."

@@ -19,6 +19,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -26,6 +27,7 @@ import java.time.ZoneOffset;
 @Getter
 @Setter
 @Entity
+@DynamicUpdate
 @Table(
         name = "hr_excel_import_rows",
         uniqueConstraints = @UniqueConstraint(name = "uk_hr_import_row", columnNames = {"batch_id", "sheet_name", "source_row_number"}),
@@ -58,7 +60,7 @@ public class HrExcelImportRow {
     @Column(name = "row_status", nullable = false, length = 20)
     private HrImportRowStatus rowStatus = HrImportRowStatus.PENDING;
 
-    @Column(name = "raw_payload", nullable = false, columnDefinition = "json")
+    @Column(name = "raw_payload", columnDefinition = "json")
     private String rawPayload;
 
     @Column(name = "normalized_payload", columnDefinition = "json")

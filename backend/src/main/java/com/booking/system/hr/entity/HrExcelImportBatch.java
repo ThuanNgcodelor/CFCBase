@@ -57,6 +57,15 @@ public class HrExcelImportBatch extends HrBaseEntity {
     @Column(name = "storage_key", length = 500)
     private String storageKey;
 
+    @Column(name = "payload_retention_until")
+    private LocalDateTime payloadRetentionUntil;
+
+    @Column(name = "payload_purged_at")
+    private LocalDateTime payloadPurgedAt;
+
+    @Column(name = "payload_purged_by_actor", length = 320)
+    private String payloadPurgedByActor;
+
     @Column(name = "source_sheet_name", nullable = false, length = 100)
     private String sourceSheetName;
 

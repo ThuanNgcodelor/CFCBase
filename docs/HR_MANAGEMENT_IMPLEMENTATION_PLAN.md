@@ -174,6 +174,8 @@ Trạng thái: **hoàn thành ngày 2026-07-22 ở source code; chưa chạy pro
 
 ### Phase 2 — Import baseline T6-26
 
+Trạng thái: **hoàn thành ngày 2026-07-22 ở source code và môi trường test cô lập; chưa chạy production**.
+
 - Dùng `baseline-values-2026.xlsx`, không dùng trực tiếp file gốc/archive.
 - Parse schema `T6-26!A4:AH333`; dữ liệu nhân sự ở hàng 5–333.
 - Upload -> parse -> preview -> validate -> confirm; không insert ngay khi upload.
@@ -181,6 +183,12 @@ Trạng thái: **hoàn thành ngày 2026-07-22 ở source code; chưa chạy pro
 - Không import literal `#N/A`; báo theo sheet/cell/field để Manager sửa hoặc xác nhận thiếu.
 - Idempotency theo checksum và khóa nghiệp vụ.
 - Lưu batch/result từng dòng để audit và rollback.
+- Confirm tạo Employee/hồ sơ/movement/snapshot T6 trong một transaction; xung đột rollback toàn bộ.
+- Rollback chỉ chạy khi chưa có dữ liệu downstream và luôn giữ batch/audit.
+- V2 purge raw/normalized staging PII sau deadline; batch preview bị bỏ quên cũng hết hạn.
+- Snapshot roster không sao chép CCCD/BHXH/BHYT/địa chỉ/lương.
+
+Chi tiết: [HR Phase 2 — Import baseline T6-26](HR_PHASE_2_BASELINE_IMPORT.md).
 
 ### Phase 3 — Security và API
 
@@ -231,7 +239,7 @@ Trạng thái: **hoàn thành ngày 2026-07-22 ở source code; chưa chạy pro
 - UAT đối chiếu DB, UI và Excel với dữ liệu thực.
 - Tài liệu vận hành, backup/restore và rollback.
 
-## 7. Gate sau Phase 1, trước Phase 2
+## 7. Gate sau Phase 2, trước Phase 3
 
 Phase 0.1 đã đạt:
 
@@ -252,11 +260,14 @@ Phase 1 đã đạt:
 - Hibernate update không được tạo/sửa/xóa `hr_*`; history repository không có generic delete.
 - Không deploy/restart server và không thay đổi database production trong lúc xây Phase 1.
 
-Trước Phase 2 vẫn phải:
+Phase 2 đã đạt:
 
-- Áp dụng V1 lên MySQL trong cửa sổ deploy riêng, có backup và chạy verifier.
-- Dùng baseline đã khóa; không seed 329 nhân sự hoặc 9 tăng/2 giảm bằng migration schema.
-- Thiết kế preview/validate/confirm và rollback batch trước khi viết dữ liệu chính thức.
+- Parser/contract baseline thật, preview/validate/confirm, idempotency và rollback đã pass.
+- V2 retention/purge PII đã pass trên H2 và MySQL 8 cô lập.
+- Không seed 329 nhân sự hoặc 9 tăng/2 giảm bằng migration schema.
+- Không deploy/restart server và không thay đổi database production.
+
+Trước Phase 3 vẫn phải giữ nguyên nguyên tắc: production chỉ migrate V1/V2 trong cửa sổ riêng sau backup; API phải lấy actor từ authenticated principal và enforce `ROLE_MANAGER`.
 
 ## 8. Nguyên tắc không được vi phạm
 

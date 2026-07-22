@@ -4,7 +4,7 @@ Cập nhật lần cuối: 2026-07-22
 
 ## Trạng Thái Production
 
-- Production hiện đang **tắt theo xác nhận của người dùng ngày 2026-07-22**; Phase 1 không bật lại backend, tunnel, MySQL hoặc Redis production.
+- Production hiện đang **tắt theo xác nhận của người dùng ngày 2026-07-22**; Phase 1/2 không bật lại backend, tunnel, MySQL hoặc Redis production.
 - Khi chạy, production dùng Spring Boot JAR tại port `8080` trên Fedora.
 - Frontend `dist` được đóng gói và serve trực tiếp từ Spring Boot JAR.
 - Cloudflare Tunnel `bookingbase` (`745ab8be-c55c-4e72-b985-d918206ca82f`) phục vụ:
@@ -172,19 +172,34 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Flyway V1 + second no-op + MySQL constraints + Hibernate update filter/ORM validate đã pass trên MySQL `8.0.46` cô lập; container tự xóa, không dùng production volume.
 - Tài liệu kỹ thuật/vận hành: `docs/HR_PHASE_1_SCHEMA.md`.
 
+## Phân Hệ HR — Phase 2 Import Baseline
+
+- Phase 2 hoàn thành ở source/test cô lập ngày `2026-07-22`; chưa migrate/import/restart production.
+- Parser OOXML khóa đúng SHA-256, ba sheet và `T6-26!A4:AH333`; giới hạn ZIP/XML an toàn, cấm formula/macro/external relationship.
+- Flow lõi: upload -> staging -> preview phân trang -> validate -> confirm có warning acknowledgement; upload và confirm đều idempotent.
+- Upload không tạo Employee. Confirm mới tạo nguyên tử 329 Employee độc lập, hồ sơ con, 329 movement `INITIAL_LOAD` và snapshot đóng T6-26.
+- `#N/A`/optional value lỗi thành `null + warning`; không tự bịa dữ liệu. Tuổi, tổng thu nhập, thâm niên chỉ đối chiếu; không lưu trùng.
+- `NGÀY LÀM` không bị suy diễn thành `leaveAccrualStartDate`; ngày phép chỉ lấy từ cột `AH` của snapshot.
+- Rollback tự động có guard downstream; giữ batch, issue, checksum và audit.
+- Flyway V2 bổ sung retention staging PII. Raw/normalized payload tự purge theo deadline mặc định 30 ngày; batch preview/validation bị bỏ quên cũng chuyển `FAILED` rồi purge.
+- Snapshot tháng không sao chép CCCD/CMND, BHXH/BHYT, địa chỉ, điện thoại hoặc lương/phụ cấp.
+- Baseline thật parse đủ 329 mã duy nhất, 0 lỗi chặn; 29 `#N/A` cột Z được cảnh báo và tổng 111 `birthPlaceCurrent` để null/cần review.
+- MySQL 8.0.46 container tạm đã confirm/rollback cả baseline thật 329 dòng và pass V1/V2, JSON contract, conflict atomicity, retention cùng read-only verifier; container không dùng volume và đã tự xóa.
+- Tài liệu: `docs/HR_PHASE_2_BASELINE_IMPORT.md`; script test: `scripts/hr-schema/verify-phase2-mysql.sh`.
+
 ## Verification Gần Nhất
 
 - Frontend `npm run lint`: pass, còn 1 warning cũ ở `CustomDateHeader.jsx`.
 - Frontend `npm run build`: pass; còn warning main chunk khoảng 773 KB.
-- Backend: 54 tests pass với ByteBuddy Java agent trên JDK hiện tại; 9 test Phase 1 mặc định kiểm tra migration, no-op, bảo toàn schema cũ, isolation, ownership và delete surface.
-- MySQL 8 integration: 1 test pass riêng, gồm Flyway/constraints/FK retry+RESTRICT/Hibernate update filter/ORM validate và production-style schema verifier.
+- Backend: 65 test methods pass trong các lượt kiểm tra hiện tại, gồm toàn bộ test cũ, Phase 1/2 và import baseline thật; 0 failure/error.
+- MySQL 8 integration: 5 test methods pass, gồm Flyway V1/V2, constraints/ORM, upload/preview/validate/confirm baseline thật, conflict atomicity, rollback, retention, JSON type và production-style schema verifier.
 - Production JAR build: pass.
 - Executable JAR Web Push smoke test: pass.
 - `git diff --check`: pass.
 
 ## Rủi Ro / Việc Còn Lại
 
-- Flyway đã có cho HR nhưng production đang tắt và chưa thực hiện one-time baseline/V1; `ddl-auto: update` chỉ còn quyền trên schema legacy qua filter, chờ phase capture schema cũ.
+- Flyway đã có V1/V2 cho HR nhưng production đang tắt và chưa thực hiện one-time baseline/migrate; `ddl-auto: update` chỉ còn quyền trên schema legacy qua filter.
 - Production secrets/default secrets cần được đưa hoàn toàn ra environment variables và rotate.
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
 - Cần test end-to-end PWA push trên nhiều thiết bị iOS/Android thật, đặc biệt notification click khi app đóng.
@@ -196,6 +211,9 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - `backend/src/main/java/com/booking/system/service/AuthService.java`
 - `backend/src/main/java/com/booking/system/service/AccountRegistrationService.java`
 - `backend/src/main/java/com/booking/system/service/EmailTemplateService.java`
+- `backend/src/main/java/com/booking/system/hr/importer/HrBaselineImportService.java`
+- `backend/src/main/java/com/booking/system/hr/importer/HrBaselineWorkbookParser.java`
+- `backend/src/main/resources/db/migration/V2__add_hr_import_payload_retention.sql`
 - `backend/src/main/java/com/booking/system/event/NotificationEventListener.java`
 - `frontend/src/api/authStorage.js`
 - `frontend/src/utils/notificationNavigation.js`
@@ -209,8 +227,8 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 
 ## Bước Tiếp Theo Gợi Ý
 
-1. Áp dụng Flyway baseline `0` + V1 trong cửa sổ deploy riêng, có backup, đối chiếu và chạy verifier; không bật chỉ để test production.
-2. Triển khai Phase 2 import baseline theo flow upload -> preview -> validate -> confirm, chưa seed dữ liệu trong schema migration.
+1. Triển khai Phase 3: `/api/v1/hr/**`, actor từ authenticated principal, `ROLE_MANAGER`, DTO/masking và test 401/403.
+2. Chỉ áp dụng Flyway baseline `0` + V1/V2 trong cửa sổ deploy riêng, có full backup, đối chiếu và chạy verifier; chưa import baseline chỉ vì migration đã sẵn sàng.
 3. Thêm integration test cho register -> Admin notification -> approve -> login.
 4. Test Web Push registration thật trên iOS/Android với Admin subscription active.
 5. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
