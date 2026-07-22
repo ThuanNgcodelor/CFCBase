@@ -1,66 +1,64 @@
-# HR Excel Template v1
+# HR Excel — Phase 0.1
 
-Thư mục này quản lý hợp đồng Phase 0 cho template nhân sự.
+Trạng thái: **hoàn thành ngày 2026-07-22**. Phase 1 chưa bắt đầu.
 
-## File
+## Artifact đang dùng
 
-- `template-v1-manifest.json`: checksum và invariants không chứa dữ liệu PII.
-- `PHASE_0_TEMPLATE_REPORT.md`: báo cáo tạo/kiểm tra template.
-- `Danh sách nhân sự 2026 - template-v1.xlsx`: file local chứa PII, đã được `.gitignore` và đặt quyền `600`.
+| Artifact | Vai trò | SHA-256 |
+| --- | --- | --- |
+| `docs/Danh sách nhân sự 2026.xlsx` | File gốc bất biến để đối chiếu | `3e88290c865b73870c6557ff06b8273fcff012f22225c094526d020c39359a60` |
+| `archive/baseline-values-2026-user-formatted-source.xlsx` | Bản người dùng đã format, khóa làm build input | `8c4d54aa757fc75a16a5ab15b031c1245668a0dfdc4a99afb42f6ea143fef195` |
+| `baseline-values-2026.xlsx` | Baseline sạch dùng cho Phase 2 | `d8f4ff9e292b68d1ec50b623159ef34095f7441d3487fa1e422140f0fdeaadbe` |
 
-File nguồn bất biến nằm tại `docs/Danh sách nhân sự 2026.xlsx` và cũng không được Git theo dõi.
+Ba workbook đều chứa dữ liệu nhân sự thật, chỉ lưu local, bị `.gitignore` và có quyền `600`. Không gửi các file này như blank template công khai.
 
-## Tạo template
+## Contract cuối Phase 0.1
 
-Từ thư mục gốc dự án:
+- Chỉ còn đúng ba sheet vật lý, đều hiển thị: `GIAM`, `TĂNG`, `T6-26`.
+- `T6-26` chỉ còn vùng `A1:AH333`; hàng nhân sự là `5:333`.
+- `AH4 = NGÀY NGHỈ PHÉP`; `AH5:AH333` để trống.
+- Có 329 nhân sự và 329 mã nhân viên duy nhất.
+- Không còn sheet ẩn, công thức ô, shared-string chứa dữ liệu sheet đã xóa, external link hoặc relationship mồ côi.
+- Giữ nguyên 29 giá trị `#N/A` legacy ở cột `Z` dưới dạng literal để Phase 2 báo là dữ liệu cần xác minh; không đổi thành chuỗi nghiệp vụ hợp lệ.
+- Giữ 18 comment tại `T6-26`, hai comment tại `GIAM`, toàn bộ `styles.xml`, định dạng ô, row height và column width của vùng được giữ.
+- Freeze pane: hàng 8 cho `GIAM`/`TĂNG`, ô `F5` cho `T6-26`.
+- `T6-26` có filter `A4:AH333`, print area `A1:AH333`, A4 landscape và fit một trang theo chiều ngang.
 
-```bash
-python3 scripts/hr-template/build-template-v1.py
+## Đối chiếu với file gốc
+
+- `T6-26`: 33 cột x 329 hàng = `10.857/10.857` ô khớp, `0` sai lệch.
+- `GIAM`: 130 ô có dữ liệu khớp, `0` sai lệch.
+- `TĂNG`: 119 ô có dữ liệu khớp, `0` sai lệch.
+- 18/18 comment `T6-26` khớp sau mapping cột.
+
+Mapping `T6-26`:
+
+```text
+Mới A:J  <- Gốc A:J
+Mới K:P  <- Gốc L:Q
+Mới Q:U  <- Gốc T:X
+Mới V:AG <- Gốc AA:AL
+Mới AH   <- Cột ngày nghỉ phép mới, để trống
 ```
 
-Script chỉ thực hiện:
+Các cột gốc `K`, `R`, `S`, `Y`, `Z` bị loại là cột helper/lookup/validation, không phải dữ liệu hồ sơ chính. Chi tiết đầy đủ ở [báo cáo Phase 0.1](PHASE_0_1_BASELINE_REPORT.md).
 
-1. Kiểm tra SHA-256 file nguồn.
-2. Sao chép toàn bộ OOXML package.
-3. Patch `xl/worksheets/sheet12.xml` tương ứng `T6-26`.
-4. Dùng cột `AM` có sẵn, không insert/shift cột.
-5. Ghi `AM4 = NGÀY NGHỈ PHÉP`.
-6. Tạo các ô trống có style tại `AM5:AM333`.
-7. Verify trước khi atomic move thành template chính thức.
-8. Sinh manifest aggregate không chứa PII.
+## Tạo lại và kiểm tra
 
-Nếu template đã tồn tại, lệnh chỉ chấp nhận file đúng hợp đồng; file khác sẽ bị từ chối và không bị ghi đè âm thầm.
-
-## Kiểm tra
+Chạy từ thư mục gốc dự án:
 
 ```bash
-python3 scripts/hr-template/verify-template-v1.py
-unzip -t "docs/hr-template/Danh sách nhân sự 2026 - template-v1.xlsx"
-sha256sum "docs/Danh sách nhân sự 2026.xlsx"
+python3 scripts/hr-template/build-baseline-values-2026.py
+python3 scripts/hr-template/verify-baseline-values-2026.py
+unzip -t "docs/hr-template/baseline-values-2026.xlsx"
 ```
 
-Verifier bắt buộc:
+Builder luôn đọc từ archive đã khóa checksum, không dùng file output hiện tại làm đầu vào. Output được ghi theo kiểu temp -> verify -> atomic replace và đặt quyền `600`.
 
-- Nguồn đúng checksum đã khóa.
-- 141 OOXML part và thứ tự part giữ nguyên.
-- Tất cả part ngoài `sheet12.xml` giữ nguyên nội dung giải nén.
-- `sheet12.xml` đúng chính xác kết quả patch allowlist.
-- Formula fingerprint, cached errors, comments, merges, filter, freeze pane, printer settings, VML và external link không đổi.
-- `AN101:CQ101` không bị dịch chuyển.
-- `AM5:AM333` còn trống và style tương ứng với `AL` theo từng dòng.
+Verifier kiểm tra deterministic transform, ZIP/OOXML relationships, sheet/range/formula/comment/style, permission, manifest và đối chiếu lại file gốc. Manifest chỉ chứa checksum/số đếm, không chứa tên, email hoặc giá trị hồ sơ nhân sự.
 
-## Bảo mật
+## Bước tiếp theo
 
-- Không đưa workbook vào `backend/src/main/resources` vì Maven sẽ đóng gói nó vào JAR.
-- Không commit file `.xlsx` có dữ liệu nhân sự.
-- Không gửi workbook lên dịch vụ online để kiểm tra/convert.
-- Chỉ manifest, tài liệu và script verifier phù hợp để lưu trong source control.
-
-## Tạo phiên bản mới
-
-Không sửa template v1 tại chỗ. Khi nguồn đã được duyệt thay đổi, cần:
-
-1. Giữ lại checksum/manifest v1.
-2. Audit lại source mới.
-3. Tạo filename và contract version mới.
-4. Chỉ chuyển active version sau khi verifier và UAT đều pass.
+- Chỉ bắt đầu Phase 1 khi có yêu cầu riêng của người dùng.
+- Phase 2 sẽ preview/validate dữ liệu tại `T6-26!A4:AH333`; không insert trực tiếp khi upload.
+- Blank template dành cho import/export sẽ là artifact riêng ở Phase 6, không dùng baseline có PII để phát tán.

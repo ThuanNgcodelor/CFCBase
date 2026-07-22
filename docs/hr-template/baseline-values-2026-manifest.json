@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "phase": "0.1",
+  "status": "COMPLETE",
+  "artifacts": {
+    "original": {
+      "path": "docs/Danh sách nhân sự 2026.xlsx",
+      "sha256": "3e88290c865b73870c6557ff06b8273fcff012f22225c094526d020c39359a60",
+      "size_bytes": 1619832
+    },
+    "formatted_source_archive": {
+      "path": "docs/hr-template/archive/baseline-values-2026-user-formatted-source.xlsx",
+      "sha256": "8c4d54aa757fc75a16a5ab15b031c1245668a0dfdc4a99afb42f6ea143fef195",
+      "size_bytes": 810609
+    },
+    "baseline": {
+      "path": "docs/hr-template/baseline-values-2026.xlsx",
+      "sha256": "d8f4ff9e292b68d1ec50b623159ef34095f7441d3487fa1e422140f0fdeaadbe",
+      "size_bytes": 118239
+    }
+  },
+  "contract": {
+    "sheet_count": 3,
+    "visible_sheets": [
+      "GIAM",
+      "TĂNG",
+      "T6-26"
+    ],
+    "hidden_sheet_count": 0,
+    "formula_count": 0,
+    "shared_strings_part": false,
+    "ooxml_part_count": 17,
+    "T6-26": {
+      "range": "A1:AH333",
+      "employee_rows": 329,
+      "unique_employee_codes": 329,
+      "leave_column": "AH",
+      "leave_values_nonempty": 0,
+      "literal_na_errors": 29,
+      "comments": 18,
+      "freeze_pane": "F5",
+      "print_area": "A1:AH333"
+    },
+    "comments": {
+      "GIAM": 2,
+      "TĂNG": 0,
+      "T6-26": 18
+    },
+    "permissions": "0600"
+  },
+  "comparison_to_original": {
+    "T6-26": {
+      "employee_rows": 329,
+      "mapped_columns": 33,
+      "cells_checked": 10857,
+      "mismatches": 0,
+      "comments_checked": 18,
+      "comment_mismatches": 0
+    },
+    "GIAM": {
+      "nonempty_cells_checked": 130,
+      "mismatches": 0
+    },
+    "TĂNG": {
+      "nonempty_cells_checked": 119,
+      "mismatches": 0
+    }
+  },
+  "comparison_to_formatted_source": {
+    "GIAM": {
+      "retained_cells": 990,
+      "cell_or_style_mismatches": 0
+    },
+    "TĂNG": {
+      "retained_cells": 2353,
+      "cell_or_style_mismatches": 0
+    },
+    "T6-26": {
+      "retained_cells": 11314,
+      "cell_or_style_mismatches": 0
+    }
+  },
+  "cleanup": {
+    "removed_rows": 667,
+    "removed_cells": 3438,
+    "flattened_pseudo_formulas": 29,
+    "inline_string_cells": 7130,
+    "removed_physical_sheets": 25,
+    "final_ooxml_parts": 17
+  },
+  "privacy": {
+    "contains_personal_employee_data": true,
+    "git_ignored": true,
+    "shareable_blank_template": false,
+    "manifest_contains_employee_values": false
+  }
+}

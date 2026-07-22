@@ -1,10 +1,11 @@
 # Trạng Thái Công Việc Hiện Tại
 
-Cập nhật lần cuối: 2026-07-21
+Cập nhật lần cuối: 2026-07-22
 
 ## Trạng Thái Production
 
-- Production đang chạy trên Fedora bằng Spring Boot JAR tại port `8080`.
+- Production hiện đang **tắt theo xác nhận của người dùng ngày 2026-07-22**; Phase 1 không bật lại backend, tunnel, MySQL hoặc Redis production.
+- Khi chạy, production dùng Spring Boot JAR tại port `8080` trên Fedora.
 - Frontend `dist` được đóng gói và serve trực tiếp từ Spring Boot JAR.
 - Cloudflare Tunnel `bookingbase` (`745ab8be-c55c-4e72-b985-d918206ca82f`) phục vụ:
   - `https://cfcbooking.io.vn`
@@ -13,8 +14,8 @@ Cập nhật lần cuối: 2026-07-21
 - Backend và tunnel chạy dưới transient user systemd units:
   - `bookingbase-backend.service`
   - `bookingbase-tunnel.service`
-- MySQL và Redis chạy bằng Docker, dữ liệu dùng named volumes.
-- Lần verify gần nhất: local HTTP `200`, public HTTP `200`, backend/tunnel đều `active`.
+- Khi chạy, MySQL và Redis dùng Docker named volumes để giữ dữ liệu.
+- Lần verify gần nhất trước khi người dùng tắt production: local HTTP `200`, public HTTP `200`, backend/tunnel đều `active`.
 
 ## Script Deploy
 
@@ -135,31 +136,54 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Restore có xác nhận `RESTORE`, tạo backup khẩn cấp trước rồi import toàn bộ database bằng root credential bên trong container.
 - Hướng dẫn vận hành: `docs/DATABASE_BACKUP.md`.
 
-## Phân Hệ HR — Phase 0 Template
+## Phân Hệ HR — Phase 0.1 Baseline
 
-- Đã chốt kiến trúc `Employee` độc lập hoàn toàn với `User`; không có `user_id` hoặc đồng bộ ngầm.
-- Phòng ban, chức vụ và điều kiện lao động HR sẽ dùng bảng riêng; chỉ role `MANAGER` được truy cập module HR.
-- `T6-26` trong `docs/Danh sách nhân sự 2026.xlsx` là canonical sheet.
-- Đã khóa SHA-256 source: `3e88290c865b73870c6557ff06b8273fcff012f22225c094526d020c39359a60`.
-- Đã tạo template v1 local-only, dùng cột trống `AM` cho `NGÀY NGHỈ PHÉP` và không insert/shift `AN:CQ`.
-- Builder/verifier chỉ patch `sheet12.xml`; mọi OOXML part khác, formula fingerprint, comment, merge, cached errors, print settings và external link được giữ nguyên.
-- Workbook có PII được ignore khỏi Git và đặt quyền `600`; không đóng gói vào backend JAR.
-- Kế hoạch: `docs/HR_MANAGEMENT_IMPLEMENTATION_PLAN.md`.
-- Báo cáo/command: `docs/hr-template/PHASE_0_TEMPLATE_REPORT.md`.
-- Phase 0 không thay đổi backend, frontend, database hoặc runtime production.
+- Kiến trúc đã chốt: `Employee` độc lập hoàn toàn với `User`; danh mục HR dùng bảng riêng; chỉ role `MANAGER` truy cập module.
+- File gốc bất biến `docs/Danh sách nhân sự 2026.xlsx`: SHA-256 `3e88290c865b73870c6557ff06b8273fcff012f22225c094526d020c39359a60`.
+- Archive byte-identical của bản người dùng format: SHA-256 `8c4d54aa757fc75a16a5ab15b031c1245668a0dfdc4a99afb42f6ea143fef195`.
+- Baseline cuối `docs/hr-template/baseline-values-2026.xlsx`: SHA-256 `d8f4ff9e292b68d1ec50b623159ef34095f7441d3487fa1e422140f0fdeaadbe`, 118.239 byte, quyền `600`.
+- Final chỉ có `GIAM`, `TĂNG`, `T6-26`: ba sheet visible, 0 hidden, 0 formula, 17 OOXML parts.
+- `T6-26` đúng vùng `A1:AH333`; 329 nhân sự/329 mã duy nhất; `AH` là cột `NGÀY NGHỈ PHÉP` và 329 giá trị đang trống.
+- Đối chiếu file gốc: `T6-26` 10.857/10.857 ô, `GIAM` 130 ô, `TĂNG` 119 ô; tất cả 0 mismatch. 18/18 comment T6 khớp mapping.
+- Đã xóa 25 sheet ẩn, 667 hàng style rỗng, vùng helper ngoài `AH`, shared strings/drawing/relationship mồ côi. Giữ nguyên `styles.xml` và snapshot value/type/style của vùng được giữ.
+- Giữ 29 literal `#N/A` cần xác minh nhưng đã bỏ pseudo-formula; Phase 2 không được insert chúng như giá trị nghiệp vụ.
+- Deterministic builder/verifier, manifest, ZIP integrity và LibreOffice headless open/PDF smoke đều `PASS`.
+- Workbook chứa PII bị ignore khỏi Git; manifest chỉ chứa checksum/số đếm.
+- Kế hoạch: `docs/HR_MANAGEMENT_IMPLEMENTATION_PLAN.md`; báo cáo: `docs/hr-template/PHASE_0_1_BASELINE_REPORT.md`.
+- Phase 0.1 hoàn thành ngày `2026-07-22`; không thay đổi runtime production.
+
+## Phân Hệ HR — Phase 1 Schema
+
+- Phase 1 hoàn thành ở source code ngày `2026-07-22`; chỉ build artifact để kiểm tra, chưa chạy migration/restart/deploy production và chưa thay đổi database production.
+- Đã thêm Flyway với cấu hình an toàn trong `backend/src/main/resources/application.properties`.
+- `baseline-on-migrate` mặc định `false`; database legacy chỉ baseline version `0` khi deploy operator chủ động bật biến môi trường sau backup.
+- Migration V1 chỉ tạo 15 bảng `hr_*`; không alter/drop/delete/truncate bảng BookingBase cũ.
+- `HrEmployee` tách hoàn toàn khỏi `User`: không `user_id`, không FK sang `users`, không dùng danh mục Department cũ.
+- Domain có hồ sơ chính, công việc, định danh, bảo hiểm, liên hệ, danh mục HR, biến động, snapshot tháng, import staging/template và audit.
+- Tuổi, thâm niên và tổng thu nhập là derived fields; không lưu trùng. Có `leave_accrual_start_date` và monthly `leave_days` cho phase phép sau này.
+- Baseline có BHXH/CMND trùng nên các số giấy tờ chỉ được index, chưa ép unique; raw/normalized staging bảo toàn dữ liệu trước validate.
+- Status dùng `VARCHAR + CHECK`, không dùng MySQL ENUM.
+- Hibernate schema filter chặn `ddl-auto` create/update/drop/truncate mọi bảng `hr_*`; Flyway là owner duy nhất của schema HR.
+- Repository lịch sử không expose generic delete; roster/import evidence dùng FK `RESTRICT`.
+- Import cùng file/sheet có `attempt_number` để retry; confirm vẫn idempotent bằng confirmation key.
+- Audit callback HR dùng UTC; status lifecycle quan trọng được khóa bằng CHECK.
+- Có script chụp row-count legacy, verifier read-only và quy trình first-deploy tự final-backup sau khi production dừng, chỉ mở tunnel khi verify pass.
+- Flyway V1 + second no-op + MySQL constraints + Hibernate update filter/ORM validate đã pass trên MySQL `8.0.46` cô lập; container tự xóa, không dùng production volume.
+- Tài liệu kỹ thuật/vận hành: `docs/HR_PHASE_1_SCHEMA.md`.
 
 ## Verification Gần Nhất
 
 - Frontend `npm run lint`: pass, còn 1 warning cũ ở `CustomDateHeader.jsx`.
 - Frontend `npm run build`: pass; còn warning main chunk khoảng 773 KB.
-- Backend: 45 tests pass với ByteBuddy Java agent trên JDK hiện tại.
+- Backend: 54 tests pass với ByteBuddy Java agent trên JDK hiện tại; 9 test Phase 1 mặc định kiểm tra migration, no-op, bảo toàn schema cũ, isolation, ownership và delete surface.
+- MySQL 8 integration: 1 test pass riêng, gồm Flyway/constraints/FK retry+RESTRICT/Hibernate update filter/ORM validate và production-style schema verifier.
 - Production JAR build: pass.
 - Executable JAR Web Push smoke test: pass.
 - `git diff --check`: pass.
 
 ## Rủi Ro / Việc Còn Lại
 
-- Chưa có migration framework chính thức; hiện vẫn dựa trên `ddl-auto: update` và SQL deploy thủ công cho thay đổi enum/index quan trọng.
+- Flyway đã có cho HR nhưng production đang tắt và chưa thực hiện one-time baseline/V1; `ddl-auto: update` chỉ còn quyền trên schema legacy qua filter, chờ phase capture schema cũ.
 - Production secrets/default secrets cần được đưa hoàn toàn ra environment variables và rotate.
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
 - Cần test end-to-end PWA push trên nhiều thiết bị iOS/Android thật, đặc biệt notification click khi app đóng.
@@ -184,8 +208,9 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 
 ## Bước Tiếp Theo Gợi Ý
 
-1. Thêm migration framework (Flyway/Liquibase) trước các thay đổi schema tiếp theo.
-2. Thêm integration test cho register -> Admin notification -> approve -> login.
-3. Test Web Push registration thật trên iOS/Android với Admin subscription active.
-4. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
-5. Tách route frontend để giảm main bundle.
+1. Áp dụng Flyway baseline `0` + V1 trong cửa sổ deploy riêng, có backup, đối chiếu và chạy verifier; không bật chỉ để test production.
+2. Triển khai Phase 2 import baseline theo flow upload -> preview -> validate -> confirm, chưa seed dữ liệu trong schema migration.
+3. Thêm integration test cho register -> Admin notification -> approve -> login.
+4. Test Web Push registration thật trên iOS/Android với Admin subscription active.
+5. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
+6. Tách route frontend để giảm main bundle.
