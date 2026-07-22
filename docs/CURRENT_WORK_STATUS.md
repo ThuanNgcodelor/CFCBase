@@ -168,6 +168,7 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Import cùng file/sheet có `attempt_number` để retry; confirm vẫn idempotent bằng confirmation key.
 - Audit callback HR dùng UTC; status lifecycle quan trọng được khóa bằng CHECK.
 - Có script chụp row-count legacy, verifier read-only và quy trình first-deploy tự final-backup sau khi production dừng, chỉ mở tunnel khi verify pass.
+- First deploy dùng cờ one-time `--initialize-hr-schema`; run bình thường sẽ báo lỗi ngắn, rõ ràng nếu database legacy chưa có Flyway history thay vì để backend in stack trace dài.
 - Flyway V1 + second no-op + MySQL constraints + Hibernate update filter/ORM validate đã pass trên MySQL `8.0.46` cô lập; container tự xóa, không dùng production volume.
 - Tài liệu kỹ thuật/vận hành: `docs/HR_PHASE_1_SCHEMA.md`.
 

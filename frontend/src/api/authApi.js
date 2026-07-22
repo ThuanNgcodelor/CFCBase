@@ -1,14 +1,32 @@
 import { baseApi, refreshAccessToken } from './baseApi';
 import Cookies from 'js-cookie';
+import { jwtDecode } from 'jwt-decode';
 import { pushApi } from './pushApi';
 import { clearAppBadge } from '../utils/appBadge';
-import { clearAuthCookies, isInvalidRefreshError, setAuthCookies } from './authStorage';
+import { clearAuthCookies, getStoredUser, isInvalidRefreshError, setAuthCookies } from './authStorage';
+
+let currentUserCache = null;
+
+function getAccessTokenRole() {
+  const accessToken = Cookies.get('accessToken');
+  if (!accessToken) return null;
+
+  try {
+    const payload = jwtDecode(accessToken);
+    return typeof payload.role === 'string' ? payload.role : null;
+  } catch {
+    return null;
+  }
+}
+
 export const authApi = {
   setAuthData: (data) => {
+    currentUserCache = data?.user || null;
     setAuthCookies(data);
   },
 
   updateUser: (user) => {
+    currentUserCache = user || null;
     setAuthCookies({ user });
   },
 
@@ -68,13 +86,27 @@ export const authApi = {
       }
     }
     clearAuthCookies();
+    currentUserCache = null;
     await clearAppBadge();
   },
 
   getUser: () => {
-    const user = Cookies.get('user');
-    return user ? JSON.parse(user) : null;
-  }
+    const storedUser = getStoredUser();
+    if (currentUserCache && storedUser) {
+      // Giữ dữ liệu đầy đủ (đặc biệt avatar) trong bộ nhớ, nhưng ưu tiên
+      // các field quyền/profile mới nhất được cập nhật khi refresh token.
+      return { ...currentUserCache, ...storedUser };
+    }
+
+    const user = currentUserCache || storedUser;
+    if (user) return user;
+
+    const tokenRole = getAccessTokenRole();
+    return tokenRole ? { role: tokenRole } : null;
+  },
+
+  // Chỉ dùng để quyết định UI route. Backend vẫn là nơi enforce quyền thật.
+  getRole: () => getStoredUser()?.role || currentUserCache?.role || getAccessTokenRole() || null,
 };
 
 async function unsubscribeCurrentPushSubscription() {

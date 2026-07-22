@@ -12,6 +12,19 @@ TARGET_DIR="$BACKEND_DIR/target"
 TARGET_JAR="$TARGET_DIR/$JAR_NAME"
 PREVIOUS_JAR="$TARGET_JAR.previous"
 BUILD_ONLY=false
+RUN_ARGUMENTS=()
+
+usage() {
+  cat <<'EOF'
+Cach dung:
+  ./deployserver/linux/build-prod.sh
+  ./deployserver/linux/build-prod.sh --build-only
+  ./deployserver/linux/build-prod.sh --initialize-hr-schema
+
+--initialize-hr-schema  Build, sau do khoi tao Flyway cho database legacy theo
+                        quy trinh backup -> baseline 0 -> HR V1 -> verify.
+EOF
+}
 
 log() {
   printf '[BookingBase Build] %s\n' "$*"
@@ -22,11 +35,25 @@ fail() {
   exit 1
 }
 
-if [[ "${1:-}" == "--build-only" ]]; then
-  BUILD_ONLY=true
-elif [[ $# -gt 0 ]]; then
-  fail "Tham so khong hop le. Chi ho tro: --build-only"
-fi
+case "${1:-}" in
+  "")
+    ;;
+  --build-only)
+    BUILD_ONLY=true
+    ;;
+  --initialize-hr-schema)
+    RUN_ARGUMENTS=(--initialize-hr-schema)
+    ;;
+  --help|-h)
+    usage
+    exit 0
+    ;;
+  *)
+    usage >&2
+    fail "Tham so khong hop le: ${1:-}."
+    ;;
+esac
+(( $# <= 1 )) || fail "Chi duoc truyen mot tham so."
 
 for command_name in node npm java; do
   command -v "$command_name" >/dev/null 2>&1 || fail "Khong tim thay lenh '$command_name'."
@@ -73,4 +100,4 @@ if [[ "$BUILD_ONLY" == true ]]; then
   log "Build-only hoan tat; chua khoi dong backend hoac tunnel."
   exit 0
 fi
-exec "$SCRIPT_DIR/run.sh"
+exec "$SCRIPT_DIR/run.sh" "${RUN_ARGUMENTS[@]}"

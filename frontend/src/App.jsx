@@ -76,19 +76,17 @@ const ProtectedRoute = ({ children }) => {
 
 // Component bảo vệ Route chỉ dành cho Admin hoặc Manager (Duyệt yêu cầu)
 const ApproverRoute = ({ children }) => {
-  const userJson = Cookies.get('user');
-  const user = userJson ? JSON.parse(userJson) : {};
-  if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+  const role = authApi.getRole();
+  if (role !== 'ADMIN' && role !== 'MANAGER') {
     return <Navigate to="/" replace />;
   }
   return children;
 };
 
-// Component bảo vệ Route chỉ dành riêng cho Admin (Quản lý tài nguyên)
+// Component bảo vệ Route chỉ dành riêng cho Admin.
 const AdminRoute = ({ children }) => {
-  const userJson = Cookies.get('user');
-  const user = userJson ? JSON.parse(userJson) : {};
-  if (user.role !== 'ADMIN') {
+  const role = authApi.getRole();
+  if (role !== 'ADMIN') {
     return <Navigate to="/" replace />;
   }
   return children;

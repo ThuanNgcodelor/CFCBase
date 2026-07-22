@@ -118,13 +118,22 @@ Flyway mặc định để `baseline-on-migrate=false` nhằm tránh vô tình g
 ### Quy trình deploy có maintenance window
 
 1. Chỉ thực hiện trong cửa sổ maintenance đã thông báo; production phải được dừng trước final backup/migration.
-2. Thêm tạm vào file local đã bị Git ignore `deployserver/linux/.env`:
+2. Chạy bằng cờ one-time. Cờ này chỉ có hiệu lực trong đúng tiến trình hiện tại, không được lưu lại vào `.env`:
 
-```dotenv
-FLYWAY_BASELINE_ON_MIGRATE=true
+```bash
+cd /home/david-nguyen/Works/BookingBase
+./deployserver/linux/build-prod.sh --initialize-hr-schema
 ```
 
-3. Chạy build/deploy khi được chấp thuận. `run.sh` tự động thực hiện đúng thứ tự:
+Nếu JAR đã build xong và chỉ lần start trước bị Flyway chặn, không cần build lại:
+
+```bash
+./deployserver/linux/run.sh --initialize-hr-schema
+```
+
+Có thể dùng biến `FLYWAY_BASELINE_ON_MIGRATE=true` trong `.env` cho automation cũ, nhưng không nên lưu `true` lâu dài.
+
+3. `run.sh` tự động thực hiện đúng thứ tự:
    - dừng tunnel và backend cũ;
    - tạo **final full backup sau khi write traffic đã dừng**;
    - chụp row-count tất cả bảng legacy, không lưu nội dung PII;
@@ -132,11 +141,6 @@ FLYWAY_BASELINE_ON_MIGRATE=true
    - kiểm tra đúng 15 bảng, column/constraint/index contract, không có HR -> User;
    - đối chiếu row-count legacy trước/sau;
    - chỉ mở lại Cloudflare Tunnel khi toàn bộ verifier pass.
-
-```bash
-cd /home/david-nguyen/Works/BookingBase
-./deployserver/linux/build-prod.sh
-```
 
 Nếu verifier fail, script dừng backend mới và không mở tunnel.
 
@@ -152,7 +156,7 @@ Nếu verifier fail, script dừng backend mới và không mở tunnel.
 ./deployserver/linux/verify-hr-phase1.sh
 ```
 
-6. Xóa dòng `FLYWAY_BASELINE_ON_MIGRATE=true` khỏi `.env`. Các lần chạy sau dùng history hiện có và V1 sẽ là no-op.
+6. Các lần chạy sau dùng launcher/`build-prod.sh` bình thường. Flyway đọc history hiện có và V1 sẽ là no-op.
 
 Không chạy quy trình trên production chỉ để test. Phase 1 đã pass cả H2 và MySQL 8 cô lập; production chỉ được áp dụng trong maintenance window riêng.
 
