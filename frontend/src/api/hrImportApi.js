@@ -19,6 +19,26 @@ export const hrImportApi = {
     return unwrapApiData(response);
   },
 
+  previewWorkforceSnapshot: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await baseApi.post('/hr/imports/workforce-snapshot/preview', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return unwrapApiData(response);
+  },
+
+  confirmWorkforceSnapshot: async (file, { confirmationKey, expectedActiveEmployees = 339 }) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('confirmationKey', confirmationKey);
+    form.append('expectedActiveEmployees', String(expectedActiveEmployees));
+    const response = await baseApi.post('/hr/imports/workforce-snapshot/confirm', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return unwrapApiData(response);
+  },
+
   getPreview: async (batchId, page = 0, size = 20, options = {}) => {
     const response = await baseApi.get(`/hr/imports/${batchId}/preview`, {
       params: { page, size: Math.min(Number(size) || 20, 20) },

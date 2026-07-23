@@ -1,6 +1,7 @@
 package com.booking.system.security;
 
 import com.booking.system.entity.User;
+import com.booking.system.enums.UserStatus;
 import com.booking.system.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -36,12 +37,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 User user = userRepository.findByEmail(email)
                         .orElseThrow(() -> new RuntimeException("User not found"));
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        user, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
-                
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                // A token may remain cryptographically valid after an account is
+                // disabled. Never rebuild an authenticated principal for such an
+                // account; protected endpoints must treat that request as anonymous.
+                if (user.getStatus() == UserStatus.ACTIVE) {
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            user, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
         } catch (Exception e) {
             System.err.println("Cannot set user authentication: " + e.getMessage());

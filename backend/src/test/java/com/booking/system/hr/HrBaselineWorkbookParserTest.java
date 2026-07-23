@@ -50,6 +50,19 @@ class HrBaselineWorkbookParserTest {
         );
     }
 
+    @Test
+    void workforceBaselineContains339EmployeesInVisibleJuneSheet() {
+        byte[] bundle = HrBaselineWorkbookFixture.workforceSnapshotWorkbook();
+
+        var baseline = parser.parseWorkforceSnapshot(bundle);
+
+        assertThat(baseline.rows()).hasSize(339);
+        assertThat(baseline.rows().stream()
+                .map(row -> row.normalizedData().employeeCode()))
+                .contains("U012")
+                .doesNotContain("T001", "T002");
+    }
+
     private void assertCode(byte[] workbook, String code) {
         assertThatThrownBy(() -> parser.parse(workbook))
                 .isInstanceOf(HrBaselineImportException.class)

@@ -55,6 +55,16 @@ public class HrActivityQueryService {
         return HrPageResponse.from(rosterRepository.findAll(pageable), HrRosterResponse::from);
     }
 
+    public HrRosterResponse roster(String rosterId) {
+        if (rosterId == null || rosterId.isBlank()) {
+            throw HrApiException.notFound("HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng.");
+        }
+        return rosterRepository.findById(rosterId)
+                .map(HrRosterResponse::from)
+                .orElseThrow(() -> HrApiException.notFound(
+                        "HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng."));
+    }
+
     public HrPageResponse<HrRosterItemResponse> rosterItems(String rosterId, int page, int size) {
         if (rosterId == null || rosterId.isBlank() || !rosterRepository.existsById(rosterId)) {
             throw HrApiException.notFound("HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng.");

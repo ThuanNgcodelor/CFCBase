@@ -7,7 +7,7 @@ import { HrEmpty, HrError, HrPageHeader, HrPagination, HrStatusBadge } from '../
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { normalizePage } from '../../api/hrApiUtils';
-import { apiErrorMessage, formatHrDate, nonEmpty } from '../../utils/hr';
+import { apiErrorMessage, employmentStatusLabel, formatHrDate, nonEmpty } from '../../utils/hr';
 
 const INITIAL_FILTERS = {
   keyword: '',
@@ -17,10 +17,6 @@ const INITIAL_FILTERS = {
   workingConditionId: '',
   sort: 'employeeCode,asc',
 };
-
-function catalogItems(data) {
-  return normalizePage(data).content;
-}
 
 function EmployeeAvatar({ employee }) {
   return (
@@ -40,24 +36,29 @@ export default function HrEmployees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogReloadKey, setCatalogReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    setCatalogError('');
     Promise.all([
-      hrCatalogApi.getCatalog('departments', { page: 0, size: 20, status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
-      hrCatalogApi.getCatalog('positions', { page: 0, size: 20, status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
-      hrCatalogApi.getCatalog('working-conditions', { page: 0, size: 20, status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
+      hrCatalogApi.getAllCatalogItems('departments', { status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
+      hrCatalogApi.getAllCatalogItems('positions', { status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
+      hrCatalogApi.getAllCatalogItems('working-conditions', { status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
     ]).then(([departments, positions, conditions]) => {
       setCatalogs({
-        departments: catalogItems(departments),
-        positions: catalogItems(positions),
-        conditions: catalogItems(conditions),
+        departments,
+        positions,
+        conditions,
       });
-    }).catch(() => {
-      // Bộ lọc danh mục là hỗ trợ; list nhân sự vẫn hoạt động nếu một danh mục lỗi.
+    }).catch((requestError) => {
+      if (!controller.signal.aborted) {
+        setCatalogError(apiErrorMessage(requestError, 'Không thể tải đầy đủ danh mục cho bộ lọc. Danh sách nhân sự vẫn có thể tra cứu bằng mã hoặc họ tên.'));
+      }
     });
     return () => controller.abort();
-  }, []);
+  }, [catalogReloadKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -105,7 +106,7 @@ export default function HrEmployees() {
       <SEOHead title="CFC Base | Danh sách nhân sự" url="https://cfcbooking.io.vn/manager/hr/employees" />
       <HrPageHeader
         title="Danh sách nhân sự"
-        description="Dữ liệu được tải theo từng trang; danh sách không hiển thị số định danh, bảo hiểm, địa chỉ hoặc lương."
+        description="Tra cứu hồ sơ theo từng trang. Thông tin định danh, bảo hiểm, địa chỉ và lương không xuất hiện trong danh sách."
         actions={<Button type="button" onClick={() => navigate('/manager/hr/employees/new')}><Plus className="mr-1.5 h-4 w-4" />Thêm hồ sơ nháp</Button>}
       />
 
@@ -122,9 +123,9 @@ export default function HrEmployees() {
           </label>
           <select value={draftFilters.status} onChange={(event) => updateDraft('status', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả trạng thái</option>
-            <option value="DRAFT">Bản nháp</option>
+            <option value="DRAFT">Hồ sơ nháp</option>
             <option value="ACTIVE">Đang làm việc</option>
-            <option value="INACTIVE">Ngừng hoạt động</option>
+            <option value="INACTIVE">Đã nghỉ việc</option>
           </select>
           <select value={draftFilters.departmentId} onChange={(event) => updateDraft('departmentId', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả phòng ban</option>
@@ -153,6 +154,12 @@ export default function HrEmployees() {
           </div>
         </div>
       </form>
+
+      {catalogError && (
+        <div className="mb-4">
+          <HrError message={catalogError} onRetry={() => setCatalogReloadKey((value) => value + 1)} />
+        </div>
+      )}
 
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
 
@@ -186,7 +193,7 @@ export default function HrEmployees() {
                   <div className="mt-1 text-xs text-gray-500">{nonEmpty(employee.position?.name || employee.positionName)}</div>
                 </td>
                 <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">{formatHrDate(employee.hireDate || employee.employment?.hireDate)}</td>
-                <td className="px-5 py-4"><HrStatusBadge status={employee.employmentStatus || employee.status} /></td>
+                <td className="px-5 py-4"><HrStatusBadge status={employee.employmentStatus || employee.status} label={employmentStatusLabel(employee.employmentStatus || employee.status)} /></td>
                 <td className="px-5 py-4 text-right">
                   <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/manager/hr/employees/${employee.id}`)}>
                     <Eye className="mr-1.5 h-4 w-4" />Chi tiết
@@ -214,7 +221,7 @@ export default function HrEmployees() {
                   <div className="mt-0.5 text-xs text-gray-500">{employee.employeeCode}</div>
                 </div>
               </div>
-              <HrStatusBadge status={employee.employmentStatus || employee.status} />
+              <HrStatusBadge status={employee.employmentStatus || employee.status} label={employmentStatusLabel(employee.employmentStatus || employee.status)} />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-xs">
               <div><span className="text-gray-400">Phòng ban</span><p className="mt-1 font-medium text-gray-700">{nonEmpty(employee.department?.name || employee.departmentName)}</p></div>

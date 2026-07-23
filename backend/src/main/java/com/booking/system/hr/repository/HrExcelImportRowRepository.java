@@ -10,4 +10,8 @@ public interface HrExcelImportRowRepository extends HrRepository<HrExcelImportRo
     Page<HrExcelImportRow> findByBatch_IdOrderByRowNumber(String batchId, Pageable pageable);
 
     List<HrExcelImportRow> findAllByBatch_IdOrderByRowNumber(String batchId);
+
+    long countByEmployee_Id(String employeeId);
+
+    long countByMovement_Id(String movementId);
 }

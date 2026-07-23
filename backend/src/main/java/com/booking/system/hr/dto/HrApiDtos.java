@@ -119,12 +119,14 @@ public final class HrApiDtos {
             LocalDate terminationDate,
             String contractTypeLabel,
             String contractNumber,
+            BigDecimal baseSalary,
+            BigDecimal allowance,
             boolean hasCompensationData,
             String jobDescription
     ) {
     }
 
-    /** Identity numbers are masked and never returned verbatim by Phase 3. */
+    /** HR detail is Manager-only, so identity numbers are returned for review/edit. */
     public record IdentityDetails(
             String legacyIdentityNumber,
             String citizenIdentityNumber,
@@ -134,7 +136,7 @@ public final class HrApiDtos {
     ) {
     }
 
-    /** Insurance identifiers are masked and never returned verbatim by Phase 3. */
+    /** HR detail is Manager-only, so insurance identifiers are returned for review/edit. */
     public record InsuranceDetails(
             String socialInsuranceNumber,
             String healthInsuranceNumber,
@@ -144,7 +146,7 @@ public final class HrApiDtos {
     ) {
     }
 
-    /** Contact values are masked; addresses only reveal whether a value exists. */
+    /** HR detail is Manager-only, so contact values are returned for review/edit. */
     public record ContactDetails(
             String permanentAddress,
             String currentAddress,

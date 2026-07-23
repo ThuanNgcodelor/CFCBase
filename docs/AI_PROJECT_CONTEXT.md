@@ -1,6 +1,6 @@
 # Ngữ Cảnh AI Cho BookingBase
 
-Cập nhật: 2026-07-20
+Cập nhật: 2026-07-23
 
 File này là context tiếng Việt cho AI agent. Code và config hiện tại luôn là `Source of Truth`. Giữ nguyên thuật ngữ kỹ thuật như `Frontend`, `Backend`, `JWT`, `DTO`, `PWA`, `Service Worker`, `WebSocket`, `STOMP`, `runtime cache`.
 
@@ -29,6 +29,7 @@ BookingBase là hệ thống booking nội bộ cho phòng họp và xe công ty
 - Web Push/PWA.
 - Profile update approval.
 - Resource management cơ bản.
+- Phân hệ HR độc lập cho `MANAGER`: baseline lịch sử đúng `T6-26 = 339`, hồ sơ/danh mục, Tăng/Giảm và snapshot tháng.
 
 ## Tech Stack Hiện Tại
 
@@ -99,6 +100,8 @@ Quy tắc bảo mật cần giữ:
 - Approve cho `ADMIN` hoặc `MANAGER`; reject và cancel approved booking theo flow hiện tại chỉ `ADMIN`.
 - Protected API phải trả 401 nếu không có token.
 - Admin API phải trả 403 nếu user không đủ quyền.
+- `/api/v1/hr/**` chỉ cho đúng `MANAGER` đang `ACTIVE`; `ADMIN` không tự động có quyền HR.
+- Employee HR độc lập với User đăng nhập; chỉ actor audit được snapshot từ authenticated principal và không có foreign key sang `users`.
 
 ## Entities Chính
 
@@ -111,6 +114,10 @@ Quy tắc bảo mật cần giữ:
 - `Notification`: recipient, sender, type, title, message/description, targetUrl, sourceType, sourceId, priority, read state.
 - `PushSubscription`: user, endpoint, p256dh/auth keys, device info, active state.
 - `ProfileUpdateRequest`: workflow duyệt thay đổi profile.
+- `HrEmployee` cùng hồ sơ công việc/định danh/bảo hiểm/liên hệ: miền HR độc lập.
+- `HrEmployeeMovement`: lịch sử baseline/Tăng/Giảm và trạng thái xử lý.
+- `HrMonthlyRoster`/`HrMonthlyRosterItem`: snapshot nhân sự theo tháng không chứa PII/lương.
+- `HrExcelImportBatch`/row/template và `HrAuditEvent`: staging, version template và audit HR.
 
 ## Sơ Đồ API Chính
 
@@ -159,6 +166,15 @@ Resource/User/Profile:
 - `PATCH /api/v1/users/{id}/approve-registration`
 - `PATCH /api/v1/users/{id}/reject-registration`
 - `GET /api/v1/profile-requests/...`
+
+HR Manager:
+- `GET/POST/PATCH/DELETE /api/v1/hr/employees...`
+- `GET/POST/PATCH /api/v1/hr/departments|positions|working-conditions...`
+- `POST /api/v1/hr/imports/baseline` và validate/confirm/rollback có guard.
+- `POST /api/v1/hr/imports/workforce-snapshot/preview|confirm` cho artifact one-time 339.
+- `GET/POST /api/v1/hr/movements...` và confirm/cancel/delete draft.
+- `GET/POST /api/v1/hr/rosters...` và open/close/reopen/delete draft.
+- `GET /api/v1/hr/audit`
 
 ## Trạng Thái Authentication
 
@@ -221,6 +237,21 @@ Approval:
 - Email booking có resource, địa điểm/hành trình, ngày, giờ bắt đầu-kết thúc và trạng thái.
 - OTP register/forgot cùng format; UI nhắc kiểm tra Spam/Thư rác.
 
+## Tóm Tắt Phân Hệ HR
+
+- `Employee` và danh mục HR tách hoàn toàn khỏi `User`, `Department` legacy và booking.
+- Baseline chuẩn bắt đầu ở `T6-26`; số liệu lịch sử đúng là 339 Employee `ACTIVE`, 339 `INITIAL_LOAD` và roster T6 `CLOSED`.
+- Artifact one-time `workforce-baseline-339-2026.xlsx` khóa SHA-256 `e35f22c83f5dacb542c7b3cff76238fcbaf8ac22f7e85b786d62d2c1de6cf6f7`: chỉ import khi HR trống và tạo một baseline T6 duy nhất.
+- Flow không tự tạo Tăng/Giảm hoặc `T7-26`; hậu điều kiện là 339 active/339 lịch sử. Không upload trực tiếp `Baseline-value-339-2026.xlsx`.
+- G083 để trống CCCD do số trong nguồn bị lặp; phải xác minh giấy tờ thật sau import.
+- T6 từ import là bất biến. Tăng/Giảm xác nhận muộn không sửa T6 mà đi vào kỳ kế tiếp chưa chốt.
+- Tăng: Employee `DRAFT -> ACTIVE`; Giảm: Employee `ACTIVE -> INACTIVE` và bắt buộc lý do.
+- Movement dùng idempotency key, lock, `rowVersion`, actor từ principal; `CONFIRMED` không sửa/xóa.
+- Roster tạo tuần tự `DRAFT -> OPEN -> CLOSED`; close dựng lại item và checksum. Reopen có lý do, không áp dụng cho baseline/kỳ exported/kỳ đã có downstream.
+- Hard-delete chỉ cho dữ liệu `DRAFT` tạo tay chưa có reference.
+- HR detail trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER`; roster/audit vẫn không sao chép các giá trị nhạy cảm này.
+- Transition 339 là flow khóa cứng theo file/kỳ/chênh lệch, không phải generic bulk import/export của Phase 6. Phase 7 ngày phép và Phase 8 đơn nghỉ vẫn chưa thuộc flow Phase 5.
+
 ## Trạng Thái PWA Hiện Tại
 
 - Custom Service Worker tại `frontend/src/sw.js`.
@@ -245,19 +276,20 @@ Approval:
 
 - `users.status` là `VARCHAR(32)`, không còn MySQL ENUM cũ.
 - `notifications.type` là `VARCHAR(64)` và `notifications.source_type` là `VARCHAR(64)`.
-- Chưa có Flyway/Liquibase; schema quan trọng cần SQL deploy và verify dữ liệu trước/sau.
+- Flyway quản lý schema HR: V1 tạo 15 bảng `hr_*`, V2 retention payload import. Hibernate schema filter không được tự sửa bảng HR.
+- Bảng legacy được Flyway baseline version `0` theo quy trình opt-in sau backup; migration HR không alter/drop dữ liệu booking hiện hữu.
 
 ## Trạng Thái Verification
 
 Đã verify gần đây:
-- `npm.cmd run build`: pass.
-- `npm.cmd run lint`: pass, còn warning cũ ở `CustomDateHeader.jsx`.
+- `npm run build`: pass, gồm PWA service worker.
+- `npm run lint`: pass, còn warning cũ ở `CustomDateHeader.jsx`.
 - `git diff --check`: pass, chỉ có warning LF/CRLF Windows.
 
 Backend test:
-- 45 tests pass khi chạy với ByteBuddy Java agent trên JDK hiện tại.
-- Executable production JAR Web Push smoke test pass.
-- Production local/public health check trả HTTP 200 sau deploy ngày 2026-07-20.
+- Phase 1–5 có 80 test regression đạt, 0 failure/error và 1 skip theo môi trường; JDK 25 cần ByteBuddy Java agent cho Mockito.
+- Case import khóa `T6-26 = 339`, 339 active/339 lịch sử và không có `T7-26` tự sinh.
+- Runtime production và database người dùng chưa được agent UAT lại sau thay đổi Phase 5.
 
 ## Quy Tắc Bắt Buộc
 

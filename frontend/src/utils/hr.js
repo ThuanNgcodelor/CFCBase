@@ -39,6 +39,15 @@ export function statusLabel(status) {
   return STATUS_LABELS[status] || status || 'Chưa xác định';
 }
 
+export function employmentStatusLabel(status) {
+  const labels = {
+    ACTIVE: 'Đang làm việc',
+    INACTIVE: 'Đã nghỉ việc',
+    DRAFT: 'Hồ sơ nháp',
+  };
+  return labels[status] || statusLabel(status);
+}
+
 export function movementLabel(type) {
   return MOVEMENT_LABELS[type] || type || 'Chưa xác định';
 }

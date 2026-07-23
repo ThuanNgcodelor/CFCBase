@@ -21,7 +21,8 @@ import java.util.Set;
 @RestControllerAdvice(assignableTypes = {
         HrActivityController.class,
         HrImportController.class,
-        HrManagementController.class
+        HrManagementController.class,
+        HrWorkforceController.class
 })
 public class HrApiExceptionHandler {
 
@@ -39,7 +40,15 @@ public class HrApiExceptionHandler {
             "ROLLBACK_HAS_DOWNSTREAM_DATA",
             "STAGING_NOT_READY",
             "STAGING_ROW_COUNT_MISMATCH",
-            "WARNINGS_REQUIRE_ACKNOWLEDGEMENT"
+            "WARNINGS_REQUIRE_ACKNOWLEDGEMENT",
+            "WORKFORCE_BOOTSTRAP_POSTCONDITION_FAILED",
+            "WORKFORCE_SNAPSHOT_ALREADY_APPLIED",
+            "WORKFORCE_SNAPSHOT_EMPLOYEE_MISSING",
+            "WORKFORCE_SNAPSHOT_HISTORY_INCONSISTENT",
+            "WORKFORCE_SNAPSHOT_NOT_APPLICABLE",
+            "WORKFORCE_SNAPSHOT_POSTCONDITION_FAILED",
+            "WORKFORCE_SNAPSHOT_ROSTER_ALREADY_EXISTS",
+            "WORKFORCE_SNAPSHOT_SOURCE_ROSTER_INVALID"
     );
 
     @ExceptionHandler(HrBaselineImportException.class)

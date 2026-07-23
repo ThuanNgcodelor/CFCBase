@@ -5,6 +5,8 @@ import com.booking.system.hr.entity.HrEmployee;
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrEmploymentStatus;
 import com.booking.system.hr.enums.HrImportBatchStatus;
+import com.booking.system.hr.enums.HrImportType;
+import com.booking.system.hr.enums.HrMovementType;
 import com.booking.system.hr.importer.HrBaselineImportContract;
 import com.booking.system.hr.importer.HrBaselineImportException;
 import com.booking.system.hr.importer.HrBaselineImportPersistence;
@@ -12,6 +14,9 @@ import com.booking.system.hr.importer.HrBaselineImportService;
 import com.booking.system.hr.importer.HrBaselineWorkbookParser;
 import com.booking.system.hr.importer.HrImportActor;
 import com.booking.system.hr.importer.HrImportJsonCodec;
+import com.booking.system.hr.importer.HrWorkforceSnapshotContract;
+import com.booking.system.hr.importer.HrWorkforceSnapshotImportService;
+import com.booking.system.hr.importer.HrWorkforceSnapshotPersistence;
 import com.booking.system.hr.repository.HrAuditEventRepository;
 import com.booking.system.hr.repository.HrDepartmentRepository;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
@@ -67,12 +72,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         HrBaselineImportContract.class,
         HrImportJsonCodec.class,
         HrBaselineImportPersistence.class,
-        HrBaselineImportService.class
+        HrBaselineImportService.class,
+        HrWorkforceSnapshotContract.class,
+        HrWorkforceSnapshotPersistence.class,
+        HrWorkforceSnapshotImportService.class
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class HrPhase2ImportServiceTest {
 
     private static final byte[] WORKBOOK = HrBaselineWorkbookFixture.validWorkbook();
+    private static final byte[] WORKFORCE_SNAPSHOT =
+            HrBaselineWorkbookFixture.workforceSnapshotWorkbook();
     private static final HrImportActor MANAGER = new HrImportActor(
             "manager@example.test", "Fixture Manager", "MANAGER"
     );
@@ -104,6 +114,7 @@ class HrPhase2ImportServiceTest {
         registry.add("logging.level.org.springframework.jdbc.core", () -> "OFF");
         registry.add("debug", () -> "false");
         registry.add("app.hr.baseline.sha256", () -> sha256(WORKBOOK));
+        registry.add("app.hr.workforce-snapshot.sha256", () -> sha256(WORKFORCE_SNAPSHOT));
         registry.add("app.hr.import.payload-retention-days", () -> "30");
     }
 
@@ -115,6 +126,9 @@ class HrPhase2ImportServiceTest {
 
     @jakarta.annotation.Resource
     private HrBaselineImportPersistence importPersistence;
+
+    @jakarta.annotation.Resource
+    private HrWorkforceSnapshotImportService snapshotImportService;
 
     @jakarta.annotation.Resource
     private HrExcelImportBatchRepository batchRepository;
@@ -313,6 +327,67 @@ class HrPhase2ImportServiceTest {
                 .allMatch(row -> row.getRawPayload() == null && row.getNormalizedPayload() == null)
                 .allMatch(row -> row.getEmployeeCodeHint() == null);
         assertThat(employeeRepository.count()).isZero();
+    }
+
+    @Test
+    void lockedWorkforceSnapshotCreatesTheCorrectedJuneBaselineAtomically() {
+        var preview = snapshotImportService.preview(
+                "workforce-baseline-339-2026.xlsx",
+                WORKFORCE_SNAPSHOT
+        );
+        assertThat(preview.applicable()).isTrue();
+        assertThat(preview.bootstrap()).isTrue();
+        assertThat(preview.currentTotalEmployees()).isZero();
+        assertThat(preview.currentActiveEmployees()).isZero();
+        assertThat(preview.targetActiveEmployees()).isEqualTo(339);
+        assertThat(preview.increaseCount()).isZero();
+        assertThat(preview.decreaseCount()).isZero();
+
+        var result = snapshotImportService.confirm(
+                "workforce-baseline-339-2026.xlsx",
+                WORKFORCE_SNAPSHOT,
+                "corrected-june-baseline",
+                339,
+                MANAGER
+        );
+        assertThat(result.bootstrapped()).isTrue();
+        assertThat(result.replayed()).isFalse();
+        assertThat(result.increasedEmployees()).isZero();
+        assertThat(result.decreasedEmployees()).isZero();
+        assertThat(result.activeEmployees()).isEqualTo(339);
+        assertThat(result.totalEmployees()).isEqualTo(339);
+        assertThat(employeeRepository.countByEmploymentStatus(HrEmploymentStatus.INACTIVE)).isZero();
+        assertThat(movementRepository.count()).isEqualTo(339);
+        assertThat(rosterRepository.count()).isEqualTo(1);
+
+        var june = rosterRepository.findByPeriodStart(LocalDate.of(2026, 6, 1)).orElseThrow();
+        var juneItems = rosterItemRepository.findAllByRoster_IdOrderByDisplayOrder(june.getId());
+        assertThat(juneItems).hasSize(339);
+        assertThat(juneItems.getFirst().getEmployeeCode()).isEqualTo("T003");
+        assertThat(juneItems.getLast().getEmployeeCode()).isEqualTo("U012");
+        assertThat(juneItems)
+                .extracting(item -> item.getDisplayOrder())
+                .containsExactlyElementsOf(
+                        java.util.stream.IntStream.rangeClosed(1, 339).boxed().toList()
+                );
+
+        var snapshotBatch = batchRepository.findById(result.batchId()).orElseThrow();
+        assertThat(snapshotBatch.getImportType()).isEqualTo(HrImportType.BASELINE);
+        assertThat(snapshotBatch.getImportedRows()).isEqualTo(339);
+        assertThat(rowRepository.findAllByBatch_IdOrderByRowNumber(snapshotBatch.getId())).hasSize(339);
+        assertThat(movementRepository.findAllByImportBatch_Id(snapshotBatch.getId()))
+                .allMatch(movement -> movement.getMovementType() == HrMovementType.INITIAL_LOAD);
+
+        var replay = snapshotImportService.confirm(
+                "renamed-copy.xlsx",
+                WORKFORCE_SNAPSHOT,
+                "corrected-june-baseline",
+                339,
+                MANAGER
+        );
+        assertThat(replay.replayed()).isTrue();
+        assertThat(employeeRepository.count()).isEqualTo(339);
+        assertThat(movementRepository.count()).isEqualTo(339);
     }
 
     @Test

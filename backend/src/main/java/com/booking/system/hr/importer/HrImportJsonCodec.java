@@ -18,7 +18,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Isolated JSON codec for HR import staging payloads.
+ * Isolated JSON codec for HR staging, audit and monthly snapshot payloads.
  *
  * <p>The project currently uses Jackson 2 directly while Spring Boot 4 no
  * longer brings Jackson 2's JSR-310 module into this application's classpath.

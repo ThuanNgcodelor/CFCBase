@@ -1,7 +1,9 @@
 # Kế Hoạch Triển Khai Phân Hệ Quản Lý Nhân Sự
 
-Cập nhật: 2026-07-22
-Trạng thái: **Phase 0.1, Phase 1, Phase 2 và Phase 3 hoàn thành ở source code; chưa deploy production**
+Cập nhật: 2026-07-23
+Trạng thái: **Phase 0.1–5 hoàn thành ở source code; Phase 5 chờ deploy/UAT runtime**
+
+Ghi nhận vận hành: ngày `2026-07-23`, người dùng hiệu chỉnh số liệu lịch sử: `T6-26` đúng là `339` nhân sự, không phải `329`. Agent chưa query độc lập database/runtime, nên preview/import mới vẫn là gate bắt buộc.
 
 ## 1. Mục tiêu
 
@@ -36,8 +38,8 @@ Không tái sử dụng `Department` hoặc chức vụ hiện tại của Booki
 
 - Chỉ role hiện có `MANAGER` được truy cập phân hệ HR.
 - `ADMIN` không tự động có quyền HR.
-- Backend dự kiến dùng `/api/v1/hr/**`.
-- Frontend dự kiến dùng `/manager/hr`.
+- Backend dùng `/api/v1/hr/**`.
+- Frontend dùng `/manager/hr`.
 - Backend luôn enforce authorization; ẩn menu frontend không thay thế kiểm tra quyền.
 
 ### 2.4 Flow độc lập
@@ -91,6 +93,7 @@ Các cột gốc `K`, `R`, `S`, `Y`, `Z` là helper/lookup/validation và không
 
 - Tăng có hiệu lực tháng nào thì nhân sự xuất hiện trong snapshot từ tháng đó.
 - Giảm có hiệu lực tháng nào thì nhân sự không còn trong snapshot cuối tháng đó và các tháng sau.
+- Ngoại lệ bất biến: nếu snapshot tháng hiệu lực đã `CLOSED` (đặc biệt baseline T6), movement xác nhận muộn không sửa snapshot cũ mà được áp dụng vào kỳ kế tiếp chưa chốt.
 - Nhân sự giảm vẫn giữ hồ sơ, lịch sử và audit; không hard-delete nghiệp vụ.
 - Snapshot `CLOSED` là bất biến; điều chỉnh về sau phải có bản ghi điều chỉnh.
 - Trạng thái tháng dự kiến: `DRAFT`, `OPEN`, `CLOSED`, `EXPORTED`.
@@ -159,7 +162,7 @@ Chi tiết: [Báo cáo Phase 0.1](hr-template/PHASE_0_1_BASELINE_REPORT.md).
 
 ### Phase 1 — Schema HR độc lập
 
-Trạng thái: **hoàn thành ngày 2026-07-22 ở source code; chưa chạy production**.
+Trạng thái: **hoàn thành ngày 2026-07-22 ở source code/test cô lập; người dùng xác nhận migration đã được chạy ngày 2026-07-23 nhưng agent chưa query độc lập runtime**.
 
 - Đã thêm Flyway, baseline version `0` cho schema BookingBase hiện hữu và V1 tạo 15 bảng `hr_*`.
 - Migration chỉ tạo object HR; không sửa, xóa hoặc liên kết tới bảng legacy.
@@ -174,7 +177,7 @@ Trạng thái: **hoàn thành ngày 2026-07-22 ở source code; chưa chạy pro
 
 ### Phase 2 — Import baseline T6-26
 
-Trạng thái: **hoàn thành ngày 2026-07-22 ở source code và môi trường test cô lập; chưa chạy production**.
+Trạng thái: **hoàn thành ngày 2026-07-22 ở source code/test cô lập; người dùng xác nhận đã import baseline 329 nhân sự ngày 2026-07-23 nhưng agent chưa query độc lập runtime**.
 
 - Dùng `baseline-values-2026.xlsx`, không dùng trực tiếp file gốc/archive.
 - Parse schema `T6-26!A4:AH333`; dữ liệu nhân sự ở hàng 5–333.
@@ -192,7 +195,7 @@ Chi tiết: [HR Phase 2 — Import baseline T6-26](HR_PHASE_2_BASELINE_IMPORT.md
 
 ### Phase 3 — Security và API
 
-Trạng thái: **hoàn thành ngày 2026-07-22 ở source code và test cô lập; chưa chạy production**.
+Trạng thái: **hoàn thành ngày 2026-07-22 ở source code và test cô lập; trạng thái runtime hiện tại chưa được agent kiểm tra độc lập**.
 
 - Enforce `ROLE_MANAGER` cho `/api/v1/hr/**`.
 - List API có pagination, sort, filter; detail dùng DTO và mask PII.
@@ -206,7 +209,7 @@ Trạng thái: **hoàn thành ngày 2026-07-22 ở source code và test cô lậ
 
 ### Phase 4 — Giao diện quản lý HR
 
-Trạng thái: **phần giao diện vận hành cốt lõi đã được triển khai sớm cùng Phase 3 theo yêu cầu ngày 2026-07-22**.
+Trạng thái: **hoàn thành source và automated verification ngày 2026-07-23; chờ deploy/UAT runtime**.
 
 - `MANAGER` login/silent refresh/PWA root tự chuyển tới `/manager/hr`; deep link được SPA forward.
 - Dùng chung `DashboardLayout`, notification và push hiện tại; có nav HR responsive riêng cho Manager.
@@ -214,13 +217,25 @@ Trạng thái: **phần giao diện vận hành cốt lõi đã được triển
 - Có màn hình read-only cho Tăng/Giảm, danh sách tháng và audit, ghi rõ chức năng ghi thuộc Phase 5–6.
 - Route HR lazy-load; danh sách không tải toàn bộ nhân sự một lần.
 - Chưa triển khai xác nhận giảm nhân sự, mở/chốt tháng, xóa bản nháp hoặc export PII vì phụ thuộc Phase 5–6.
+- Đã hoàn thiện trải nghiệm với baseline thật: catalog tải đủ mọi trang, deep link roster tự tải metadata, import đã confirm có trạng thái rõ ràng và rollback nằm trong khu vực khôi phục có xác nhận nhiều lớp.
+- Audit trả/hiển thị danh sách trường thay đổi đã lọc; token của tài khoản không còn `ACTIVE` không thể tiếp tục truy cập API bằng phiên cũ.
+
+Phạm vi, acceptance và UAT: [HR Phase 4 — Giao diện Manager](HR_PHASE_4_MANAGER_UI.md).
 
 ### Phase 5 — Tăng/Giảm và snapshot tháng
 
-- Movement có ngày hiệu lực, lý do, người thao tác và trạng thái.
-- Tạo/chốt/reopen có kiểm soát và audit.
-- Kế thừa snapshot theo quy tắc tăng/giảm.
-- Hard-delete chỉ cho bản nháp/sai import chưa có reference.
+Trạng thái: **hoàn thành source và automated verification ngày 2026-07-23; chưa deploy/restart production, chưa UAT runtime**.
+
+- Tạo thủ công `INCREASE` cho Employee `DRAFT` và `DECREASE` cho Employee `ACTIVE`; movement có ngày hiệu lực, reason/quyết định, principal-derived actor, idempotency key và `rowVersion`.
+- Vòng đời movement là `DRAFT -> CONFIRMED/CANCELLED`; movement đã xác nhận là bất biến.
+- Tạo đúng tháng liền sau, `DRAFT -> OPEN -> CLOSED`; close dựng lại item để nhận movement vừa xác nhận rồi tạo checksum.
+- Reopen chỉ cho kỳ `CLOSED` không phải baseline, chưa export, chưa có kỳ downstream và bắt buộc lý do.
+- `T6-26` sinh từ import là baseline bất biến. Movement lịch sử xác nhận muộn không sửa T6 mà được áp dụng idempotent vào kỳ kế tiếp chưa chốt.
+- Hard-delete chỉ cho Employee/movement/roster `DRAFT` tạo tay, chưa có reference; mọi action có audit đã lọc.
+- UI Manager đã có form Tăng/Giảm, confirm/cancel/delete nháp, tạo/mở/chốt/reopen/delete kỳ và xóa hồ sơ nháp.
+- Test khóa baseline hiệu chỉnh: `T6-26 CLOSED` có 339 item/checksum, 339 Employee active và không tạo `T7-26` tự động.
+
+Chi tiết flow, API và UAT: [HR Phase 5 — Tăng/Giảm và danh sách tháng](HR_PHASE_5_WORKFORCE_MONTHLY.md).
 
 ### Phase 6 — Import/Export Excel hoàn chỉnh
 
@@ -269,14 +284,16 @@ Phase 1 đã đạt:
 - Dữ liệu nguồn trùng/không chuẩn được giữ ở staging trước normalize/confirm.
 - V1 và Hibernate mappings đã pass trên MySQL 8.0.46 cô lập; H2 không còn là bằng chứng duy nhất.
 - Hibernate update không được tạo/sửa/xóa `hr_*`; history repository không có generic delete.
-- Không deploy/restart server và không thay đổi database production trong lúc xây Phase 1.
+- Trong lượt xây/test Phase 1 ngày `2026-07-22`, agent không deploy/restart server hoặc thay đổi database production.
 
 Phase 2 đã đạt:
 
 - Parser/contract baseline thật, preview/validate/confirm, idempotency và rollback đã pass.
 - V2 retention/purge PII đã pass trên H2 và MySQL 8 cô lập.
 - Không seed 329 nhân sự hoặc 9 tăng/2 giảm bằng migration schema.
-- Không deploy/restart server và không thay đổi database production.
+- Trong lượt xây/test Phase 2 ngày `2026-07-22`, agent không deploy/restart server hoặc thay đổi database production.
+
+Ghi nhận sau gate source: người dùng xác nhận ngày `2026-07-23` rằng migration/import baseline đã hoàn tất và có 329 nhân sự. Agent chưa đối chiếu độc lập Employee, `INITIAL_LOAD`, roster `T6-26` và batch `CONFIRMED` trên runtime đó.
 
 Phase 3 đã đạt:
 
@@ -285,9 +302,25 @@ Phase 3 đã đạt:
 - Edit hồ sơ chỉ cho `DRAFT`, có optimistic `rowVersion` và giữ nguyên PII/lương khi field bảo vệ bị bỏ trống.
 - Frontend `MANAGER` tự vào `/manager/hr`; deep link, PWA root, responsive nav và route lazy-load đã có.
 - Frontend lint/build và toàn bộ backend regression suite đạt; rollback import Phase 2 vẫn hoạt động sau mapping Phase 3.
-- Không tạo account Manager, không deploy/restart server và không thay đổi database production.
+- Trong lượt xây/test Phase 3 ngày `2026-07-22`, agent không tạo account Manager, deploy/restart server hoặc thay đổi database production.
 
-Trước khi dùng production vẫn phải giữ nguyên nguyên tắc: chỉ migrate V1/V2 trong cửa sổ riêng sau full backup và verifier; việc import baseline là thao tác Manager riêng, không tự chạy cùng migration.
+Phase 4 đã đóng gate source/automated:
+
+- Frontend lint/build đạt; PWA/service worker build đạt, còn một lint warning và chunk-size warning cũ.
+- Backend target test đạt `8/8`; toàn bộ regression đạt `75` test, `0` failure/error và `1` skip theo điều kiện môi trường.
+- Production JAR chứa frontend mới build thành công; `git diff --check` đạt.
+- Chưa có read-only reconciliation độc lập cho 329 Employee, 329 `INITIAL_LOAD`, snapshot `T6-26` và batch import trên runtime người dùng vừa thao tác.
+- Chưa deploy/restart server và chưa hoàn tất browser UAT desktop/mobile trong lượt này.
+
+Phase 5 đã đóng gate source/automated:
+
+- API ghi lấy actor từ principal `MANAGER`; không thêm liên kết Employee -> User và không đổi login/profile/booking.
+- Lock/version/idempotency và guard hard-delete đã có; confirmed history và baseline không thể hard-delete.
+- T6 baseline bất biến; snapshot kế thừa áp dụng movement theo ngày hiệu lực và tạo checksum khi chốt.
+- Target integration/controller/security test đạt; full backend regression đạt 80 test, 0 failure/error và 1 skip; frontend lint/build đạt.
+- Chưa deploy/restart server, chưa chạy movement trên database người dùng và chưa UAT browser/runtime.
+
+Do người dùng đã xác nhận migration/import được thực hiện, bước tiếp theo không phải chạy lại initialization hoặc baseline. Trước UAT ghi Phase 5 cần backup, đối chiếu read-only đúng runtime và dùng hồ sơ test riêng.
 
 ## 8. Nguyên tắc không được vi phạm
 

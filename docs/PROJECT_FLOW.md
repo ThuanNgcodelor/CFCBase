@@ -1,6 +1,6 @@
 # Luồng Dự Án BookingBase
 
-Cập nhật: 2026-07-20
+Cập nhật: 2026-07-23
 
 File này mô tả flow nghiệp vụ hiện tại bằng tiếng Việt. Giữ nguyên thuật ngữ kỹ thuật như `JWT`, `DTO`, `WebSocket`, `Service Worker`, `PWA`, `Redis`, `range-based fetch`.
 
@@ -245,3 +245,47 @@ Cloudflare:
 - Web/API đều trỏ backend `8080`.
 - Spring Boot serve SPA static files.
 - Deep link refresh không 404 nhờ `SpaForwardController`.
+
+## 15. Phân Hệ HR Cho Manager
+
+Security và domain:
+
+- Chỉ `MANAGER` đang `ACTIVE` truy cập `/manager/hr` và `/api/v1/hr/**`.
+- `ADMIN`/`EMPLOYEE` nhận `403`; thiếu token nhận `401`.
+- Employee HR không phải User và không có `user_id`; authenticated User chỉ được dùng để tạo actor audit dạng chuỗi.
+
+Baseline:
+
+1. Upload workbook chuẩn chỉ tạo staging/preview.
+2. Validate trước khi confirm; `#N/A` không được insert như dữ liệu nghiệp vụ.
+3. Baseline production hiện dùng artifact hiệu chỉnh, confirm tạo nguyên tử 339 Employee, 339 `INITIAL_LOAD` và roster `T6-26` đã `CLOSED`.
+4. `T6-26` là baseline bất biến; không reopen/delete.
+
+Baseline hiệu chỉnh T6-26 = 339:
+
+1. Chỉ nhận `workforce-baseline-339-2026.xlsx` có SHA-256 `e35f22c83f5dacb542c7b3cff76238fcbaf8ac22f7e85b786d62d2c1de6cf6f7`; không nhận trực tiếp file nguồn `Baseline-value-339-2026.xlsx`.
+2. Workbook có ba sheet visible `TĂNG`, `GIẢM`, `T6-26`; sheet T6 có 339 dòng.
+3. Chỉ import khi HR trống. Confirm tạo nguyên tử 339 Employee `ACTIVE`, 339 `INITIAL_LOAD` và `T6-26 CLOSED` 339 item.
+4. Không tự tạo Tăng/Giảm, không tạo `T7-26` và không tạo hồ sơ nghỉ việc giả.
+5. Preview chặn trạng thái có dữ liệu HR; G083 để trống CCCD chờ xác minh.
+6. Đây là baseline khóa cho dữ liệu 2026, không phải generic bulk import của Phase 6.
+
+Tăng/Giảm:
+
+1. Tăng bắt đầu bằng Employee `DRAFT`; Giảm chọn Employee `ACTIVE` và phải có lý do.
+2. Tạo movement ở `DRAFT` với ngày hiệu lực và idempotency key.
+3. Manager kiểm tra rồi confirm hoặc cancel; confirm không được trước ngày hiệu lực.
+4. Confirm Tăng chuyển hồ sơ sang `ACTIVE`; confirm Giảm chuyển sang `INACTIVE` và ghi ngày nghỉ việc.
+5. Movement `CONFIRMED` không sửa/cancel/hard-delete; correction phải dùng nghiệp vụ bù được thiết kế riêng.
+
+Danh sách tháng:
+
+1. Chỉ tạo tháng liền sau roster mới nhất đã `CLOSED/EXPORTED`.
+2. `DRAFT -> OPEN`: kế thừa kỳ nguồn và áp dụng movement confirmed đến cuối tháng đích.
+3. `OPEN -> CLOSED`: dựng lại snapshot để nhận movement vừa xác nhận, đánh lại STT liên tục và tạo checksum.
+4. Kỳ `CLOSED` chỉ reopen khi không phải baseline, chưa export, chưa có tháng sau và có lý do.
+5. Movement xác nhận muộn không sửa snapshot cũ; nó được áp dụng vào kỳ kế tiếp chưa chốt.
+
+Hard-delete chỉ áp dụng cho Employee/movement/roster `DRAFT` tạo tay và chưa có reference. Snapshot không chứa CCCD, BHXH/BHYT, địa chỉ, điện thoại hoặc lương. Chi tiết tại `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`; flow file khóa 339 tại `docs/HR_WORKFORCE_IMPORT_339.md`.
+
+Chi tiết hồ sơ HR trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER` để tra cứu/chỉnh sửa hồ sơ. Danh sách tháng và audit metadata vẫn không sao chép các giá trị nhạy cảm này.

@@ -117,7 +117,7 @@ class HrManagementServiceTest {
     }
 
     @Test
-    void updateDraftPreservesProtectedValuesWhenMaskedFieldsAreOmitted() {
+    void updateDraftPreservesProtectedValuesAndReturnsManagerDetailValues() {
         when(employeeRepository.findDetailById(employee.getId())).thenReturn(Optional.of(employee));
         when(employeeRepository.findByEmployeeCode("NV001")).thenReturn(Optional.of(employee));
 
@@ -135,9 +135,13 @@ class HrManagementServiceTest {
         assertThat(employee.getContact().getPermanentAddress()).isEqualTo("Địa chỉ đang được bảo vệ");
 
         assertThat(result.employment().hasCompensationData()).isTrue();
-        assertThat(result.identity().citizenIdentityNumber()).endsWith("8901").doesNotContain("01234567");
-        assertThat(result.insurance().socialInsuranceNumber()).endsWith("3456").doesNotContain("BHXH-12");
-        assertThat(result.contact().phone()).isEqualTo("••••").doesNotContain("123");
+        assertThat(result.employment().baseSalary()).isEqualByComparingTo("15000000.00");
+        assertThat(result.employment().allowance()).isEqualByComparingTo("1200000.00");
+        assertThat(result.identity().citizenIdentityNumber()).isEqualTo("012345678901");
+        assertThat(result.insurance().socialInsuranceNumber()).isEqualTo("BHXH-123456");
+        assertThat(result.contact().phone()).isEqualTo("123");
+        assertThat(result.contact().workEmail()).isEqualTo("employee@cfc.test");
+        assertThat(result.contact().permanentAddress()).isEqualTo("Địa chỉ đang được bảo vệ");
     }
 
     @Test

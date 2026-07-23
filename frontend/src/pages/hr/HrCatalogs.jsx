@@ -31,6 +31,8 @@ export default function HrCatalogs() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [departmentOptionsError, setDepartmentOptionsError] = useState('');
 
   const load = useCallback((signal) => {
     setLoading(true);
@@ -53,6 +55,20 @@ export default function HrCatalogs() {
     load(controller.signal);
     return () => controller.abort();
   }, [load, reloadKey]);
+
+  useEffect(() => {
+    if (type !== 'departments') return undefined;
+    const controller = new AbortController();
+    setDepartmentOptionsError('');
+    hrCatalogApi.getAllCatalogItems('departments', { sort: 'name,asc' }, { signal: controller.signal })
+      .then(setDepartmentOptions)
+      .catch((requestError) => {
+        if (!controller.signal.aborted) {
+          setDepartmentOptionsError(apiErrorMessage(requestError, 'Không thể tải đầy đủ danh sách phòng ban cấp trên.'));
+        }
+      });
+    return () => controller.abort();
+  }, [reloadKey, type]);
 
   const changeType = (nextType) => {
     setType(nextType);
@@ -129,7 +145,7 @@ export default function HrCatalogs() {
     <div className="w-full max-w-6xl">
       <SEOHead title="CFC Base | Danh mục nhân sự" url="https://cfcbooking.io.vn/manager/hr/catalogs" />
       <HrPageHeader
-        title="Danh mục HR"
+        title="Danh mục nhân sự"
         description="Phòng ban, chức vụ và điều kiện lao động thuộc riêng phân hệ nhân sự; không dùng danh mục của BookingBase."
         actions={<Button type="button" onClick={openCreate}><Plus className="mr-1.5 h-4 w-4" />Thêm {activeTypeLabel?.toLowerCase()}</Button>}
       />
@@ -191,7 +207,18 @@ export default function HrCatalogs() {
           <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Tên *</span><input required maxLength={255} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={INPUT_CLASS} /></label>
           <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" /></label>
           {type === 'departments' && (
-            <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Phòng ban cấp trên</span><select value={form.parentId} onChange={(event) => setForm((current) => ({ ...current, parentId: event.target.value }))} className={INPUT_CLASS}><option value="">Không có</option>{result.content.filter((item) => item.id !== editingId).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-gray-700">Phòng ban cấp trên</span>
+              <select value={form.parentId} onChange={(event) => setForm((current) => ({ ...current, parentId: event.target.value }))} className={INPUT_CLASS}>
+                <option value="">Không có</option>
+                {departmentOptions.filter((item) => item.id !== editingId).map((item) => (
+                  <option key={item.id} value={item.id} disabled={item.status === 'INACTIVE'}>
+                    {item.name}{item.status === 'INACTIVE' ? ' (đã ngừng)' : ''}
+                  </option>
+                ))}
+              </select>
+              {departmentOptionsError && <span className="text-xs text-red-600">{departmentOptionsError}</span>}
+            </label>
           )}
           <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Thứ tự hiển thị</span><input type="number" min="0" value={form.sortOrder} onChange={(event) => setForm((current) => ({ ...current, sortOrder: event.target.value }))} className={INPUT_CLASS} /></label>
           <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>Hủy</Button><Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu danh mục'}</Button></div>

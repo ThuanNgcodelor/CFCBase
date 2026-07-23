@@ -29,4 +29,9 @@ export const hrEmployeeApi = {
     const response = await baseApi.patch(`/hr/employees/${id}`, payload);
     return unwrapApiData(response);
   },
+
+  deleteDraftEmployee: async (id, rowVersion) => {
+    const response = await baseApi.delete(`/hr/employees/${id}`, { params: { rowVersion } });
+    return unwrapApiData(response);
+  },
 };

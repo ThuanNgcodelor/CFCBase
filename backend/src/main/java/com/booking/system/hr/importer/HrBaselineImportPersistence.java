@@ -105,6 +105,7 @@ public class HrBaselineImportPersistence {
     private final HrMonthlyRosterItemRepository rosterItemRepository;
     private final HrAuditEventRepository auditRepository;
     private final HrImportJsonCodec jsonCodec;
+    private final HrBaselineImportContract baselineContract;
     private final EntityManager entityManager;
 
     @Value("${app.hr.import.payload-retention-days:30}")
@@ -115,6 +116,29 @@ public class HrBaselineImportPersistence {
             String originalFileName,
             HrParsedBaselineWorkbook workbook,
             HrImportActor actor
+    ) {
+        return stage(originalFileName, workbook, actor, false);
+    }
+
+    /**
+     * Stages the corrected, checksum-locked June 2026 baseline separately
+     * from the historical 329-row Phase 0.1 template. Both share the same
+     * field mapping, but their row contract and artifact checksum differ.
+     */
+    @Transactional
+    public HrImportBatchSummary stageLockedWorkforceBaseline(
+            String originalFileName,
+            HrParsedBaselineWorkbook workbook,
+            HrImportActor actor
+    ) {
+        return stage(originalFileName, workbook, actor, true);
+    }
+
+    private HrImportBatchSummary stage(
+            String originalFileName,
+            HrParsedBaselineWorkbook workbook,
+            HrImportActor actor,
+            boolean workforceBaseline
     ) {
         validateRetentionConfiguration();
         var latest = batchRepository
@@ -128,7 +152,9 @@ public class HrBaselineImportPersistence {
         }
 
         int attemptNumber = latest.map(batch -> batch.getAttemptNumber() + 1).orElse(1);
-        HrExcelTemplateVersion template = findOrCreateTemplate(workbook, actor);
+        HrExcelTemplateVersion template = workforceBaseline
+                ? findOrCreateWorkforceBaselineTemplate(actor)
+                : findOrCreateTemplate(actor);
         LocalDateTime now = nowUtc();
 
         HrExcelImportBatch batch = new HrExcelImportBatch();
@@ -175,6 +201,7 @@ public class HrBaselineImportPersistence {
     @Transactional
     public HrImportBatchSummary validate(String batchId, HrImportActor actor) {
         HrExcelImportBatch batch = lockedBatch(batchId);
+        requireBaselineType(batch);
         if (batch.getStatus() == HrImportBatchStatus.VALIDATED
                 || batch.getStatus() == HrImportBatchStatus.CONFIRMED) {
             return summary(batch);
@@ -312,6 +339,7 @@ public class HrBaselineImportPersistence {
         validateRetentionConfiguration();
         String safeConfirmationKey = confirmationKey(confirmationKey);
         HrExcelImportBatch batch = lockedBatch(batchId);
+        requireBaselineType(batch);
         if (batch.getStatus() == HrImportBatchStatus.CONFIRMED) {
             if (safeConfirmationKey.equals(batch.getConfirmationKey())) return summary(batch);
             throw failure("BATCH_ALREADY_CONFIRMED", "Batch đã được confirm bằng confirmation key khác.");
@@ -520,6 +548,7 @@ public class HrBaselineImportPersistence {
     public HrImportBatchSummary rollback(String batchId, HrImportActor actor) {
         validateRetentionConfiguration();
         HrExcelImportBatch batch = lockedBatch(batchId);
+        requireBaselineType(batch);
         if (batch.getStatus() == HrImportBatchStatus.ROLLED_BACK) return summary(batch);
         requireStatus(batch, HrImportBatchStatus.CONFIRMED, "BATCH_NOT_CONFIRMED");
 
@@ -643,27 +672,64 @@ public class HrBaselineImportPersistence {
         return snapshot;
     }
 
-    private HrExcelTemplateVersion findOrCreateTemplate(HrParsedBaselineWorkbook workbook, HrImportActor actor) {
-        return templateRepository.findByFileSha256(workbook.fileSha256()).orElseGet(() -> {
-            HrExcelTemplateVersion template = new HrExcelTemplateVersion();
-            template.setTemplateKey(HrBaselineImportContract.TEMPLATE_KEY);
-            template.setVersionCode(HrBaselineImportContract.VERSION_CODE);
-            template.setSchemaVersion((short) 1);
-            template.setFileName(HrBaselineImportContract.LOCKED_FILE_NAME);
-            template.setFileSha256(workbook.fileSha256());
-            template.setSheetContract(json(Map.of(
-                    "sheet", HrBaselineWorkbookParser.SOURCE_SHEET,
-                    "range", "A4:AH333",
-                    "headerRow", 4,
-                    "dataRows", "5:333",
-                    "columnCount", 34
-            )));
-            template.setContainsPii(true);
-            template.setStatus(HrTemplateStatus.ACTIVE);
-            template.setEffectiveFrom(HrBaselineWorkbookParser.PERIOD_START);
-            auditFields(template, actor);
-            return templateRepository.save(template);
-        });
+    private HrExcelTemplateVersion findOrCreateTemplate(HrImportActor actor) {
+        return templateRepository.findByFileSha256(baselineContract.expectedSha256())
+                .or(() -> templateRepository.findByTemplateKeyAndVersionCode(
+                        HrBaselineImportContract.TEMPLATE_KEY,
+                        HrBaselineImportContract.VERSION_CODE
+                ))
+                .orElseGet(() -> {
+                    HrExcelTemplateVersion template = new HrExcelTemplateVersion();
+                    template.setTemplateKey(HrBaselineImportContract.TEMPLATE_KEY);
+                    template.setVersionCode(HrBaselineImportContract.VERSION_CODE);
+                    template.setSchemaVersion((short) 1);
+                    template.setFileName(HrBaselineImportContract.LOCKED_FILE_NAME);
+                    // The template row identifies the canonical T6 contract artifact,
+                    // while an import batch keeps the checksum of the uploaded bundle.
+                    // This lets the locked one-file 339 bundle reuse the same T6
+                    // schema without violating the unique template key/version.
+                    template.setFileSha256(baselineContract.expectedSha256());
+                    template.setSheetContract(json(Map.of(
+                            "sheet", HrBaselineWorkbookParser.SOURCE_SHEET,
+                            "range", "A4:AH333",
+                            "headerRow", 4,
+                            "dataRows", "5:333",
+                            "columnCount", 34
+                    )));
+                    template.setContainsPii(true);
+                    template.setStatus(HrTemplateStatus.ACTIVE);
+                    template.setEffectiveFrom(HrBaselineWorkbookParser.PERIOD_START);
+                    auditFields(template, actor);
+                    return templateRepository.save(template);
+                });
+    }
+
+    private HrExcelTemplateVersion findOrCreateWorkforceBaselineTemplate(HrImportActor actor) {
+        return templateRepository.findByFileSha256(HrWorkforceSnapshotContract.LOCKED_SHA256)
+                .or(() -> templateRepository.findByTemplateKeyAndVersionCode(
+                        "HR_WORKFORCE_BASELINE_2026",
+                        "2026-06-339"
+                ))
+                .orElseGet(() -> {
+                    HrExcelTemplateVersion template = new HrExcelTemplateVersion();
+                    template.setTemplateKey("HR_WORKFORCE_BASELINE_2026");
+                    template.setVersionCode("2026-06-339");
+                    template.setSchemaVersion((short) 1);
+                    template.setFileName(HrWorkforceSnapshotContract.LOCKED_FILE_NAME);
+                    template.setFileSha256(HrWorkforceSnapshotContract.LOCKED_SHA256);
+                    template.setSheetContract(json(Map.of(
+                            "sheet", HrBaselineWorkbookParser.WORKFORCE_BASELINE_SHEET,
+                            "range", "A4:AH343",
+                            "headerRow", 4,
+                            "dataRows", "5:343",
+                            "columnCount", 34
+                    )));
+                    template.setContainsPii(true);
+                    template.setStatus(HrTemplateStatus.ACTIVE);
+                    template.setEffectiveFrom(HrBaselineWorkbookParser.WORKFORCE_BASELINE_PERIOD_START);
+                    auditFields(template, actor);
+                    return templateRepository.save(template);
+                });
     }
 
     private Map<String, HrDepartment> resolveDepartments(List<HrBaselineRowData> rows, HrImportActor actor) {
@@ -792,6 +858,15 @@ public class HrBaselineImportPersistence {
     private static void requireStatus(HrExcelImportBatch batch, HrImportBatchStatus expected, String code) {
         if (batch.getStatus() != expected) {
             throw failure(code, "Trạng thái batch không phù hợp với thao tác.");
+        }
+    }
+
+    private static void requireBaselineType(HrExcelImportBatch batch) {
+        if (batch.getImportType() != HrImportType.BASELINE) {
+            throw failure(
+                    "IMPORT_TYPE_NOT_SUPPORTED",
+                    "Thao tác này chỉ áp dụng cho batch baseline."
+            );
         }
     }
 

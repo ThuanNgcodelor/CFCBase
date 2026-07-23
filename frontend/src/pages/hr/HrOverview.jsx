@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
+  ArrowUpDown,
   Building2,
   CircleDashed,
   ContactRound,
@@ -88,7 +89,7 @@ export default function HrOverview() {
       <SEOHead title="CFC Base | Tổng quan nhân sự" url="https://cfcbooking.io.vn/manager/hr" />
       <HrPageHeader
         title="Tổng quan nhân sự"
-        description="Theo dõi dữ liệu nhân sự độc lập, tình trạng hồ sơ và lần nhập baseline gần nhất."
+        description="Theo dõi dữ liệu nhân sự độc lập, tình trạng hồ sơ và lần nhập dữ liệu ban đầu gần nhất."
       />
 
       {loading ? <HrLoading /> : error ? (
@@ -142,16 +143,17 @@ export default function HrOverview() {
               <Building2 className="h-6 w-6 text-emerald-700" />
               <h2 className="mt-4 font-semibold text-emerald-950">Phân hệ độc lập</h2>
               <p className="mt-2 text-sm leading-6 text-emerald-800">
-                Hồ sơ Employee và danh mục HR không liên kết với tài khoản đăng nhập. Quyền truy cập được kiểm tra bằng role MANAGER.
+                Hồ sơ nhân sự và tài khoản đăng nhập được quản lý độc lập. Chỉ tài khoản Quản lý nhân sự mới được truy cập khu vực này.
               </p>
             </div>
           </div>
 
           <h2 className="mb-3 mt-8 text-lg font-semibold text-gray-900">Truy cập nhanh</h2>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <QuickLink to="/manager/hr/employees" icon={ContactRound} title="Danh sách nhân sự" description="Tìm kiếm, lọc, xem và cập nhật hồ sơ theo phân trang." />
-            <QuickLink to="/manager/hr/imports" icon={Upload} title="Import baseline" description="Tải file, xem trước, kiểm tra rồi mới xác nhận nhập dữ liệu." />
-            <QuickLink to="/manager/hr/rosters" icon={TableProperties} title="Danh sách theo tháng" description="Xem snapshot nhân sự đã có; thao tác mở/chốt thuộc phase sau." />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <QuickLink to="/manager/hr/employees" icon={ContactRound} title="Danh sách nhân sự" description="Tìm kiếm, lọc và xem hồ sơ theo từng trang." />
+            <QuickLink to="/manager/hr/movements" icon={ArrowUpDown} title="Tăng / Giảm" description="Tạo, kiểm tra và xác nhận biến động nhân sự." />
+            <QuickLink to="/manager/hr/rosters" icon={TableProperties} title="Danh sách theo tháng" description="Kế thừa, mở và chốt danh sách nhân sự từng tháng." />
+            <QuickLink to="/manager/hr/imports" icon={Upload} title="Nhập dữ liệu ban đầu" description="Tải file, xem trước, kiểm tra rồi mới xác nhận nhập dữ liệu." />
           </div>
         </>
       )}

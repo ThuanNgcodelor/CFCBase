@@ -82,6 +82,17 @@ class HrSecurityContractTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void hrApiReturns401WhenManagerAccountIsNoLongerActive() throws Exception {
+        User manager = user("inactive-manager@example.test", RoleEnum.MANAGER);
+        manager.setStatus(UserStatus.INACTIVE);
+        stubToken("inactive-manager-token", manager);
+
+        mockMvc.perform(get("/api/v1/hr/security-contract")
+                        .header("Authorization", "Bearer inactive-manager-token"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private void stubToken(String token, User user) {
         when(jwtUtils.validateJwtToken(token)).thenReturn(true);
         when(jwtUtils.getEmailFromJwtToken(token)).thenReturn(user.getEmail());

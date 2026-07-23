@@ -50,6 +50,10 @@ public class HrBaselineWorkbookParser {
     public static final int FIRST_DATA_ROW = 5;
     public static final int LAST_DATA_ROW = 333;
     public static final int EXPECTED_DATA_ROWS = 329;
+    public static final String WORKFORCE_BASELINE_SHEET = SOURCE_SHEET;
+    public static final LocalDate WORKFORCE_BASELINE_PERIOD_START = PERIOD_START;
+    public static final int WORKFORCE_SNAPSHOT_LAST_DATA_ROW = 343;
+    public static final int WORKFORCE_SNAPSHOT_EXPECTED_DATA_ROWS = 339;
     public static final int MAX_FILE_BYTES = 10 * 1024 * 1024;
 
     private static final String MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -59,6 +63,8 @@ public class HrBaselineWorkbookParser {
     private static final long MAX_UNCOMPRESSED_BYTES = 25L * 1024 * 1024;
     private static final Pattern CELL_REFERENCE = Pattern.compile("^([A-Z]{1,3})([1-9][0-9]*)$");
     private static final List<String> SHEET_NAMES = List.of("GIAM", "TĂNG", SOURCE_SHEET);
+    private static final List<String> WORKFORCE_SNAPSHOT_SHEET_NAMES =
+            List.of("TĂNG", "GIẢM", WORKFORCE_BASELINE_SHEET);
     private static final DateTimeFormatter TEXT_DATE_FORMAT = new DateTimeFormatterBuilder()
             .parseCaseSensitive()
             .appendPattern("d/M/uuuu")
@@ -76,21 +82,70 @@ public class HrBaselineWorkbookParser {
     );
 
     public HrParsedBaselineWorkbook parse(byte[] workbookBytes) {
+        return parse(
+                workbookBytes,
+                SHEET_NAMES,
+                SOURCE_SHEET,
+                PERIOD_START,
+                LAST_DATA_ROW,
+                "A1:AH333",
+                "A4:AH333",
+                "Không thể đọc workbook baseline theo contract Phase 2.",
+                null
+        );
+    }
+
+    public HrParsedBaselineWorkbook parseWorkforceSnapshot(byte[] workbookBytes) {
+        return parse(
+                workbookBytes,
+                WORKFORCE_SNAPSHOT_SHEET_NAMES,
+                WORKFORCE_BASELINE_SHEET,
+                WORKFORCE_BASELINE_PERIOD_START,
+                WORKFORCE_SNAPSHOT_LAST_DATA_ROW,
+                "A1:AH343",
+                "A4:AH343",
+                "Không thể đọc workbook baseline T6-26 gồm 339 nhân sự.",
+                null
+        );
+    }
+
+    private HrParsedBaselineWorkbook parse(
+            byte[] workbookBytes,
+            List<String> expectedSheetNames,
+            String sourceSheetName,
+            LocalDate periodStart,
+            int lastDataRow,
+            String expectedDimension,
+            String expectedFilter,
+            String invalidWorkbookMessage,
+            String hiddenSheetName
+    ) {
         Map<String, byte[]> parts = readSafePackage(workbookBytes);
         try {
-            WorkbookContract contract = inspectWorkbook(parts);
+            WorkbookContract contract = inspectWorkbook(
+                    parts,
+                    expectedSheetNames,
+                    sourceSheetName,
+                    hiddenSheetName
+            );
             Map<String, OoxmlCell> cells = readCells(parts, contract.sourceSheetPart(), contract.sharedStrings());
-            validateSheetContract(parts.get(contract.sourceSheetPart()), cells);
+            validateSheetContract(
+                    parts.get(contract.sourceSheetPart()),
+                    cells,
+                    expectedDimension,
+                    expectedFilter,
+                    lastDataRow
+            );
 
-            List<HrParsedBaselineRow> rows = new ArrayList<>(EXPECTED_DATA_ROWS);
-            for (int excelRow = FIRST_DATA_ROW; excelRow <= LAST_DATA_ROW; excelRow++) {
+            List<HrParsedBaselineRow> rows = new ArrayList<>(lastDataRow - FIRST_DATA_ROW + 1);
+            for (int excelRow = FIRST_DATA_ROW; excelRow <= lastDataRow; excelRow++) {
                 rows.add(parseRow(cells, excelRow));
             }
             return new HrParsedBaselineWorkbook(
                     sha256(workbookBytes),
                     workbookBytes.length,
-                    SOURCE_SHEET,
-                    PERIOD_START,
+                    sourceSheetName,
+                    periodStart,
                     rows
             );
         } catch (HrBaselineImportException exception) {
@@ -98,13 +153,18 @@ public class HrBaselineWorkbookParser {
         } catch (RuntimeException exception) {
             throw new HrBaselineImportException(
                     "INVALID_XLSX",
-                    "Không thể đọc workbook baseline theo contract Phase 2.",
+                    invalidWorkbookMessage,
                     exception
             );
         }
     }
 
-    private WorkbookContract inspectWorkbook(Map<String, byte[]> parts) {
+    private WorkbookContract inspectWorkbook(
+            Map<String, byte[]> parts,
+            List<String> expectedSheetNames,
+            String sourceSheetName,
+            String hiddenSheetName
+    ) {
         requirePart(parts, "xl/workbook.xml");
         requirePart(parts, "xl/_rels/workbook.xml.rels");
         rejectExternalRelationships(parts);
@@ -114,7 +174,7 @@ public class HrBaselineWorkbookParser {
                 parts.get("xl/_rels/workbook.xml.rels")
         );
         NodeList sheetNodes = workbook.getElementsByTagNameNS(MAIN_NS, "sheet");
-        if (sheetNodes.getLength() != SHEET_NAMES.size()) {
+        if (sheetNodes.getLength() != expectedSheetNames.size()) {
             throw structural("SHEET_CONTRACT_MISMATCH", "Workbook phải có đúng ba sheet đã khóa.");
         }
 
@@ -122,8 +182,10 @@ public class HrBaselineWorkbookParser {
         for (int index = 0; index < sheetNodes.getLength(); index++) {
             Element sheet = (Element) sheetNodes.item(index);
             String name = sheet.getAttribute("name");
-            if (!SHEET_NAMES.get(index).equals(name)
-                    || (sheet.hasAttribute("state") && !"visible".equals(sheet.getAttribute("state")))) {
+            String state = sheet.hasAttribute("state") ? sheet.getAttribute("state") : "visible";
+            String expectedState = name.equals(hiddenSheetName) ? "hidden" : "visible";
+            if (!expectedSheetNames.get(index).equals(name)
+                    || !expectedState.equals(state)) {
                 throw structural("SHEET_CONTRACT_MISMATCH", "Danh sách hoặc trạng thái sheet không đúng contract.");
             }
             String relationshipId = sheet.getAttributeNS(DOCUMENT_REL_NS, "id");
@@ -133,10 +195,10 @@ public class HrBaselineWorkbookParser {
             }
             String part = resolvePart("xl/workbook.xml", target);
             requirePart(parts, part);
-            if (SOURCE_SHEET.equals(name)) sourcePart = part;
+            if (sourceSheetName.equals(name)) sourcePart = part;
         }
         if (sourcePart == null) {
-            throw structural("SOURCE_SHEET_MISSING", "Không tìm thấy sheet nguồn T6-26.");
+            throw structural("SOURCE_SHEET_MISSING", "Không tìm thấy sheet dữ liệu nhân sự nguồn.");
         }
 
         for (Map.Entry<String, byte[]> entry : parts.entrySet()) {
@@ -149,17 +211,23 @@ public class HrBaselineWorkbookParser {
         return new WorkbookContract(sourcePart, readSharedStrings(parts));
     }
 
-    private void validateSheetContract(byte[] sourceSheetXml, Map<String, OoxmlCell> cells) {
+    private void validateSheetContract(
+            byte[] sourceSheetXml,
+            Map<String, OoxmlCell> cells,
+            String expectedDimension,
+            String expectedFilter,
+            int lastDataRow
+    ) {
         Document sheet = xml(sourceSheetXml);
         NodeList dimensions = sheet.getElementsByTagNameNS(MAIN_NS, "dimension");
         if (dimensions.getLength() != 1
-                || !"A1:AH333".equals(((Element) dimensions.item(0)).getAttribute("ref"))) {
-            throw structural("RANGE_MISMATCH", "Vùng dữ liệu T6-26 phải là A1:AH333.");
+                || !expectedDimension.equals(((Element) dimensions.item(0)).getAttribute("ref"))) {
+            throw structural("RANGE_MISMATCH", "Vùng dữ liệu nhân sự không đúng contract.");
         }
         NodeList filters = sheet.getElementsByTagNameNS(MAIN_NS, "autoFilter");
         if (filters.getLength() != 1
-                || !"A4:AH333".equals(((Element) filters.item(0)).getAttribute("ref"))) {
-            throw structural("FILTER_MISMATCH", "Vùng filter T6-26 phải là A4:AH333.");
+                || !expectedFilter.equals(((Element) filters.item(0)).getAttribute("ref"))) {
+            throw structural("FILTER_MISMATCH", "Vùng filter nhân sự không đúng contract.");
         }
 
         for (int column = 0; column < EXPECTED_COLUMNS; column++) {
@@ -171,9 +239,12 @@ public class HrBaselineWorkbookParser {
         }
         for (Map.Entry<String, OoxmlCell> entry : cells.entrySet()) {
             CellCoordinate coordinate = coordinate(entry.getKey());
-            if (coordinate.column() >= EXPECTED_COLUMNS || coordinate.row() > LAST_DATA_ROW) {
+            if (coordinate.column() >= EXPECTED_COLUMNS || coordinate.row() > lastDataRow) {
                 if (!entry.getValue().isBlank()) {
-                    throw structural("DATA_OUTSIDE_CONTRACT", "Có dữ liệu ngoài vùng A1:AH333.");
+                    throw structural(
+                            "DATA_OUTSIDE_CONTRACT",
+                            "Có dữ liệu ngoài vùng " + expectedDimension + "."
+                    );
                 }
             }
         }

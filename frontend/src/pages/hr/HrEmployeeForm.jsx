@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/Button';
 import { HrError, HrLoading, HrPageHeader, HrReadOnlyNotice } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
-import { normalizePage } from '../../api/hrApiUtils';
 import { apiErrorMessage } from '../../utils/hr';
 
 const EMPTY_FORM = {
@@ -36,6 +35,7 @@ function formFromEmployee(employee) {
   const employment = employee.employment || employee;
   const identity = employee.identity || {};
   const insurance = employee.insurance || {};
+  const contact = employee.contact || employee.contacts || {};
   return {
     personal: {
       employeeCode: fieldValue(personal.employeeCode || employee.employeeCode),
@@ -58,24 +58,31 @@ function formFromEmployee(employee) {
       terminationDate: fieldValue(employment.terminationDate),
       contractTypeLabel: fieldValue(employment.contractTypeLabel),
       contractNumber: fieldValue(employment.contractNumber),
-      // Không đưa giá trị đã mask vào form để tránh ghi đè dữ liệu nhạy cảm.
-      baseSalary: '',
-      allowance: '',
+      baseSalary: fieldValue(employment.baseSalary),
+      allowance: fieldValue(employment.allowance),
       jobDescription: fieldValue(employment.jobDescription),
     },
     identity: {
-      legacyIdentityNumber: '', citizenIdentityNumber: '',
+      legacyIdentityNumber: fieldValue(identity.legacyIdentityNumber),
+      citizenIdentityNumber: fieldValue(identity.citizenIdentityNumber),
       issuedDate: fieldValue(identity.issuedDate), issuedPlace: fieldValue(identity.issuedPlace),
       verificationStatus: identity.verificationStatus || 'UNVERIFIED',
     },
     insurance: {
-      socialInsuranceNumber: '', healthInsuranceNumber: '', validFrom: fieldValue(insurance.validFrom),
+      socialInsuranceNumber: fieldValue(insurance.socialInsuranceNumber),
+      healthInsuranceNumber: fieldValue(insurance.healthInsuranceNumber),
+      validFrom: fieldValue(insurance.validFrom),
       validUntil: fieldValue(insurance.validUntil), status: insurance.status || 'UNKNOWN',
     },
     contact: {
-      permanentAddress: '', currentAddress: '', phone: '',
-      workEmail: '', personalEmail: '', emergencyContactName: '', emergencyContactPhone: '',
-      emergencyContactRelation: '',
+      permanentAddress: fieldValue(contact.permanentAddress),
+      currentAddress: fieldValue(contact.currentAddress),
+      phone: fieldValue(contact.phone),
+      workEmail: fieldValue(contact.workEmail),
+      personalEmail: fieldValue(contact.personalEmail),
+      emergencyContactName: fieldValue(contact.emergencyContactName),
+      emergencyContactPhone: fieldValue(contact.emergencyContactPhone),
+      emergencyContactRelation: fieldValue(contact.emergencyContactRelation),
     },
   };
 }
@@ -119,22 +126,29 @@ export default function HrEmployeeForm() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogReloadKey, setCatalogReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    setCatalogError('');
     Promise.all([
-      hrCatalogApi.getCatalog('departments', { page: 0, size: 20, status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
-      hrCatalogApi.getCatalog('positions', { page: 0, size: 20, status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
-      hrCatalogApi.getCatalog('working-conditions', { page: 0, size: 20, status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
+      hrCatalogApi.getAllCatalogItems('departments', { status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
+      hrCatalogApi.getAllCatalogItems('positions', { status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
+      hrCatalogApi.getAllCatalogItems('working-conditions', { status: 'ACTIVE', sort: 'name,asc' }, { signal: controller.signal }),
     ]).then(([departments, positions, conditions]) => {
       setCatalogs({
-        departments: normalizePage(departments).content,
-        positions: normalizePage(positions).content,
-        conditions: normalizePage(conditions).content,
+        departments,
+        positions,
+        conditions,
       });
-    }).catch(() => {});
+    }).catch((requestError) => {
+      if (!controller.signal.aborted) {
+        setCatalogError(apiErrorMessage(requestError, 'Không thể tải đầy đủ phòng ban, chức vụ và điều kiện lao động.'));
+      }
+    });
     return () => controller.abort();
-  }, []);
+  }, [catalogReloadKey]);
 
   useEffect(() => {
     if (!isEdit) return undefined;
@@ -204,7 +218,7 @@ export default function HrEmployeeForm() {
   if (isEdit && employeeStatus !== 'DRAFT') {
     return (
       <div className="max-w-3xl">
-        <HrError message="Chỉ hồ sơ ở trạng thái Bản nháp mới được chỉnh sửa trực tiếp trong Phase 3." />
+        <HrError message="Chỉ hồ sơ nháp mới được chỉnh sửa trực tiếp. Hồ sơ chính thức cần thay đổi qua nghiệp vụ Tăng/Giảm để giữ lịch sử." />
         <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate(`/manager/hr/employees/${id}`)}>Quay lại chi tiết</Button>
       </div>
     );
@@ -215,15 +229,20 @@ export default function HrEmployeeForm() {
       <SEOHead title={`CFC Base | ${isEdit ? 'Chỉnh sửa' : 'Thêm'} hồ sơ nhân sự`} />
       <HrPageHeader
         title={isEdit ? 'Chỉnh sửa hồ sơ nháp' : 'Thêm hồ sơ nhân sự'}
-        description="Hồ sơ mới luôn được server tạo ở trạng thái Bản nháp. Tăng/Giảm nhân sự chính thức được xử lý bằng flow riêng ở Phase 5."
+        description="Hồ sơ mới luôn được lưu ở trạng thái Hồ sơ nháp. Việc đưa vào danh sách chính thức sẽ được xử lý qua nghiệp vụ Tăng/Giảm."
         actions={<Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/manager/hr/employees/${id}` : '/manager/hr/employees')}><ArrowLeft className="mr-1.5 h-4 w-4" />Quay lại</Button>}
       />
 
       {isEdit && (
         <div className="mb-4">
           <HrReadOnlyNotice>
-            Các ô CCCD, BHXH, BHYT, điện thoại, địa chỉ và lương không điền sẵn vì API chỉ trả dữ liệu đã mask. Để trống sẽ giữ nguyên; chỉ nhập khi cần thay thế.
+            Form đang hiển thị đầy đủ dữ liệu hồ sơ nháp để Manager kiểm tra và chỉnh sửa. Field nhạy cảm để trống sẽ giữ nguyên dữ liệu cũ.
           </HrReadOnlyNotice>
+        </div>
+      )}
+      {catalogError && (
+        <div className="mb-4">
+          <HrError message={catalogError} onRetry={() => setCatalogReloadKey((value) => value + 1)} />
         </div>
       )}
       {error && <div className="mb-4"><HrError message={error} /></div>}
@@ -256,7 +275,7 @@ export default function HrEmployeeForm() {
           <Field label="Mô tả công việc" wide><textarea value={form.employment.jobDescription} onChange={(e) => update('employment', 'jobDescription', e.target.value)} className={TEXTAREA_CLASS} /></Field>
         </FormSection>
 
-        <FormSection title="Định danh" description={isEdit ? 'Để trống số giấy tờ nếu không thay đổi.' : undefined}>
+        <FormSection title="Định danh" description={isEdit ? 'Dữ liệu định danh hiện có được điền sẵn để đối chiếu nhanh.' : undefined}>
           <Field label="CMND cũ"><input inputMode="numeric" value={form.identity.legacyIdentityNumber} onChange={(e) => update('identity', 'legacyIdentityNumber', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="CCCD"><input inputMode="numeric" value={form.identity.citizenIdentityNumber} onChange={(e) => update('identity', 'citizenIdentityNumber', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="Ngày cấp"><input type="date" value={form.identity.issuedDate} onChange={(e) => update('identity', 'issuedDate', e.target.value)} className={INPUT_CLASS} /></Field>
@@ -264,7 +283,7 @@ export default function HrEmployeeForm() {
           <Field label="Xác minh"><select value={form.identity.verificationStatus} onChange={(e) => update('identity', 'verificationStatus', e.target.value)} className={INPUT_CLASS}><option value="UNVERIFIED">Chưa xác minh</option><option value="VERIFIED">Đã xác minh</option><option value="NEEDS_REVIEW">Cần kiểm tra</option></select></Field>
         </FormSection>
 
-        <FormSection title="Bảo hiểm" description={isEdit ? 'Để trống số bảo hiểm nếu không thay đổi.' : undefined}>
+        <FormSection title="Bảo hiểm" description={isEdit ? 'Dữ liệu bảo hiểm hiện có được điền sẵn để đối chiếu nhanh.' : undefined}>
           <Field label="Số BHXH"><input value={form.insurance.socialInsuranceNumber} onChange={(e) => update('insurance', 'socialInsuranceNumber', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="Số BHYT"><input value={form.insurance.healthInsuranceNumber} onChange={(e) => update('insurance', 'healthInsuranceNumber', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="Hiệu lực từ"><input type="date" value={form.insurance.validFrom} onChange={(e) => update('insurance', 'validFrom', e.target.value)} className={INPUT_CLASS} /></Field>
@@ -272,7 +291,7 @@ export default function HrEmployeeForm() {
           <Field label="Trạng thái"><select value={form.insurance.status} onChange={(e) => update('insurance', 'status', e.target.value)} className={INPUT_CLASS}><option value="UNKNOWN">Chưa xác định</option><option value="ACTIVE">Đang hiệu lực</option><option value="INACTIVE">Ngừng hiệu lực</option><option value="NEEDS_REVIEW">Cần kiểm tra</option></select></Field>
         </FormSection>
 
-        <FormSection title="Liên hệ" description={isEdit ? 'Điện thoại và địa chỉ để trống sẽ giữ nguyên dữ liệu hiện tại.' : undefined}>
+        <FormSection title="Liên hệ" description={isEdit ? 'Thông tin liên hệ hiện có được điền sẵn để đối chiếu nhanh.' : undefined}>
           <Field label="Điện thoại"><input type="tel" value={form.contact.phone} onChange={(e) => update('contact', 'phone', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="Email công việc"><input type="email" value={form.contact.workEmail} onChange={(e) => update('contact', 'workEmail', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="Email cá nhân"><input type="email" value={form.contact.personalEmail} onChange={(e) => update('contact', 'personalEmail', e.target.value)} className={INPUT_CLASS} /></Field>

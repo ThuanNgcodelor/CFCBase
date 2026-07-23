@@ -8,6 +8,9 @@ import com.booking.system.hr.api.dto.HrPageResponse;
 import com.booking.system.hr.importer.HrBaselineImportService;
 import com.booking.system.hr.importer.HrImportBatchSummary;
 import com.booking.system.hr.importer.HrImportPreviewPage;
+import com.booking.system.hr.importer.HrWorkforceSnapshotImportService;
+import com.booking.system.hr.importer.HrWorkforceSnapshotPreview;
+import com.booking.system.hr.importer.HrWorkforceSnapshotResult;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,15 +33,18 @@ public class HrImportController {
 
     private final HrActivityQueryService queryService;
     private final HrBaselineImportService importService;
+    private final HrWorkforceSnapshotImportService snapshotImportService;
     private final HrActorResolver actorResolver;
 
     public HrImportController(
             HrActivityQueryService queryService,
             HrBaselineImportService importService,
+            HrWorkforceSnapshotImportService snapshotImportService,
             HrActorResolver actorResolver
     ) {
         this.queryService = queryService;
         this.importService = importService;
+        this.snapshotImportService = snapshotImportService;
         this.actorResolver = actorResolver;
     }
 
@@ -67,6 +73,54 @@ public class HrImportController {
                 actorResolver.fromPrincipal(principal)
         );
         return ResponseEntity.ok(ApiResponse.success(result, "Đã tải và phân tích baseline HR"));
+    }
+
+    @PostMapping(
+            value = "/workforce-snapshot/preview",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ApiResponse<HrWorkforceSnapshotPreview>> previewWorkforceSnapshot(
+            @RequestPart("file") MultipartFile file
+    ) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File baseline T6-26 gồm 339 nhân sự là bắt buộc.");
+        }
+        HrWorkforceSnapshotPreview result = snapshotImportService.preview(
+                file.getOriginalFilename(),
+                file.getBytes()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+                result,
+                "Đã đối chiếu baseline T6-26 gồm 339 nhân sự; chưa thay đổi dữ liệu"
+        ));
+    }
+
+    @PostMapping(
+            value = "/workforce-snapshot/confirm",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ApiResponse<HrWorkforceSnapshotResult>> confirmWorkforceSnapshot(
+            @AuthenticationPrincipal User principal,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam String confirmationKey,
+            @RequestParam int expectedActiveEmployees
+    ) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File baseline T6-26 gồm 339 nhân sự là bắt buộc.");
+        }
+        HrWorkforceSnapshotResult result = snapshotImportService.confirm(
+                file.getOriginalFilename(),
+                file.getBytes(),
+                confirmationKey,
+                expectedActiveEmployees,
+                actorResolver.fromPrincipal(principal)
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+                result,
+                result.replayed()
+                        ? "Baseline T6-26 gồm 339 nhân sự đã được áp dụng trước đó"
+                        : "Đã chốt baseline T6-26; hiện có 339 nhân sự hoạt động"
+        ));
     }
 
     @GetMapping("/{batchId}/preview")

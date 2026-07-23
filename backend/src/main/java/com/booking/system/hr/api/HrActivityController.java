@@ -6,6 +6,10 @@ import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrPageResponse;
 import com.booking.system.hr.api.dto.HrRosterItemResponse;
 import com.booking.system.hr.api.dto.HrRosterResponse;
+import com.booking.system.hr.service.HrExcelExportService;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,9 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class HrActivityController {
 
     private final HrActivityQueryService queryService;
+    private final HrExcelExportService exportService;
 
-    public HrActivityController(HrActivityQueryService queryService) {
+    public HrActivityController(HrActivityQueryService queryService, HrExcelExportService exportService) {
         this.queryService = queryService;
+        this.exportService = exportService;
     }
 
     @GetMapping("/movements")
@@ -45,6 +51,14 @@ public class HrActivityController {
         ));
     }
 
+    @GetMapping("/rosters/{rosterId}")
+    public ResponseEntity<ApiResponse<HrRosterResponse>> roster(@PathVariable String rosterId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                queryService.roster(rosterId),
+                "Lấy thông tin kỳ nhân sự thành công"
+        ));
+    }
+
     @GetMapping("/rosters/{rosterId}/items")
     public ResponseEntity<ApiResponse<HrPageResponse<HrRosterItemResponse>>> rosterItems(
             @PathVariable String rosterId,
@@ -66,5 +80,29 @@ public class HrActivityController {
                 queryService.auditEvents(page, size),
                 "Lấy nhật ký HR thành công"
         ));
+    }
+
+    @GetMapping("/exports/month")
+    public ResponseEntity<byte[]> exportMonth(
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        return exportResponse(exportService.exportMonth(year, month));
+    }
+
+    @GetMapping("/exports/year")
+    public ResponseEntity<byte[]> exportYear(@RequestParam int year) {
+        return exportResponse(exportService.exportYear(year));
+    }
+
+    private static ResponseEntity<byte[]> exportResponse(HrExcelExportService.ExportFile file) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.fileName())
+                        .build()
+                        .toString())
+                .body(file.content());
     }
 }

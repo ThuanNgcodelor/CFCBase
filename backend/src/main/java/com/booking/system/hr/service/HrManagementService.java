@@ -350,9 +350,8 @@ public class HrManagementService {
         employment.setTerminationDate(input.terminationDate());
         employment.setContractTypeLabel(trimToNull(input.contractTypeLabel()));
         employment.setContractNumber(trimToNull(input.contractNumber()));
-        // Detail responses never expose compensation values. During an edit, an
-        // omitted/null value therefore means "keep the protected value", not
-        // "erase it". A non-null value is an explicit replacement.
+        // Omitted/null compensation values preserve the stored value on edit.
+        // A non-null value is an explicit replacement.
         if (created || input.baseSalary() != null) {
             employment.setBaseSalary(input.baseSalary());
         }
@@ -373,8 +372,7 @@ public class HrManagementService {
         } else {
             touch(identity, actor);
         }
-        // Identity numbers are masked in reads, so missing values on update
-        // must preserve the stored originals.
+        // Missing values on update must preserve stored identifiers.
         if (identity.getEmployeeId() == null || input.legacyIdentityNumber() != null) {
             identity.setLegacyIdentityNumber(trimToNull(input.legacyIdentityNumber()));
         }
@@ -398,7 +396,7 @@ public class HrManagementService {
         } else {
             touch(insurance, actor);
         }
-        // Insurance numbers follow the same masked round-trip contract.
+        // Missing values on update must preserve stored insurance numbers.
         if (insurance.getEmployeeId() == null || input.socialInsuranceNumber() != null) {
             insurance.setSocialInsuranceNumber(trimToNull(input.socialInsuranceNumber()));
         }
@@ -421,8 +419,7 @@ public class HrManagementService {
         } else {
             touch(contact, actor);
         }
-        // Every contact field is protected or masked in the detail response.
-        // Only non-null fields are replacements for an existing record.
+        // Only non-null fields are replacements for an existing contact record.
         boolean created = contact.getEmployeeId() == null;
         if (created || input.permanentAddress() != null) {
             contact.setPermanentAddress(trimToNull(input.permanentAddress()));
@@ -488,22 +485,23 @@ public class HrManagementService {
                         ref(employment.getWorkingCondition()), employment.getHireDate(),
                         employment.getLeaveAccrualStartDate(), employment.getTerminationDate(),
                         employment.getContractTypeLabel(), employment.getContractNumber(),
+                        employment.getBaseSalary(), employment.getAllowance(),
                         employment.getBaseSalary() != null || employment.getAllowance() != null,
                         employment.getJobDescription()),
                 identity == null ? null : new HrApiDtos.IdentityDetails(
-                        maskTail(identity.getLegacyIdentityNumber(), 4),
-                        maskTail(identity.getCitizenIdentityNumber(), 4), identity.getIssuedDate(),
+                        identity.getLegacyIdentityNumber(),
+                        identity.getCitizenIdentityNumber(), identity.getIssuedDate(),
                         identity.getIssuedPlace(), identity.getVerificationStatus()),
                 insurance == null ? null : new HrApiDtos.InsuranceDetails(
-                        maskTail(insurance.getSocialInsuranceNumber(), 4),
-                        maskTail(insurance.getHealthInsuranceNumber(), 4), insurance.getValidFrom(),
+                        insurance.getSocialInsuranceNumber(),
+                        insurance.getHealthInsuranceNumber(), insurance.getValidFrom(),
                         insurance.getValidUntil(), insurance.getStatus()),
                 contact == null ? null : new HrApiDtos.ContactDetails(
-                        protectedValue(contact.getPermanentAddress()), protectedValue(contact.getCurrentAddress()),
-                        maskTail(contact.getPhone(), 3), maskEmail(contact.getWorkEmail()),
-                        maskEmail(contact.getPersonalEmail()), protectedValue(contact.getEmergencyContactName()),
-                        maskTail(contact.getEmergencyContactPhone(), 3),
-                        protectedValue(contact.getEmergencyContactRelation()))
+                        contact.getPermanentAddress(), contact.getCurrentAddress(),
+                        contact.getPhone(), contact.getWorkEmail(),
+                        contact.getPersonalEmail(), contact.getEmergencyContactName(),
+                        contact.getEmergencyContactPhone(),
+                        contact.getEmergencyContactRelation())
         );
     }
 
@@ -652,33 +650,6 @@ public class HrManagementService {
     private static String normalizeEmail(String value) {
         String normalized = trimToNull(value);
         return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
-    }
-
-    private static String maskTail(String value, int visible) {
-        String normalized = trimToNull(value);
-        if (normalized == null) return null;
-        // A malformed/legacy short identifier must not become fully visible
-        // just because it is shorter than the usual visible tail.
-        if (normalized.length() <= visible) {
-            return "•".repeat(Math.max(4, normalized.length()));
-        }
-        int shown = visible;
-        return "•".repeat(Math.max(4, normalized.length() - shown))
-                + normalized.substring(normalized.length() - shown);
-    }
-
-    private static String maskEmail(String value) {
-        String normalized = trimToNull(value);
-        if (normalized == null) return null;
-        int at = normalized.indexOf('@');
-        if (at <= 0) return protectedValue(normalized);
-        String local = normalized.substring(0, at);
-        String visible = local.substring(0, Math.min(2, local.length()));
-        return visible + "•••" + normalized.substring(at);
-    }
-
-    private static String protectedValue(String value) {
-        return trimToNull(value) == null ? null : "Đã lưu (được bảo vệ)";
     }
 
     private static String id(HrCatalogEntity value) {

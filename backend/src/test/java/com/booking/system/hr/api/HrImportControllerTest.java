@@ -8,12 +8,15 @@ import com.booking.system.hr.enums.HrImportBatchStatus;
 import com.booking.system.hr.importer.HrBaselineImportService;
 import com.booking.system.hr.importer.HrImportActor;
 import com.booking.system.hr.importer.HrImportBatchSummary;
+import com.booking.system.hr.importer.HrWorkforceSnapshotImportService;
+import com.booking.system.hr.importer.HrWorkforceSnapshotResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,12 +33,20 @@ class HrImportControllerTest {
     @Mock
     private HrBaselineImportService importService;
 
+    @Mock
+    private HrWorkforceSnapshotImportService snapshotImportService;
+
     private HrImportController controller;
     private User manager;
 
     @BeforeEach
     void setUp() {
-        controller = new HrImportController(queryService, importService, new HrActorResolver());
+        controller = new HrImportController(
+                queryService,
+                importService,
+                snapshotImportService,
+                new HrActorResolver()
+        );
         manager = new User();
         manager.setId("manager-id");
         manager.setEmail("manager@example.test");
@@ -74,6 +85,43 @@ class HrImportControllerTest {
 
         ArgumentCaptor<HrImportActor> actor = ArgumentCaptor.forClass(HrImportActor.class);
         verify(importService).confirm(eq("batch-1"), eq("confirmation-1"), eq(true), actor.capture());
+        assertThat(actor.getValue().subject()).isEqualTo("USER:manager-id");
+        assertThat(actor.getValue().role()).isEqualTo("MANAGER");
+    }
+
+    @Test
+    void workforceSnapshotConfirmUsesAuthenticatedManagerAsActor() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "workforce-baseline-339-2026.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                new byte[]{1, 2, 3}
+        );
+        when(snapshotImportService.confirm(
+                eq(file.getOriginalFilename()),
+                eq(file.getBytes()),
+                eq("snapshot-key"),
+                eq(339),
+                any(HrImportActor.class)
+        )).thenReturn(new HrWorkforceSnapshotResult(
+                "batch-339", "hash", 0, 0, 0, 339, 339, true, false
+        ));
+
+        controller.confirmWorkforceSnapshot(
+                manager,
+                file,
+                "snapshot-key",
+                339
+        );
+
+        ArgumentCaptor<HrImportActor> actor = ArgumentCaptor.forClass(HrImportActor.class);
+        verify(snapshotImportService).confirm(
+                eq(file.getOriginalFilename()),
+                eq(file.getBytes()),
+                eq("snapshot-key"),
+                eq(339),
+                actor.capture()
+        );
         assertThat(actor.getValue().subject()).isEqualTo("USER:manager-id");
         assertThat(actor.getValue().role()).isEqualTo("MANAGER");
     }

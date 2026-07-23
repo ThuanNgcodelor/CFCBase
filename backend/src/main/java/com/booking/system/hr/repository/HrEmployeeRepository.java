@@ -2,15 +2,17 @@ package com.booking.system.hr.repository;
 
 import com.booking.system.hr.entity.HrEmployee;
 import com.booking.system.hr.enums.HrEmploymentStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
     Optional<HrEmployee> findByEmployeeCode(String employeeCode);
@@ -71,4 +73,29 @@ public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
     })
     @Query("select employee from HrEmployee employee where employee.id = :id")
     Optional<HrEmployee> findDetailById(@Param("id") String id);
+
+    @EntityGraph(attributePaths = {
+            "sourceImportBatch",
+            "employment", "employment.department", "employment.position", "employment.workingCondition",
+            "identity", "insurance", "contact"
+    })
+    @Query("select employee from HrEmployee employee order by employee.employeeCode")
+    List<HrEmployee> findAllDetails();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {
+            "sourceImportBatch",
+            "employment", "employment.department", "employment.position", "employment.workingCondition",
+            "identity", "insurance", "contact"
+    })
+    @Query("select employee from HrEmployee employee order by employee.employeeCode")
+    List<HrEmployee> findAllDetailsForUpdate();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {
+            "employment", "employment.department", "employment.position", "employment.workingCondition",
+            "identity", "insurance", "contact"
+    })
+    @Query("select employee from HrEmployee employee where employee.id = :id")
+    Optional<HrEmployee> findDetailByIdForUpdate(@Param("id") String id);
 }

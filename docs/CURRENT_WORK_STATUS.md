@@ -1,10 +1,12 @@
 # Trạng Thái Công Việc Hiện Tại
 
-Cập nhật lần cuối: 2026-07-22
+Cập nhật lần cuối: 2026-07-23
 
 ## Trạng Thái Production
 
-- Production hiện đang **tắt theo xác nhận của người dùng ngày 2026-07-22**; Phase 1/2 không bật lại backend, tunnel, MySQL hoặc Redis production.
+- Lần xác nhận trước đó: production đã được người dùng tắt ngày `2026-07-22` trong lúc xây Phase 1/2.
+- Ngày `2026-07-23`, người dùng xác nhận số liệu lịch sử đúng của tháng 6 là `339`, không phải `329`. Dữ liệu 329 cũ đã được xóa; agent chưa query độc lập để xác định các bảng HR hiện đã trống hoàn toàn hay còn reference.
+- Vì chưa có kiểm tra độc lập mới, tài liệu không khẳng định production hiện đang `active`/`inactive` hoặc database đã đủ điều kiện import. Preview của baseline T6-26 = 339 phải là gate trước mọi confirm.
 - Khi chạy, production dùng Spring Boot JAR tại port `8080` trên Fedora.
 - Frontend `dist` được đóng gói và serve trực tiếp từ Spring Boot JAR.
 - Cloudflare Tunnel `bookingbase` (`745ab8be-c55c-4e72-b985-d918206ca82f`) phục vụ:
@@ -154,7 +156,8 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 
 ## Phân Hệ HR — Phase 1 Schema
 
-- Phase 1 hoàn thành ở source code ngày `2026-07-22`; chỉ build artifact để kiểm tra, chưa chạy migration/restart/deploy production và chưa thay đổi database production.
+- Phase 1 hoàn thành ở source/test cô lập ngày `2026-07-22`.
+- Người dùng xác nhận migration HR đã được chạy ngày `2026-07-23`; agent chưa query Flyway history/schema/runtime để xác minh độc lập.
 - Đã thêm Flyway với cấu hình an toàn trong `backend/src/main/resources/application.properties`.
 - `baseline-on-migrate` mặc định `false`; database legacy chỉ baseline version `0` khi deploy operator chủ động bật biến môi trường sau backup.
 - Migration V1 chỉ tạo 15 bảng `hr_*`; không alter/drop/delete/truncate bảng BookingBase cũ.
@@ -174,7 +177,8 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 
 ## Phân Hệ HR — Phase 2 Import Baseline
 
-- Phase 2 hoàn thành ở source/test cô lập ngày `2026-07-22`; chưa migrate/import/restart production.
+- Phase 2 hoàn thành ở source/test cô lập ngày `2026-07-22`.
+- Người dùng xác nhận baseline từng import thành công với `329` nhân sự rồi đã được xóa để chuẩn bị import one-time 339 ngày `2026-07-23`; agent chưa đối chiếu độc lập database/runtime sau thao tác xóa.
 - Parser OOXML khóa đúng SHA-256, ba sheet và `T6-26!A4:AH333`; giới hạn ZIP/XML an toàn, cấm formula/macro/external relationship.
 - Flow lõi: upload -> staging -> preview phân trang -> validate -> confirm có warning acknowledgement; upload và confirm đều idempotent.
 - Upload không tạo Employee. Confirm mới tạo nguyên tử 329 Employee độc lập, hồ sơ con, 329 movement `INITIAL_LOAD` và snapshot đóng T6-26.
@@ -189,32 +193,91 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 
 ## Phân Hệ HR — Phase 3 Security, API Và UI Manager
 
-- Phase 3 hoàn thành ở source/test cô lập ngày `2026-07-22`; không tạo account Manager, không restart/deploy và không thay đổi database production.
+- Phase 3 hoàn thành ở source/test cô lập ngày `2026-07-22`; agent không tạo account Manager.
+- Trạng thái artifact/service đang phục vụ lần import ngày `2026-07-23` chưa được agent kiểm tra độc lập.
 - `/api/v1/hr/**` chỉ cho đúng role `MANAGER`: thiếu token trả `401`; `ADMIN`/`EMPLOYEE` trả `403`; `MANAGER` trả `200`.
 - Actor ghi audit/import lấy từ authenticated `User` đang active; request không nhận `actorId`/`managerId` từ client.
-- API có overview; nhân sự phân trang/filter/sort; detail DTO masked; tạo/sửa hồ sơ `DRAFT`; danh mục HR; import; movement/roster/audit read-only.
-- Edit dùng `rowVersion`, chặn hồ sơ ngoài `DRAFT`, không round-trip chuỗi mask và không xóa lương/CCCD/BHXH/BHYT/liên hệ khi client để trống.
+- API có overview; nhân sự phân trang/filter/sort; detail DTO trả đầy đủ dữ liệu cho `MANAGER`; tạo/sửa hồ sơ `DRAFT`; danh mục HR; import; movement/roster/audit read-only.
+- Edit dùng `rowVersion`, chặn hồ sơ ngoài `DRAFT`; field lương/CCCD/BHXH/BHYT/liên hệ để trống vẫn giữ nguyên dữ liệu cũ.
 - Mapping chi tiết HR cascade remove đúng vòng đời nên rollback baseline Phase 2 vẫn xóa sạch dữ liệu import có guard.
 - `MANAGER` login, silent refresh hoặc mở PWA tại `/` đều chuyển tới `/manager/hr`; deep link `/manager/**` được SPA forward.
 - Giao diện responsive dùng chung DashboardLayout/notification/push: overview, list/detail/form, danh mục, import; movement/roster/audit ở chế độ read-only.
 - Route HR được lazy-load. Action Tăng/Giảm, mở/chốt tháng và export Excel đúng template chưa được giả lập; vẫn thuộc Phase 5–6.
 
-## Verification Gần Nhất
+## Phân Hệ HR — Phase 4 Giao Diện Manager
+
+- Phase 4 hoàn thành ở source và automated verification ngày `2026-07-23`; chưa deploy/restart server trong lượt này.
+- Phạm vi hiện tại là giao diện cho API Phase 3: overview, nhân sự, hồ sơ `DRAFT`, danh mục, import baseline và các trang movement/roster/audit read-only.
+- Sidebar `MANAGER` chỉ hiển thị `Thông báo` và nhóm `Quản lý nhân sự`; login/silent refresh/PWA root đi tới `/manager/hr`.
+- Catalog filter/form tải đủ mọi trang; deep link roster tự lấy metadata; pagination có số trang; nội dung dùng ngôn ngữ nghiệp vụ thay cho nhãn Phase kỹ thuật.
+- Batch `CONFIRMED` hiển thị kết quả/CTA rõ ràng; rollback được chuyển vào khu vực khôi phục nâng cao và bắt nhập đúng mã batch cùng tổng số dòng.
+- Audit hiển thị trường thay đổi đã lọc; tài khoản không còn `ACTIVE` bị chặn ngay cả khi access token cũ còn hạn.
+- Edit trực tiếp hồ sơ `ACTIVE`, Tăng/Giảm, mở/chốt tháng, export và ngày phép không thuộc Phase 4.
+- Acceptance/UAT chi tiết: [HR Phase 4 — Giao diện Manager](HR_PHASE_4_MANAGER_UI.md).
+
+## Verification Phase 4
 
 - Frontend `npm run lint`: pass, còn 1 warning cũ ở `CustomDateHeader.jsx`.
-- Frontend `npm run build`: pass; các trang HR đã tách chunk, main chunk hiện khoảng 780,51 KB.
-- Backend: 71 test methods pass, 1 test biến thể môi trường được skip; gồm toàn bộ regression cũ, Phase 1/2/3, security 401/403/200, masked update và rollback baseline; 0 failure/error.
+- Frontend `npm run build`: pass; PWA/service worker build pass, main chunk hiện khoảng 780,55 KB.
+- Backend target Phase 4: 8 test pass cho roster detail, audit DTO và security 401/403/manager-inactive.
+- Backend regression: 75 test được chạy, 0 failure/error và 1 test biến thể môi trường được skip. Trên JDK 25 phải chạy với ByteBuddy Java agent như baseline dự án.
 - MySQL 8 integration: 5 test methods pass, gồm Flyway V1/V2, constraints/ORM, upload/preview/validate/confirm baseline thật, conflict atomicity, rollback, retention, JSON type và production-style schema verifier.
-- Production JAR build: pass.
+- Production JAR chứa frontend Phase 4 mới: build pass.
 - Executable JAR Web Push smoke test: pass.
 - `git diff --check`: pass.
 
+## Phân Hệ HR — Phase 5 Tăng/Giảm Và Danh Sách Tháng
+
+- Phase 5 hoàn thành ở source code và automated test ngày `2026-07-23`; chưa deploy/restart production hoặc chạy action ghi trên database của người dùng trong lượt này.
+- Chỉ `MANAGER` đang `ACTIVE` được tạo/xác nhận/hủy Tăng/Giảm, mở/chốt/reopen kỳ; actor luôn lấy từ authenticated principal.
+- `INCREASE` chỉ nhận Employee `DRAFT`; `DECREASE` chỉ nhận Employee `ACTIVE` và bắt buộc lý do.
+- Movement có idempotency key, optimistic `rowVersion`, pessimistic lock và vòng đời `DRAFT -> CONFIRMED/CANCELLED`; confirmed history không sửa/xóa trực tiếp.
+- Danh sách tháng tạo tuần tự, kế thừa kỳ gần nhất đã chốt, materialize khi mở và dựng lại khi chốt; snapshot chốt có SHA-256 checksum.
+- `T6-26` từ import là baseline bất biến. Movement có hiệu lực lịch sử được áp dụng vào kỳ kế tiếp chưa chốt mà không sửa T6.
+- Reopen chỉ cho kỳ `CLOSED` không phải baseline, chưa có tháng downstream và bắt buộc lý do; kỳ `EXPORTED` không reopen.
+- Hard-delete chỉ cho Employee/movement/roster `DRAFT` tạo tay và chưa có reference.
+- UI Manager đã có form Tăng/Giảm, tìm Employee theo trạng thái, confirm/cancel/delete nháp, tạo/mở/chốt/reopen/delete kỳ và xóa hồ sơ nháp.
+- Chi tiết hồ sơ HR hiển thị đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER`; roster/audit vẫn không sao chép dữ liệu nhạy cảm.
+- Integration test khóa baseline hiệu chỉnh: T6 có 339 item, 339 Employee `ACTIVE`/339 lịch sử và không tạo T7.
+- Artifact one-time khóa đúng `workforce-baseline-339-2026.xlsx` SHA-256 `e35f22c83f5dacb542c7b3cff76238fcbaf8ac22f7e85b786d62d2c1de6cf6f7`.
+- Artifact có ba sheet visible `TĂNG`, `GIẢM`, `T6-26`; T6 có 339 người. Không import trực tiếp `Baseline-value-339-2026.xlsx`.
+- Nếu HR trống, một confirm nguyên tử tạo T6 `CLOSED` 339, 339 movement `INITIAL_LOAD`; không tự tạo Tăng/Giảm hoặc T7.
+- Hậu điều kiện khóa: 339 Employee `ACTIVE`, 339 hồ sơ lịch sử và T6 339. G083 để trống CCCD để chờ xác minh thay vì sao chép số bị trùng từ nguồn.
+- Đây là baseline riêng cho dữ liệu 2026, không phải generic bulk import/export của Phase 6.
+- Tài liệu nghiệp vụ/API/UAT: [HR Phase 5 — Tăng/Giảm và danh sách tháng](HR_PHASE_5_WORKFORCE_MONTHLY.md).
+- Tài liệu import một file: [HR — Import một lần danh sách 339](HR_WORKFORCE_IMPORT_339.md).
+
+## Verification Phase 5
+
+- Backend target Phase 5: service reconciliation/lifecycle, controller actor, roster contract và security đều pass.
+- Frontend `npm run lint`: pass, còn một warning cũ ở `CustomDateHeader.jsx`.
+- Frontend `npm run build`: pass; PWA/service worker build pass, main chunk khoảng 780,65 KB và còn chunk-size warning cũ.
+- Backend full regression với ByteBuddy Java agent trên JDK 25: 80 test, 0 failure/error và 1 test biến thể môi trường được skip.
+- Production JAR chứa frontend Phase 5 mới package thành công; chưa kích hoạt/restart artifact.
+- `git diff --check`: pass tại thời điểm cập nhật.
+
+### Verification runtime đang chờ
+
+- Browser UAT desktop/mobile/deep-link: chưa hoàn tất.
+- Read-only reconciliation runtime sau khi người dùng xóa bộ 329: agent chưa thực hiện. Chưa được giả định database trống cho tới khi preview baseline 339 trả `applicable=true` và `bootstrap=true`.
+
+## Phân Hệ HR — Phase 6 Export Excel
+
+- Phase 6 export Excel hoàn thành ở source code và automated test ngày `2026-07-23`; chưa deploy/restart production hoặc UAT runtime.
+- UI export đặt tại `/manager/hr/rosters` đúng trang `Danh sách tháng`.
+- Header có ô nhập năm và nút `Export năm`; mỗi card roster có nút `Export tháng`.
+- Export năm gọi `GET /api/v1/hr/exports/year?year=2026` và tạo workbook 14 sheet: `Tăng`, `Giảm`, `T1 26` ... `T12 26`.
+- Export tháng gọi `GET /api/v1/hr/exports/month?year=2026&month=6` và tạo workbook 3 sheet: `Tăng`, `Giảm`, `T6 26`.
+- Sheet tháng chưa có roster vẫn được tạo với header để giữ đúng cấu trúc file.
+- Sheet roster vẫn không chứa CCCD/CMND, BHXH/BHYT, địa chỉ, điện thoại hoặc lương/phụ cấp.
+- Tài liệu: [HR Phase 6 — Export Excel](HR_PHASE_6_EXCEL_EXPORT.md).
+
 ## Rủi Ro / Việc Còn Lại
 
-- Flyway đã có V1/V2 cho HR nhưng production đang tắt và chưa thực hiện one-time baseline/migrate; `ddl-auto: update` chỉ còn quyền trên schema legacy qua filter.
+- Flyway V1/V2 đã được người dùng báo áp dụng; bộ 329 từng import rồi đã xóa, nhưng chưa có query độc lập xác nhận HR hiện trống sạch. Không chạy initialization chỉ để thử.
 - Production secrets/default secrets cần được đưa hoàn toàn ra environment variables và rotate.
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
-- Phase 5–6 chưa triển khai thao tác Tăng/Giảm, mở/chốt snapshot tháng và export Excel đúng template; các màn hình hiện tại chủ động read-only.
+- Phase 5 và Phase 6 export đã có ở source nhưng chưa deploy/UAT runtime; import sheet Tăng/Giảm hàng loạt từ workbook bất kỳ vẫn chưa triển khai.
 - Cần test end-to-end PWA push trên nhiều thiết bị iOS/Android thật, đặc biệt notification click khi app đóng.
 - Cần test social preview cache trên các nền tảng gửi link khác nhau.
 - Có orphan `booking_adminer` container được Docker Compose cảnh báo; chưa xóa vì không liên quan runtime chính và tránh thao tác phá hủy ngoài yêu cầu.
@@ -229,7 +292,14 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - `backend/src/main/java/com/booking/system/hr/api/HrManagementController.java`
 - `backend/src/main/java/com/booking/system/hr/api/HrImportController.java`
 - `backend/src/main/java/com/booking/system/hr/service/HrManagementService.java`
+- `backend/src/main/java/com/booking/system/hr/service/HrWorkforceService.java`
+- `backend/src/main/java/com/booking/system/hr/service/HrExcelExportService.java`
+- `backend/src/main/java/com/booking/system/hr/api/HrWorkforceController.java`
 - `backend/src/main/resources/db/migration/V2__add_hr_import_payload_retention.sql`
+- `docs/HR_PHASE_4_MANAGER_UI.md`
+- `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`
+- `docs/HR_PHASE_6_EXCEL_EXPORT.md`
+- `docs/HR_WORKFORCE_IMPORT_339.md`
 - `backend/src/main/java/com/booking/system/event/NotificationEventListener.java`
 - `frontend/src/api/authStorage.js`
 - `frontend/src/utils/notificationNavigation.js`
@@ -243,10 +313,13 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 
 ## Bước Tiếp Theo Gợi Ý
 
-1. Chỉ áp dụng Flyway baseline `0` + V1/V2 trong cửa sổ deploy riêng, có full backup, đối chiếu và chạy verifier; chưa import baseline chỉ vì migration đã sẵn sàng.
-2. Sau khi deploy Phase 3 và tạo account role `MANAGER`, smoke-test `/manager/hr`, API 401/403 và import preview trước khi confirm baseline thật.
-3. Triển khai Phase 5 cho Tăng/Giảm và snapshot tháng; không biến màn hình read-only hiện tại thành thao tác ghi trước khi khóa rule nghiệp vụ.
-4. Thêm integration test cho register -> Admin notification -> approve -> login.
-5. Test Web Push registration thật trên iOS/Android với Admin subscription active.
-6. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
-7. Tiếp tục tách vendor/shared chunk frontend để giảm main bundle.
+1. Không chạy lại import riêng baseline 329. Backup và để preview baseline 339 xác nhận database đủ điều kiện import.
+2. Build/deploy artifact mới trong cửa sổ phù hợp, sau đó dùng đúng `workforce-baseline-339-2026.xlsx` theo `docs/HR_WORKFORCE_IMPORT_339.md`.
+3. Chỉ confirm khi preview báo `bootstrap=true`, mục tiêu 339, hiện tại 0 và không có lỗi chặn.
+4. Sau confirm, đối chiếu T6 `CLOSED` 339, 339 active/339 lịch sử, checksum và audit; không có T7 tự sinh.
+5. UAT `/manager/hr` theo `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`, dùng hồ sơ test riêng cho các action ghi/xóa tiếp theo.
+6. UAT export năm/tháng tại `/manager/hr/rosters` theo `docs/HR_PHASE_6_EXCEL_EXPORT.md`.
+7. Thêm integration test cho register -> Admin notification -> approve -> login.
+8. Test Web Push registration thật trên iOS/Android với Admin subscription active.
+9. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
+10. Tiếp tục tách vendor/shared chunk frontend để giảm main bundle.

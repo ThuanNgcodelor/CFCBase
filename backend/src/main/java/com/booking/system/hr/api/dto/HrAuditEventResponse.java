@@ -13,6 +13,7 @@ public record HrAuditEventResponse(
         String entityType,
         String entityId,
         String correlationId,
+        String changedFields,
         String sanitizedMetadata,
         LocalDateTime occurredAt
 ) {
@@ -26,6 +27,7 @@ public record HrAuditEventResponse(
                 event.getEntityType(),
                 event.getEntityId(),
                 event.getCorrelationId(),
+                event.getChangedFields(),
                 event.getSanitizedMetadata(),
                 event.getOccurredAt()
         );

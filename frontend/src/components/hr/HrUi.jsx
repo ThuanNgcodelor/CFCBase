@@ -68,16 +68,55 @@ export function HrEmpty({ title = 'Chưa có dữ liệu', description }) {
   );
 }
 
+function paginationItems(page, totalPages) {
+  const indexes = new Set([0, 1, page - 1, page, page + 1, totalPages - 2, totalPages - 1]);
+  const pages = [...indexes]
+    .filter((value) => value >= 0 && value < totalPages)
+    .sort((left, right) => left - right);
+  const items = [];
+
+  pages.forEach((value, index) => {
+    if (index > 0 && value - pages[index - 1] > 1) {
+      items.push(`gap-${pages[index - 1]}-${value}`);
+    }
+    items.push(value);
+  });
+
+  return items;
+}
+
 export function HrPagination({ page, totalPages, totalElements, loading, onPageChange }) {
   if (!totalPages) return null;
+  const goToPage = (nextPage) => onPageChange(Math.max(0, Math.min(nextPage, totalPages - 1)));
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
       <span className="text-gray-500">{totalElements} kết quả · Trang {page + 1}/{totalPages}</span>
-      <div className="flex gap-2">
-        <Button type="button" size="sm" variant="secondary" disabled={loading || page <= 0} onClick={() => onPageChange(page - 1)}>
+      <div className="flex items-center gap-1.5">
+        <Button type="button" size="sm" variant="secondary" className="flex-1 sm:flex-none" disabled={loading || page <= 0} onClick={() => goToPage(page - 1)}>
           <ChevronLeft className="h-4 w-4" /> Trước
         </Button>
-        <Button type="button" size="sm" variant="secondary" disabled={loading || page + 1 >= totalPages} onClick={() => onPageChange(page + 1)}>
+        <div className="hidden items-center gap-1 sm:flex">
+          {paginationItems(page, totalPages).map((item) => (
+            typeof item === 'string' ? (
+              <span key={item} className="px-1 text-gray-400" aria-hidden="true">…</span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                disabled={loading}
+                aria-label={`Đến trang ${item + 1}`}
+                aria-current={item === page ? 'page' : undefined}
+                onClick={() => goToPage(item)}
+                className={`h-8 min-w-8 rounded-md border px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${item === page
+                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-300 hover:text-emerald-700'}`}
+              >
+                {item + 1}
+              </button>
+            )
+          ))}
+        </div>
+        <Button type="button" size="sm" variant="secondary" className="flex-1 sm:flex-none" disabled={loading || page + 1 >= totalPages} onClick={() => goToPage(page + 1)}>
           Sau <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

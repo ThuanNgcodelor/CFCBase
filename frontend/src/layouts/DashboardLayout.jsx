@@ -104,12 +104,12 @@ function DashboardLayoutContent() {
   ];
 
   const hrNavItems = [
-    { name: 'Tổng quan HR', path: '/manager/hr', icon: LayoutDashboard },
+    { name: 'Tổng quan nhân sự', path: '/manager/hr', icon: LayoutDashboard },
     { name: 'Nhân sự', path: '/manager/hr/employees', icon: ContactRound },
     { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
-    { name: 'Danh mục HR', path: '/manager/hr/catalogs', icon: Library },
-    { name: 'Import baseline', path: '/manager/hr/imports', icon: Upload },
+    { name: 'Danh mục nhân sự', path: '/manager/hr/catalogs', icon: Library },
+    { name: 'Nhập dữ liệu', path: '/manager/hr/imports', icon: Upload },
     { name: 'Nhật ký thay đổi', path: '/manager/hr/audit', icon: History },
   ];
 

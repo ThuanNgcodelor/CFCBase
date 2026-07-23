@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BriefcaseBusiness, Contact, FilePenLine, Fingerprint, HeartPulse, ShieldCheck, UserRound } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { ArrowLeft, BriefcaseBusiness, Contact, FilePenLine, Fingerprint, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrError, HrLoading, HrPageHeader, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrError, HrLoading, HrPageHeader, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
-import { apiErrorMessage, formatHrDate, formatHrDateTime, nonEmpty } from '../../utils/hr';
+import { apiErrorMessage, employmentStatusLabel, formatHrDate, formatHrDateTime, nonEmpty } from '../../utils/hr';
 
 const GENDER_LABELS = { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác', UNKNOWN: 'Chưa xác định' };
+
+function formatMoney(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return value;
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(numeric);
+}
 
 function DetailSection({ icon: Icon, title, note, children }) {
   return (
@@ -40,6 +48,7 @@ export default function HrEmployeeDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,6 +76,21 @@ export default function HrEmployeeDetail() {
   const contact = employee.contact || employee.contacts || {};
   const employmentStatus = employee.employmentStatus || personal.employmentStatus || employee.status;
 
+  const deleteDraft = async () => {
+    if (!window.confirm(`Xóa vĩnh viễn hồ sơ nháp ${personal.fullName}? Thao tác này không thể hoàn tác.`)) return;
+    setDeleting(true);
+    try {
+      await hrEmployeeApi.deleteDraftEmployee(id, employee.rowVersion);
+      toast.success('Đã xóa hồ sơ nhân sự nháp.');
+      navigate('/manager/hr/employees', { replace: true });
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể xóa hồ sơ nhân sự nháp.'));
+      setReloadKey((value) => value + 1);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-6xl">
       <SEOHead title={`CFC Base | ${personal.fullName || 'Chi tiết nhân sự'}`} url={`https://cfcbooking.io.vn/manager/hr/employees/${id}`} />
@@ -79,6 +103,9 @@ export default function HrEmployeeDetail() {
             {employmentStatus === 'DRAFT' && (
               <Button type="button" onClick={() => navigate(`/manager/hr/employees/${id}/edit`)}><FilePenLine className="mr-1.5 h-4 w-4" />Chỉnh sửa bản nháp</Button>
             )}
+            {employmentStatus === 'DRAFT' && (
+              <Button type="button" variant="danger" disabled={deleting} onClick={deleteDraft}><Trash2 className="mr-1.5 h-4 w-4" />Xóa bản nháp</Button>
+            )}
           </>
         )}
       />
@@ -90,14 +117,22 @@ export default function HrEmployeeDetail() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-gray-900">{personal.fullName}</p>
-            <HrStatusBadge status={employmentStatus} />
+            <HrStatusBadge status={employmentStatus} label={employmentStatusLabel(employmentStatus)} />
           </div>
           <p className="mt-1 text-sm text-gray-500">{employment.departmentName || employment.department?.name || 'Chưa có phòng ban'} · {employment.positionName || employment.position?.name || 'Chưa có chức vụ'}</p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          <ShieldCheck className="h-4 w-4" />Thông tin nhạy cảm đã được server che
+          <ShieldCheck className="h-4 w-4" />Đang hiển thị đầy đủ cho Manager
         </div>
       </div>
+
+      {employmentStatus !== 'DRAFT' && (
+        <div className="mb-5">
+          <HrReadOnlyNotice>
+            Đây là hồ sơ chính thức và được mở ở chế độ tra cứu. Việc ngừng làm việc phải thực hiện qua Tăng/Giảm để giữ đầy đủ ngày hiệu lực, người thao tác và lịch sử.
+          </HrReadOnlyNotice>
+        </div>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-2">
         <DetailSection icon={UserRound} title="Thông tin chung">
@@ -121,11 +156,12 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Ngày nghỉ việc" value={formatHrDate(employment.terminationDate)} />
           <DetailItem label="Loại hợp đồng" value={employment.contractTypeLabel} />
           <DetailItem label="Số hợp đồng" value={employment.contractNumber} />
-          <DetailItem label="Lương / phụ cấp" value={employment.hasCompensationData ? 'Đã lưu (không hiển thị giá trị)' : 'Chưa có dữ liệu'} />
+          <DetailItem label="Lương cơ bản" value={formatMoney(employment.baseSalary)} />
+          <DetailItem label="Phụ cấp" value={formatMoney(employment.allowance)} />
           <DetailItem label="Mô tả công việc" value={employment.jobDescription} wide />
         </DetailSection>
 
-        <DetailSection icon={Fingerprint} title="Định danh" note="Giá trị trả về là dữ liệu đã mask, không có thao tác hiện số đầy đủ.">
+        <DetailSection icon={Fingerprint} title="Định danh" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
           <DetailItem label="CMND cũ" value={identity.legacyIdentityNumberMasked || identity.legacyIdentityNumber} />
           <DetailItem label="CCCD" value={identity.citizenIdentityNumberMasked || identity.citizenIdentityNumber} />
           <DetailItem label="Ngày cấp" value={formatHrDate(identity.issuedDate)} />
@@ -133,7 +169,7 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Xác minh" value={identity.verificationStatusLabel || identity.verificationStatus} />
         </DetailSection>
 
-        <DetailSection icon={HeartPulse} title="Bảo hiểm" note="Mã BHXH/BHYT được che tại API.">
+        <DetailSection icon={HeartPulse} title="Bảo hiểm" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
           <DetailItem label="Số BHXH" value={insurance.socialInsuranceNumberMasked || insurance.socialInsuranceNumber} />
           <DetailItem label="Số BHYT" value={insurance.healthInsuranceNumberMasked || insurance.healthInsuranceNumber} />
           <DetailItem label="Hiệu lực từ" value={formatHrDate(insurance.validFrom)} />
@@ -141,7 +177,7 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Trạng thái" value={insurance.statusLabel || insurance.status} />
         </DetailSection>
 
-        <DetailSection icon={Contact} title="Liên hệ" note="Điện thoại và địa chỉ được mask theo chính sách API.">
+        <DetailSection icon={Contact} title="Liên hệ" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
           <DetailItem label="Điện thoại" value={contact.phoneMasked || contact.phone} />
           <DetailItem label="Email công việc" value={contact.workEmailMasked || contact.workEmail} />
           <DetailItem label="Email cá nhân" value={contact.personalEmailMasked || contact.personalEmail} />
