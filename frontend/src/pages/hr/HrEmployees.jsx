@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, Filter, PencilLine, Plus, Search, UserRound } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +17,63 @@ const INITIAL_FILTERS = {
   workingConditionId: '',
   sort: 'employeeCode,asc',
 };
+const EMPLOYEE_STATUSES = new Set(['DRAFT', 'ACTIVE', 'INACTIVE']);
+const EMPLOYEE_SORTS = new Set([
+  'employeeCode,asc',
+  'employeeCode,desc',
+  'fullName,asc',
+  'fullName,desc',
+  'hireDate,desc',
+]);
+const PAGE_SIZE = 20;
+
+function searchValue(searchParams, key) {
+  return searchParams.get(key)?.trim() || '';
+}
+
+function parseEmployeeSearchState(searchParams) {
+  const requestedPage = Number(searchParams.get('page'));
+  const requestedStatus = searchValue(searchParams, 'status').toUpperCase();
+  const requestedSort = searchValue(searchParams, 'sort');
+
+  return {
+    page: Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 0,
+    filters: {
+      keyword: searchValue(searchParams, 'keyword'),
+      status: EMPLOYEE_STATUSES.has(requestedStatus) ? requestedStatus : '',
+      departmentId: searchValue(searchParams, 'departmentId'),
+      positionId: searchValue(searchParams, 'positionId'),
+      workingConditionId: searchValue(searchParams, 'workingConditionId'),
+      sort: EMPLOYEE_SORTS.has(requestedSort) ? requestedSort : INITIAL_FILTERS.sort,
+    },
+  };
+}
+
+function buildEmployeeSearchParams(page, filters) {
+  const params = new URLSearchParams();
+  const keyword = filters.keyword.trim();
+  if (keyword) params.set('keyword', keyword);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.departmentId) params.set('departmentId', filters.departmentId);
+  if (filters.positionId) params.set('positionId', filters.positionId);
+  if (filters.workingConditionId) params.set('workingConditionId', filters.workingConditionId);
+  if (filters.sort && filters.sort !== INITIAL_FILTERS.sort) params.set('sort', filters.sort);
+  if (page > 0) params.set('page', String(page));
+  return params;
+}
+
+function buildBackendQuery(page, filters) {
+  return {
+    page,
+    size: PAGE_SIZE,
+    sort: filters.sort,
+    keyword: filters.keyword,
+    status: filters.status,
+    departmentId: filters.departmentId,
+    positionId: filters.positionId,
+    workingConditionId: filters.workingConditionId,
+  };
+}
 
 function EmployeeAvatar({ employee }) {
   return (
@@ -28,9 +85,13 @@ function EmployeeAvatar({ employee }) {
 
 export default function HrEmployees() {
   const navigate = useNavigate();
-  const [draftFilters, setDraftFilters] = useState(INITIAL_FILTERS);
-  const [filters, setFilters] = useState(INITIAL_FILTERS);
-  const [page, setPage] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsKey = searchParams.toString();
+  const { page, filters } = useMemo(
+    () => parseEmployeeSearchState(new URLSearchParams(searchParamsKey)),
+    [searchParamsKey],
+  );
+  const [draftFilters, setDraftFilters] = useState(filters);
   const [result, setResult] = useState(normalizePage(null));
   const [catalogs, setCatalogs] = useState({ departments: [], positions: [], conditions: [] });
   const [loading, setLoading] = useState(true);
@@ -38,6 +99,11 @@ export default function HrEmployees() {
   const [reloadKey, setReloadKey] = useState(0);
   const [catalogError, setCatalogError] = useState('');
   const [catalogReloadKey, setCatalogReloadKey] = useState(0);
+  const employeeRequestSeq = useRef(0);
+
+  useEffect(() => {
+    setDraftFilters(filters);
+  }, [filters]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -62,22 +128,26 @@ export default function HrEmployees() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestSeq = employeeRequestSeq.current + 1;
+    employeeRequestSeq.current = requestSeq;
     setLoading(true);
     setError('');
-    const params = { page, size: 20, sort: filters.sort };
-    if (filters.keyword) params.keyword = filters.keyword;
-    if (filters.status) params.status = filters.status;
-    if (filters.departmentId) params.departmentId = filters.departmentId;
-    if (filters.positionId) params.positionId = filters.positionId;
-    if (filters.workingConditionId) params.workingConditionId = filters.workingConditionId;
 
-    hrEmployeeApi.getEmployees(params, { signal: controller.signal })
-      .then((data) => setResult(normalizePage(data)))
+    hrEmployeeApi.getEmployees(buildBackendQuery(page, filters), { signal: controller.signal })
+      .then((data) => {
+        if (!controller.signal.aborted && requestSeq === employeeRequestSeq.current) {
+          setResult(normalizePage(data));
+        }
+      })
       .catch((requestError) => {
-        if (!controller.signal.aborted) setError(apiErrorMessage(requestError, 'Không thể tải danh sách nhân sự.'));
+        if (!controller.signal.aborted && requestSeq === employeeRequestSeq.current) {
+          setError(apiErrorMessage(requestError, 'Không thể tải danh sách nhân sự.'));
+        }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted && requestSeq === employeeRequestSeq.current) {
+          setLoading(false);
+        }
       });
     return () => controller.abort();
   }, [filters, page, reloadKey]);
@@ -89,17 +159,21 @@ export default function HrEmployees() {
 
   const applyFilters = (event) => {
     event.preventDefault();
-    setPage(0);
-    setFilters({ ...draftFilters, keyword: draftFilters.keyword.trim() });
+    setSearchParams(buildEmployeeSearchParams(0, {
+      ...draftFilters,
+      keyword: draftFilters.keyword.trim(),
+    }));
   };
 
   const clearFilters = () => {
     setDraftFilters(INITIAL_FILTERS);
-    setFilters(INITIAL_FILTERS);
-    setPage(0);
+    setSearchParams(buildEmployeeSearchParams(0, INITIAL_FILTERS));
   };
 
   const updateDraft = (field, value) => setDraftFilters((current) => ({ ...current, [field]: value }));
+  const updatePage = (nextPage) => {
+    setSearchParams(buildEmployeeSearchParams(nextPage, filters));
+  };
 
   return (
     <HrPageShell>
@@ -251,7 +325,7 @@ export default function HrEmployees() {
       </div>
 
       <div className="mt-4">
-        <HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={setPage} />
+        <HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={updatePage} />
       </div>
     </HrPageShell>
   );

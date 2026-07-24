@@ -289,3 +289,11 @@ Danh sách tháng:
 Hard-delete chỉ áp dụng cho Employee/movement/roster `DRAFT` tạo tay và chưa có reference. Snapshot không chứa CCCD, BHXH/BHYT, địa chỉ, điện thoại hoặc lương. Chi tiết tại `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`; flow file khóa 339 tại `docs/HR_WORKFORCE_IMPORT_339.md`.
 
 Chi tiết hồ sơ HR trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER` để tra cứu/chỉnh sửa hồ sơ. Danh sách tháng và audit metadata vẫn không sao chép các giá trị nhạy cảm này; riêng export Excel Phase 6 có thể join lại hồ sơ Employee để xuất đúng template đầy đủ cho `MANAGER`.
+
+Ứng viên thử việc:
+
+1. Ứng viên thử việc chưa phải `HrEmployee ACTIVE` và không được tính vào roster chính thức.
+2. Flow hiện tại: `Ứng viên thử việc -> tạo hợp đồng thử việc -> bắt đầu thử việc -> đạt thử việc -> chuyển thành HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE`.
+3. Không tự tạo `Tăng nhân sự` khi ứng viên đạt; Manager vẫn phải xác nhận chính thức ở màn `Tăng / Giảm`.
+4. Template Word sạch đã đặt tại `backend/src/main/resources/hr/templates/probation-contract-template.docx`.
+5. Source đã có Flyway V3, API `/api/v1/hr/probation/**`, UI `/manager/hr/probation` và tab `Mẫu công việc thử việc`; chưa deploy/UAT runtime.

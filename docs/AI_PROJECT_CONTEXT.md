@@ -29,7 +29,7 @@ BookingBase là hệ thống booking nội bộ cho phòng họp và xe công ty
 - Web Push/PWA.
 - Profile update approval.
 - Resource management cơ bản.
-- Phân hệ HR độc lập cho `MANAGER`: baseline lịch sử đúng `T6-26 = 339`, hồ sơ/danh mục, Tăng/Giảm và snapshot tháng.
+- Phân hệ HR độc lập cho `MANAGER`: baseline lịch sử đúng `T6-26 = 339`, hồ sơ/danh mục, Tăng/Giảm, snapshot tháng và plan/template cho ứng viên thử việc.
 
 ## Tech Stack Hiện Tại
 
@@ -118,6 +118,7 @@ Quy tắc bảo mật cần giữ:
 - `HrEmployeeMovement`: lịch sử baseline/Tăng/Giảm và trạng thái xử lý.
 - `HrMonthlyRoster`/`HrMonthlyRosterItem`: snapshot nhân sự theo tháng không chứa PII/lương.
 - `HrExcelImportBatch`/row/template và `HrAuditEvent`: staging, version template và audit HR.
+- `HrProbationCandidate`/`HrProbationJobTemplate`/`HrProbationContract`: ứng viên thử việc, mẫu công việc và hợp đồng Word đã sinh; miền này đứng trước `HrEmployee DRAFT`.
 
 ## Sơ Đồ API Chính
 
@@ -251,6 +252,7 @@ Approval:
 - Hard-delete chỉ cho dữ liệu `DRAFT` tạo tay chưa có reference.
 - HR detail trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER`; roster/audit metadata vẫn không sao chép các giá trị nhạy cảm này. Export Excel Phase 6 có thể join lại Employee để xuất đúng template đầy đủ cho `MANAGER`.
 - Transition 339 là flow khóa cứng theo file/kỳ/chênh lệch, không phải generic bulk import/export của Phase 6. Phase 7 ngày phép tự động đã được gỡ/defer ngày 2026-07-24; Phase 8 đơn nghỉ vẫn chưa thuộc flow hiện tại.
+- Phase 7 là ứng viên thử việc và hợp đồng Word: `Ứng viên thử việc -> hợp đồng thử việc -> đạt -> HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE`. Source đã có Flyway V3, API `/api/v1/hr/probation/**`, UI `/manager/hr/probation` và template backend `backend/src/main/resources/hr/templates/probation-contract-template.docx`; chưa deploy/UAT runtime.
 
 ## Trạng Thái PWA Hiện Tại
 

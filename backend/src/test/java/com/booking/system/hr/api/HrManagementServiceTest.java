@@ -30,13 +30,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -114,6 +121,40 @@ class HrManagementServiceTest {
         contact.setWorkEmail("employee@cfc.test");
         contact.setPermanentAddress("Địa chỉ đang được bảo vệ");
         employee.setContact(contact);
+    }
+
+    @Test
+    void searchEmployeesDelegatesFiltersPagingAndSortToRepository() {
+        PageRequest pageable = PageRequest.of(2, 20, Sort.by(Sort.Direction.ASC, "employeeCode"));
+        when(employeeRepository.search(
+                eq("%nv001%"),
+                eq(HrEmploymentStatus.ACTIVE),
+                eq("department-1"),
+                eq("position-1"),
+                eq("condition-1"),
+                same(pageable)
+        )).thenReturn(new PageImpl<>(List.of(employee), pageable, 1));
+
+        var result = service.searchEmployees(
+                " NV001 ",
+                HrEmploymentStatus.ACTIVE,
+                "department-1",
+                "position-1",
+                "condition-1",
+                pageable
+        );
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().getFirst().employeeCode()).isEqualTo("NV001");
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        verify(employeeRepository).search(
+                "%nv001%",
+                HrEmploymentStatus.ACTIVE,
+                "department-1",
+                "position-1",
+                "condition-1",
+                pageable
+        );
     }
 
     @Test

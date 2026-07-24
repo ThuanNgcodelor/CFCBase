@@ -279,6 +279,30 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Dữ liệu `leave_days` có sẵn từ import/snapshot vẫn không bị xóa khỏi schema/database; hệ thống chỉ không tự tính hoặc dùng nó trên UI hiện tại.
 - Nếu cần triển khai lại, nên làm phase riêng sau khi có quy tắc nhân sự chính thức và case test từ phòng TCHC.
 
+## Phân Hệ HR — Phase 7 Ứng Viên Thử Việc Và Hợp Đồng Word
+
+- Phase 7 được triển khai source ngày `2026-07-24`; chưa deploy/restart production hoặc UAT runtime.
+- Flow mới thêm `Ứng viên thử việc` trước `Hồ sơ chờ chính thức`/`Tăng nhân sự`.
+- Flow mới không đưa ứng viên thử việc vào `HrEmployee ACTIVE` hoặc roster chính thức.
+- Flow chuẩn: `Ứng viên thử việc -> tạo hợp đồng thử việc -> đạt thử việc -> chuyển thành HrEmployee DRAFT -> Tăng nhân sự -> chính thức vào danh sách tháng`.
+- Đã phân tích file nguồn `docs/hrdocsthuviec/Mẫu Hợp đồng thử việc 2026.docx`: file có 10 hợp đồng đã điền dữ liệu thật, không có mail merge/content control, nên không dùng trực tiếp làm runtime template.
+- Đã tạo template sạch cho backend: `backend/src/main/resources/hr/templates/probation-contract-template.docx`.
+- Template backend còn một hợp đồng, có 22 placeholder `{{...}}`, không còn tên/CCCD mẫu đã kiểm tra; SHA-256 `34e2b4209ec0596a2003dadbe4ee98e33a9565a157383282cfe08ee84eb16f03`.
+- Đã thêm Flyway V3 `V3__add_hr_probation_candidates.sql` với bảng ứng viên, mẫu công việc và hợp đồng thử việc.
+- Đã thêm backend entity/repository/service/controller dưới `/api/v1/hr/probation/**`; file `.docx` generated lưu DB blob kèm checksum/snapshot placeholder.
+- Đã thêm `HrProbationJobTemplateSeeder`: tự tạo 9 mẫu công việc thử việc mặc định từ phần nội dung an toàn của file Word gốc, không seed dữ liệu cá nhân; không ghi đè mẫu đã tồn tại.
+- Đã thêm frontend API, route `/manager/hr/probation` và menu `Thử việc` cho `MANAGER`.
+- UI có 2 tab: `Ứng viên` và `Mẫu công việc thử việc`; hỗ trợ thêm/sửa ứng viên, tạo/tải hợp đồng, bắt đầu thử việc, đánh dấu đạt/không đạt và chuyển thành `HrEmployee DRAFT`.
+- Đã tạo/cập nhật plan triển khai: [HR Phase 7 — Ứng viên thử việc và hợp đồng Word](HR_PHASE_7_PROBATION_CONTRACTS.md).
+
+## Verification Phase 7
+
+- Backend `./mvnw -q -DskipTests compile`: pass.
+- Frontend `npm run build`: pass; PWA/service worker build pass; main chunk khoảng 780,70 KB và còn chunk-size warning cũ.
+- Frontend `npm run lint`: pass, còn warning cũ/nhẹ ở `DashboardLayout.jsx` do icon import/commented nav và `CustomDateHeader.jsx`.
+- Backend target migration tests `HrPhase1MigrationTest,HrPhase2RetentionMigrationTest`: pass với Flyway V1/V2/V3.
+- Backend full `mvn test`: hiện fail do Mockito inline/ByteBuddy không self-attach được trên Java 25 Fedora; nhóm failure đếm migration đã được cập nhật và không còn xuất hiện.
+
 ## Dọn Dẹp Repo Ngày 2026-07-24
 
 - Đã dọn đúng các file tạm an toàn:
@@ -296,6 +320,7 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
 - Phase 5 và Phase 6 export đã có ở source nhưng chưa deploy/UAT runtime; import sheet Tăng/Giảm hàng loạt từ workbook bất kỳ vẫn chưa triển khai.
 - Phase 7 ngày phép tự động hiện không còn trong source active; chỉ làm lại khi có công thức nghiệp vụ chính thức.
+- Phase 7 ứng viên thử việc đã có source schema/API/UI nhưng chưa deploy/UAT runtime bằng ứng viên giả.
 - Cần test end-to-end PWA push trên nhiều thiết bị iOS/Android thật, đặc biệt notification click khi app đóng.
 - Cần test social preview cache trên các nền tảng gửi link khác nhau.
 - Có orphan `booking_adminer` container được Docker Compose cảnh báo; chưa xóa vì không liên quan runtime chính và tránh thao tác phá hủy ngoài yêu cầu.
@@ -312,12 +337,19 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - `backend/src/main/java/com/booking/system/hr/service/HrManagementService.java`
 - `backend/src/main/java/com/booking/system/hr/service/HrWorkforceService.java`
 - `backend/src/main/java/com/booking/system/hr/service/HrExcelExportService.java`
+- `backend/src/main/java/com/booking/system/hr/service/HrProbationService.java`
 - `backend/src/main/java/com/booking/system/hr/api/HrWorkforceController.java`
+- `backend/src/main/java/com/booking/system/hr/api/HrProbationController.java`
 - `backend/src/main/resources/db/migration/V2__add_hr_import_payload_retention.sql`
+- `backend/src/main/resources/db/migration/V3__add_hr_probation_candidates.sql`
 - `docs/HR_PHASE_4_MANAGER_UI.md`
 - `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`
 - `docs/HR_PHASE_6_EXCEL_EXPORT.md`
+- `docs/HR_PHASE_7_PROBATION_CONTRACTS.md`
 - `docs/HR_WORKFORCE_IMPORT_339.md`
+- `backend/src/main/resources/hr/templates/probation-contract-template.docx`
+- `frontend/src/api/hrProbationApi.js`
+- `frontend/src/pages/hr/HrProbationCandidates.jsx`
 - `backend/src/main/java/com/booking/system/event/NotificationEventListener.java`
 - `frontend/src/api/authStorage.js`
 - `frontend/src/utils/notificationNavigation.js`
@@ -337,7 +369,8 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 4. Sau confirm, đối chiếu T6 `CLOSED` 339, 339 active/339 lịch sử, checksum và audit; không có T7 tự sinh.
 5. UAT `/manager/hr` theo `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`, dùng hồ sơ test riêng cho các action ghi/xóa tiếp theo.
 6. UAT export năm/tháng tại `/manager/hr/rosters` theo `docs/HR_PHASE_6_EXCEL_EXPORT.md`.
-7. Thêm integration test cho register -> Admin notification -> approve -> login.
-8. Test Web Push registration thật trên iOS/Android với Admin subscription active.
-9. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
-10. Tiếp tục tách vendor/shared chunk frontend để giảm main bundle.
+7. Sau khi deploy Phase 7, UAT bằng ứng viên giả: tạo mẫu công việc -> thêm ứng viên -> tạo/tải hợp đồng -> bắt đầu thử việc -> đạt -> chuyển `HrEmployee DRAFT` -> tạo `Tăng nhân sự`.
+8. Thêm integration test cho register -> Admin notification -> approve -> login.
+9. Test Web Push registration thật trên iOS/Android với Admin subscription active.
+10. Đưa toàn bộ secrets production sang `.env`/secret store và rotate credential đã từng dùng làm default.
+11. Tiếp tục tách vendor/shared chunk frontend để giảm main bundle.

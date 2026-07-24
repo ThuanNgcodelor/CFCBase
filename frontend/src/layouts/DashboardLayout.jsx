@@ -8,14 +8,13 @@ import {
   CheckSquare,
   ContactRound,
   FileCheck2,
-  History,
   Home,
   LayoutDashboard,
   Library,
   LogOut,
   Menu,
   TableProperties,
-  Upload,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import { authApi } from '../api/authApi';
@@ -106,6 +105,7 @@ function DashboardLayoutContent() {
   const hrNavItems = [
     { name: 'Tổng quan', path: '/manager/hr', icon: LayoutDashboard },
     { name: 'Nhân sự', path: '/manager/hr/employees', icon: ContactRound },
+    { name: 'Thử việc', path: '/manager/hr/probation', icon: UserPlus },
     { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },

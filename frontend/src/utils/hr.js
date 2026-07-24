@@ -22,6 +22,12 @@ const STATUS_LABELS = {
   UNVERIFIED: 'Chưa xác minh',
   NEEDS_REVIEW: 'Cần kiểm tra',
   UNKNOWN: 'Chưa xác định',
+  CONTRACT_CREATED: 'Đã tạo HĐ thử việc',
+  IN_PROBATION: 'Đang thử việc',
+  PASSED: 'Đạt thử việc',
+  CONVERTED: 'Đã chuyển hồ sơ',
+  GENERATED: 'Đã tạo',
+  VOIDED: 'Đã hủy',
 };
 
 const MOVEMENT_LABELS = {
@@ -53,8 +59,8 @@ export function movementLabel(type) {
 }
 
 export function statusTone(status) {
-  if (['ACTIVE', 'CONFIRMED', 'VALID', 'IMPORTED', 'VERIFIED'].includes(status)) return 'green';
-  if (['WARNING', 'NEEDS_REVIEW', 'OPEN', 'PARSED', 'UPLOADED', 'PENDING'].includes(status)) return 'amber';
+  if (['ACTIVE', 'CONFIRMED', 'VALID', 'IMPORTED', 'VERIFIED', 'PASSED', 'CONVERTED', 'GENERATED'].includes(status)) return 'green';
+  if (['WARNING', 'NEEDS_REVIEW', 'OPEN', 'PARSED', 'UPLOADED', 'PENDING', 'CONTRACT_CREATED', 'IN_PROBATION'].includes(status)) return 'amber';
   if (['FAILED', 'INVALID', 'CANCELLED'].includes(status)) return 'red';
   if (['CLOSED', 'EXPORTED', 'VALIDATED'].includes(status)) return 'blue';
   return 'gray';
