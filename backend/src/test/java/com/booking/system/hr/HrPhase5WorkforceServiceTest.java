@@ -163,6 +163,10 @@ class HrPhase5WorkforceServiceTest {
         assertThat(closedRoster.itemCount()).isEqualTo(339);
         assertThat(closedRoster.rosterChecksum()).hasSize(64);
         assertThat(rosterItemRepository.countByRoster_Id(closedRoster.id())).isEqualTo(339);
+        var addedItems = rosterItemRepository.findAllByRoster_IdOrderByDisplayOrder(closedRoster.id()).stream()
+                .filter(item -> item.getEmployeeCode().startsWith("P5-ADD-"))
+                .toList();
+        assertThat(addedItems).isNotEmpty();
 
         var unchangedBaseline = rosterRepository.findById(baseline.getId()).orElseThrow();
         assertThat(unchangedBaseline.getStatus()).isEqualTo(HrRosterStatus.CLOSED);

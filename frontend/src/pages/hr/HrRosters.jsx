@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { CalendarPlus, Download, Eye, TableProperties } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrEmpty, HrError, HrPageHeader, HrPagination, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrActivityApi } from '../../api/hrActivityApi';
 import { normalizePage } from '../../api/hrApiUtils';
 import { apiErrorMessage, formatHrDateTime, formatPeriod, nonEmpty } from '../../utils/hr';
@@ -122,11 +122,11 @@ export default function HrRosters() {
   };
 
   return (
-    <div className="w-full max-w-6xl">
+    <HrPageShell>
       <SEOHead title="CFC Base | Danh sách nhân sự theo tháng" url="https://cfcbooking.io.vn/manager/hr/rosters" />
       <HrPageHeader
         title="Danh sách nhân sự theo tháng"
-        description="Mỗi kỳ là một snapshot độc lập. Kỳ mới luôn kế thừa từ kỳ gần nhất đã chốt rồi áp dụng các biến động đã xác nhận."
+        description="Mỗi kỳ là một dữ liệu độc lập. Kỳ mới luôn kế thừa từ kỳ gần nhất đã chốt và áp dụng các biến động đã xác nhận."
         actions={(
           <>
             <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1 shadow-sm">
@@ -154,13 +154,13 @@ export default function HrRosters() {
           </>
         )}
       />
-      <div className="mb-4"><HrReadOnlyNotice>T6-26 là baseline bất biến. Hãy xác nhận đầy đủ Tăng/Giảm trước khi mở và chốt tháng kế tiếp. Xuất Excel được thực hiện ở chức năng Export riêng.</HrReadOnlyNotice></div>
+      <div className="mb-4"><HrReadOnlyNotice>Hãy xác nhận đầy đủ Tăng/Giảm trước khi mở và chốt tháng kế tiếp.</HrReadOnlyNotice></div>
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {loading ? <div className="col-span-full rounded-xl border bg-white py-12 text-center text-sm text-gray-500">Đang tải...</div> : result.content.map((roster) => <div key={roster.id} role="button" tabIndex={0} onClick={() => openRosterDetail(roster)} onKeyDown={(event) => openRosterDetailByKeyboard(roster, event)} className="group cursor-pointer rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm outline-none transition hover:border-emerald-200 hover:shadow-md focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"><div className="flex items-start justify-between"><div className="rounded-lg bg-emerald-50 p-2.5 text-emerald-700"><TableProperties className="h-5 w-5" /></div><div className="flex flex-wrap justify-end gap-1.5">{roster.baseline && <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700">Baseline</span>}<HrStatusBadge status={roster.status} /></div></div><p className="mt-4 text-xl font-semibold text-gray-900">{formatPeriod(roster.periodStart)}</p><p className="mt-1 text-sm text-gray-500">{nonEmpty(roster.itemCount)} nhân sự</p><div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500"><span>{formatHrDateTime(roster.closedAt || roster.openedAt || roster.createdAt)}</span><span className="flex items-center gap-1 font-medium text-emerald-700">Xem danh sách <Eye className="h-3.5 w-3.5" /></span></div><div className="mt-3"><Button type="button" size="sm" variant="secondary" disabled={exporting === roster.id} onClick={(event) => exportMonthFile(roster, event)}><Download className="mr-1.5 h-4 w-4" />Export tháng</Button></div></div>)}
         {!loading && result.content.length === 0 && <div className="col-span-full"><HrEmpty title="Chưa có danh sách tháng" description="Danh sách T6-26 sẽ xuất hiện sau khi dữ liệu ban đầu được xác nhận." /></div>}
       </div>
       <div className="mt-4"><HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={setPage} /></div>
-    </div>
+    </HrPageShell>
   );
 }

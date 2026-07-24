@@ -8,6 +8,7 @@ import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrExcelImportBatchRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterRepository;
+import com.booking.system.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +42,8 @@ class HrActivityQueryServiceTest {
     private HrAuditEventRepository auditRepository;
     @Mock
     private HrExcelImportBatchRepository importBatchRepository;
+    @Mock
+    private UserRepository userRepository;
 
     private HrActivityQueryService service;
 
@@ -51,7 +54,8 @@ class HrActivityQueryServiceTest {
                 rosterRepository,
                 rosterItemRepository,
                 auditRepository,
-                importBatchRepository
+                importBatchRepository,
+                userRepository
         );
     }
 

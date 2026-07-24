@@ -9,6 +9,7 @@ import com.booking.system.hr.enums.HrMovementType;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.function.Function;
 
 public record HrMovementResponse(
         String id,
@@ -39,6 +40,10 @@ public record HrMovementResponse(
         long rowVersion
 ) {
     public static HrMovementResponse from(HrEmployeeMovement movement) {
+        return from(movement, Function.identity());
+    }
+
+    public static HrMovementResponse from(HrEmployeeMovement movement, Function<String, String> actorResolver) {
         return new HrMovementResponse(
                 movement.getId(),
                 movement.getEmployee().getId(),
@@ -60,11 +65,11 @@ public record HrMovementResponse(
                 movement.getDecisionDate(),
                 movement.getSourceKind(),
                 movement.getConfirmedAt(),
-                movement.getConfirmedByActor(),
+                actorResolver.apply(movement.getConfirmedByActor()),
                 movement.getCancelledAt(),
-                movement.getCancelledByActor(),
+                actorResolver.apply(movement.getCancelledByActor()),
                 movement.getCreatedAt(),
-                movement.getCreatedByActor(),
+                actorResolver.apply(movement.getCreatedByActor()),
                 movement.getRowVersion()
         );
     }

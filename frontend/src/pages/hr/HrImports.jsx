@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { CheckCircle2, FileSearch, RotateCcw, ShieldAlert, Upload } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrEmpty, HrError, HrPageHeader, HrPagination, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
 import { HrWorkforceSnapshotImport } from '../../components/hr/HrWorkforceSnapshotImport';
 import { hrImportApi } from '../../api/hrImportApi';
 import { normalizePage } from '../../api/hrApiUtils';
@@ -234,7 +234,7 @@ export default function HrImports() {
   const previewTotalElements = Number(preview?.totalElements || 0);
 
   return (
-    <div className="w-full">
+    <HrPageShell>
       <SEOHead title="CFC Base | Nhập dữ liệu nhân sự" url="https://cfcbooking.io.vn/manager/hr/imports" />
       <HrPageHeader title="Nhập dữ liệu nhân sự" description="Dùng file baseline T6-26 · 339 nhân sự để khởi tạo dữ liệu HR lần đầu. Hệ thống luôn kiểm tra file trước khi cho xác nhận." />
 
@@ -405,6 +405,6 @@ export default function HrImports() {
           )}
         </section>
       </div>
-    </div>
+    </HrPageShell>
   );
 }

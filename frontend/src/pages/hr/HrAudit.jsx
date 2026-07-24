@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import SEOHead from '../../components/SEOHead';
-import { HrEmpty, HrError, HrPageHeader, HrPagination, HrReadOnlyNotice } from '../../components/hr/HrUi';
+import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrReadOnlyNotice } from '../../components/hr/HrUi';
 import { hrActivityApi } from '../../api/hrActivityApi';
 import { normalizePage } from '../../api/hrApiUtils';
 import { apiErrorMessage, formatHrDateTime, nonEmpty } from '../../utils/hr';
@@ -123,12 +123,12 @@ export default function HrAudit() {
   }, [page, reloadKey]);
 
   return (
-    <div className="w-full">
+    <HrPageShell>
       <SEOHead title="CFC Base | Nhật ký nhân sự" url="https://cfcbooking.io.vn/manager/hr/audit" />
       <HrPageHeader title="Nhật ký thay đổi" description="Theo dõi người thao tác, hành động, đối tượng và thời gian trong phân hệ nhân sự." />
       <div className="mb-4"><HrReadOnlyNotice>Nhật ký chỉ được ghi thêm và không thể sửa. Nội dung nhạy cảm không được hiển thị tại đây.</HrReadOnlyNotice></div>
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
-      <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"><tr><th className="px-5 py-4">Thời gian</th><th className="px-5 py-4">Người thao tác</th><th className="px-5 py-4">Hành động</th><th className="px-5 py-4">Đối tượng</th><th className="px-5 py-4">Trường thay đổi</th></tr></thead><tbody className="divide-y divide-gray-100">{loading ? <tr><td colSpan="5" className="px-5 py-12 text-center text-sm text-gray-500">Đang tải...</td></tr> : result.content.map((event) => <tr key={event.id} className="align-top hover:bg-gray-50/70"><td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">{formatHrDateTime(event.occurredAt)}</td><td className="px-5 py-4"><p className="text-sm font-medium text-gray-900">{nonEmpty(event.actorDisplayName)}</p><p className="mt-1 text-xs text-gray-500">{nonEmpty(event.actorSubject)}</p></td><td className="px-5 py-4 text-sm font-medium text-emerald-700">{actionLabel(event.action)}</td><td className="px-5 py-4"><p className="text-sm text-gray-700">{entityLabel(event.entityType)}</p><p className="mt-1 max-w-[180px] truncate text-xs text-gray-500">{nonEmpty(event.entityId)}</p></td><td className="max-w-sm px-5 py-4 text-sm text-gray-500">{changedFieldsLabel(event.changedFields)}</td></tr>)}{!loading && result.content.length === 0 && <tr><td colSpan="5" className="p-5"><HrEmpty title="Chưa có nhật ký phù hợp" /></td></tr>}</tbody></table></div>
+      <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block"><table className="w-full min-w-[1080px] divide-y divide-gray-200"><thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"><tr><th className="px-5 py-4">Thời gian</th><th className="px-5 py-4">Người thao tác</th><th className="px-5 py-4">Hành động</th><th className="px-5 py-4">Đối tượng</th><th className="px-5 py-4">Trường thay đổi</th></tr></thead><tbody className="divide-y divide-gray-100">{loading ? <tr><td colSpan="5" className="px-5 py-12 text-center text-sm text-gray-500">Đang tải...</td></tr> : result.content.map((event) => <tr key={event.id} className="align-top hover:bg-gray-50/70"><td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">{formatHrDateTime(event.occurredAt)}</td><td className="px-5 py-4"><p className="text-sm font-medium text-gray-900">{nonEmpty(event.actorDisplayName)}</p><p className="mt-1 text-xs text-gray-500">{nonEmpty(event.actorSubject)}</p></td><td className="px-5 py-4 text-sm font-medium text-emerald-700">{actionLabel(event.action)}</td><td className="px-5 py-4"><p className="text-sm text-gray-700">{entityLabel(event.entityType)}</p><p className="mt-1 max-w-[180px] truncate text-xs text-gray-500">{nonEmpty(event.entityId)}</p></td><td className="max-w-sm px-5 py-4 text-sm text-gray-500">{changedFieldsLabel(event.changedFields)}</td></tr>)}{!loading && result.content.length === 0 && <tr><td colSpan="5" className="p-5"><HrEmpty title="Chưa có nhật ký phù hợp" /></td></tr>}</tbody></table></div>
       <div className="space-y-3 md:hidden">
         {loading ? <div className="rounded-xl border bg-white py-10 text-center text-sm text-gray-500">Đang tải...</div> : result.content.map((event) => (
           <div key={event.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -143,6 +143,6 @@ export default function HrAudit() {
         {!loading && result.content.length === 0 && <HrEmpty title="Chưa có nhật ký phù hợp" />}
       </div>
       <div className="mt-4"><HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={setPage} /></div>
-    </div>
+    </HrPageShell>
   );
 }

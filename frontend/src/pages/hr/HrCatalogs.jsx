@@ -4,14 +4,14 @@ import { FilePenLine, Plus, Power, Search } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { HrEmpty, HrError, HrPageHeader, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { normalizePage } from '../../api/hrApiUtils';
 import { apiErrorMessage, nonEmpty } from '../../utils/hr';
 
 const TYPES = [
-  { key: 'departments', label: 'Phòng ban HR' },
-  { key: 'positions', label: 'Chức vụ HR' },
+  { key: 'departments', label: 'Phòng ban' },
+  { key: 'positions', label: 'Chức vụ' },
   { key: 'working-conditions', label: 'Điều kiện lao động' },
 ];
 
@@ -142,7 +142,7 @@ export default function HrCatalogs() {
   const activeTypeLabel = TYPES.find((item) => item.key === type)?.label;
 
   return (
-    <div className="w-full max-w-6xl">
+    <HrPageShell>
       <SEOHead title="CFC Base | Danh mục nhân sự" url="https://cfcbooking.io.vn/manager/hr/catalogs" />
       <HrPageHeader
         title="Danh mục nhân sự"
@@ -173,7 +173,7 @@ export default function HrCatalogs() {
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full min-w-[980px] divide-y divide-gray-200">
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
             <tr><th className="px-5 py-4">Mã</th><th className="px-5 py-4">Tên danh mục</th><th className="hidden px-5 py-4 lg:table-cell">Mô tả / cấp trên</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4"></th></tr>
           </thead>
@@ -224,6 +224,6 @@ export default function HrCatalogs() {
           <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>Hủy</Button><Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu danh mục'}</Button></div>
         </form>
       </Modal>
-    </div>
+    </HrPageShell>
   );
 }

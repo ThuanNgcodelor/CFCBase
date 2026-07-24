@@ -104,16 +104,17 @@ function DashboardLayoutContent() {
   ];
 
   const hrNavItems = [
-    { name: 'Tổng quan nhân sự', path: '/manager/hr', icon: LayoutDashboard },
+    { name: 'Tổng quan', path: '/manager/hr', icon: LayoutDashboard },
     { name: 'Nhân sự', path: '/manager/hr/employees', icon: ContactRound },
     { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
-    { name: 'Danh mục nhân sự', path: '/manager/hr/catalogs', icon: Library },
-    { name: 'Nhập dữ liệu', path: '/manager/hr/imports', icon: Upload },
-    { name: 'Nhật ký thay đổi', path: '/manager/hr/audit', icon: History },
+    { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
+    // { name: 'Nhập dữ liệu', path: '/manager/hr/imports', icon: Upload },
+    // { name: 'Nhật ký thay đổi', path: '/manager/hr/audit', icon: History },
   ];
 
   const isCalendarRoute = location.pathname.startsWith('/cars') || location.pathname.startsWith('/rooms');
+  const isHrRoute = location.pathname.startsWith('/manager/hr');
 
   return (
     <div className="flex h-[100dvh] bg-[#F9FAFB] font-sans text-gray-900 overflow-hidden relative">
@@ -325,8 +326,8 @@ function DashboardLayoutContent() {
         </header>
 
         {/* Page Content */}
-        <main className={`flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden ${isCalendarRoute ? 'bg-white' : 'bg-[#F9FAFB]'}`}>
-          <div className={`flex-1 flex flex-col ${isCalendarRoute ? 'p-0' : 'p-4 sm:p-8'}`}>
+        <main className={`flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden ${isCalendarRoute ? 'bg-white' : isHrRoute ? 'bg-[#F7FAF8]' : 'bg-[#F9FAFB]'}`}>
+          <div className={`flex-1 flex flex-col ${isCalendarRoute ? 'p-0' : isHrRoute ? 'p-4 sm:p-6 xl:p-8 2xl:p-10' : 'p-4 sm:p-8'}`}>
             <Outlet />
           </div>
 

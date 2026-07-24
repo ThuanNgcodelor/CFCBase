@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Filter, Plus, Search, UserRound } from 'lucide-react';
+import { Eye, Filter, PencilLine, Plus, Search, UserRound } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrEmpty, HrError, HrPageHeader, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { normalizePage } from '../../api/hrApiUtils';
@@ -102,11 +102,11 @@ export default function HrEmployees() {
   const updateDraft = (field, value) => setDraftFilters((current) => ({ ...current, [field]: value }));
 
   return (
-    <div className="w-full">
+    <HrPageShell>
       <SEOHead title="CFC Base | Danh sách nhân sự" url="https://cfcbooking.io.vn/manager/hr/employees" />
       <HrPageHeader
         title="Danh sách nhân sự"
-        description="Tra cứu hồ sơ theo từng trang. Thông tin định danh, bảo hiểm, địa chỉ và lương không xuất hiện trong danh sách."
+        description="Tra cứu hồ sơ theo từng trang. Dữ liệu nhạy cảm xem ở trang chi tiết; hồ sơ nháp có thể chỉnh sửa trực tiếp."
         actions={<Button type="button" onClick={() => navigate('/manager/hr/employees/new')}><Plus className="mr-1.5 h-4 w-4" />Thêm hồ sơ nháp</Button>}
       />
 
@@ -124,8 +124,8 @@ export default function HrEmployees() {
           <select value={draftFilters.status} onChange={(event) => updateDraft('status', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả trạng thái</option>
             <option value="DRAFT">Hồ sơ nháp</option>
-            <option value="ACTIVE">Đang làm việc</option>
-            <option value="INACTIVE">Đã nghỉ việc</option>
+            <option value="ACTIVE">Đang làm</option>
+            <option value="INACTIVE">Đã nghỉ</option>
           </select>
           <select value={draftFilters.departmentId} onChange={(event) => updateDraft('departmentId', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả phòng ban</option>
@@ -164,7 +164,7 @@ export default function HrEmployees() {
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
 
       <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full min-w-[1040px] divide-y divide-gray-200">
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
             <tr>
               <th className="px-5 py-4">Nhân sự</th>
@@ -193,11 +193,18 @@ export default function HrEmployees() {
                   <div className="mt-1 text-xs text-gray-500">{nonEmpty(employee.position?.name || employee.positionName)}</div>
                 </td>
                 <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-600">{formatHrDate(employee.hireDate || employee.employment?.hireDate)}</td>
-                <td className="px-5 py-4"><HrStatusBadge status={employee.employmentStatus || employee.status} label={employmentStatusLabel(employee.employmentStatus || employee.status)} /></td>
+                <td className="whitespace-nowrap px-5 py-4"><HrStatusBadge status={employee.employmentStatus || employee.status} label={employmentStatusLabel(employee.employmentStatus || employee.status)} /></td>
                 <td className="px-5 py-4 text-right">
-                  <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/manager/hr/employees/${employee.id}`)}>
-                    <Eye className="mr-1.5 h-4 w-4" />Chi tiết
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    {(employee.employmentStatus || employee.status) === 'DRAFT' && (
+                      <Button type="button" size="sm" onClick={() => navigate(`/manager/hr/employees/${employee.id}/edit`)}>
+                        <PencilLine className="mr-1.5 h-4 w-4" />Sửa nháp
+                      </Button>
+                    )}
+                    <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/manager/hr/employees/${employee.id}`)}>
+                      <Eye className="mr-1.5 h-4 w-4" />Chi tiết
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -212,7 +219,7 @@ export default function HrEmployees() {
         {loading ? (
           <div className="rounded-xl border border-gray-200 bg-white py-10 text-center text-sm text-gray-500">Đang tải danh sách...</div>
         ) : result.content.map((employee) => (
-          <button key={employee.id} type="button" onClick={() => navigate(`/manager/hr/employees/${employee.id}`)} className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm">
+          <div key={employee.id} className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <EmployeeAvatar employee={employee} />
@@ -226,8 +233,19 @@ export default function HrEmployees() {
             <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-xs">
               <div><span className="text-gray-400">Phòng ban</span><p className="mt-1 font-medium text-gray-700">{nonEmpty(employee.department?.name || employee.departmentName)}</p></div>
               <div><span className="text-gray-400">Chức vụ</span><p className="mt-1 font-medium text-gray-700">{nonEmpty(employee.position?.name || employee.positionName)}</p></div>
+              <div><span className="text-gray-400">Ngày vào làm</span><p className="mt-1 font-medium text-gray-700">{formatHrDate(employee.hireDate || employee.employment?.hireDate)}</p></div>
             </div>
-          </button>
+            <div className="mt-3 flex gap-2">
+              {(employee.employmentStatus || employee.status) === 'DRAFT' && (
+                <Button type="button" size="sm" onClick={() => navigate(`/manager/hr/employees/${employee.id}/edit`)}>
+                  <PencilLine className="mr-1.5 h-4 w-4" />Sửa nháp
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/manager/hr/employees/${employee.id}`)}>
+                <Eye className="mr-1.5 h-4 w-4" />Chi tiết
+              </Button>
+            </div>
+          </div>
         ))}
         {!loading && result.content.length === 0 && <HrEmpty title="Không có nhân sự phù hợp" description="Hãy thay đổi bộ lọc hoặc thêm hồ sơ nháp mới." />}
       </div>
@@ -235,6 +253,6 @@ export default function HrEmployees() {
       <div className="mt-4">
         <HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={setPage} />
       </div>
-    </div>
+    </HrPageShell>
   );
 }

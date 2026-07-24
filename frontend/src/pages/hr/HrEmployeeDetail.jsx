@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, BriefcaseBusiness, Contact, FilePenLine, Fingerprint, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrError, HrLoading, HrPageHeader, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { apiErrorMessage, employmentStatusLabel, formatHrDate, formatHrDateTime, nonEmpty } from '../../utils/hr';
 
@@ -92,7 +92,7 @@ export default function HrEmployeeDetail() {
   };
 
   return (
-    <div className="w-full max-w-6xl">
+    <HrPageShell size="standard">
       <SEOHead title={`CFC Base | ${personal.fullName || 'Chi tiết nhân sự'}`} url={`https://cfcbooking.io.vn/manager/hr/employees/${id}`} />
       <HrPageHeader
         title={personal.fullName || 'Chi tiết nhân sự'}
@@ -195,6 +195,6 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Hiệu lực trạng thái" value={formatHrDate(personal.statusEffectiveDate || employee.statusEffectiveDate)} />
         </DetailSection>
       </div>
-    </div>
+    </HrPageShell>
   );
 }

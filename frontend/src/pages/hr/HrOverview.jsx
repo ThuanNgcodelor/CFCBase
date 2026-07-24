@@ -13,7 +13,7 @@ import {
   UserMinus,
 } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
-import { HrError, HrLoading, HrPageHeader, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrError, HrLoading, HrPageHeader, HrPageShell, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { formatHrDateTime, formatPeriod, nonEmpty } from '../../utils/hr';
 
@@ -85,7 +85,7 @@ export default function HrOverview() {
   const currentRoster = data?.currentRoster || data?.latestRoster;
 
   return (
-    <div className="w-full">
+    <HrPageShell>
       <SEOHead title="CFC Base | Tổng quan nhân sự" url="https://cfcbooking.io.vn/manager/hr" />
       <HrPageHeader
         title="Tổng quan nhân sự"
@@ -129,11 +129,11 @@ export default function HrOverview() {
                   {currentRoster && <p className="mt-2 text-xs text-gray-500">{nonEmpty(currentRoster.itemCount)} nhân sự</p>}
                 </div>
                 <div className="rounded-lg bg-gray-50 p-4">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Phòng ban HR</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Phòng ban</dt>
                   <dd className="mt-2 text-2xl font-semibold text-gray-900">{overviewValue(data, 'departmentCount', 'catalogCounts.departments')}</dd>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-4">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Chức vụ HR</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Chức vụ</dt>
                   <dd className="mt-2 text-2xl font-semibold text-gray-900">{overviewValue(data, 'positionCount', 'catalogCounts.positions')}</dd>
                 </div>
               </dl>
@@ -157,6 +157,6 @@ export default function HrOverview() {
           </div>
         </>
       )}
-    </div>
+    </HrPageShell>
   );
 }

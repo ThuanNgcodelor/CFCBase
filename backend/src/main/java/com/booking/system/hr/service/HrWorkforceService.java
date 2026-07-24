@@ -203,7 +203,7 @@ public class HrWorkforceService {
         touch(employee, actor);
         movement.setStatus(HrMovementStatus.CONFIRMED);
         movement.setConfirmedAt(now);
-        movement.setConfirmedByActor(actor.subject());
+        movement.setConfirmedByActor(displayActor(actor));
         touch(movement, actor);
         movementRepository.save(movement);
         audit(actor, "HR_MOVEMENT_CONFIRMED", "HR_EMPLOYEE_MOVEMENT", movement.getId(),
@@ -227,7 +227,7 @@ public class HrWorkforceService {
 
         movement.setStatus(HrMovementStatus.CANCELLED);
         movement.setCancelledAt(nowUtc());
-        movement.setCancelledByActor(actor.subject());
+        movement.setCancelledByActor(displayActor(actor));
         touch(movement, actor);
         movementRepository.save(movement);
         audit(actor, "HR_MOVEMENT_CANCELLED", "HR_EMPLOYEE_MOVEMENT", movement.getId(),
@@ -600,6 +600,10 @@ public class HrWorkforceService {
     private static void touch(com.booking.system.hr.entity.HrAuditable entity, HrImportActor actor) {
         entity.setUpdatedByActor(actor.subject());
         entity.setUpdatedAt(nowUtc());
+    }
+
+    private static String displayActor(HrImportActor actor) {
+        return actor.displayName() == null ? actor.subject() : actor.displayName();
     }
 
     private static String code(HrCatalogEntity catalog) {

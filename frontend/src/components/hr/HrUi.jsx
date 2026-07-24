@@ -10,6 +10,19 @@ const TONE_CLASSES = {
   gray: 'border-gray-200 bg-gray-50 text-gray-600',
 };
 
+export function HrPageShell({ children, size = 'wide', className = '' }) {
+  const sizes = {
+    wide: 'max-w-[1600px]',
+    standard: 'max-w-[1440px]',
+    readable: 'max-w-6xl',
+  };
+  return (
+    <div className={`mx-auto w-full ${sizes[size] || sizes.wide} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 export function HrPageHeader({ eyebrow = 'Quản lý nhân sự', title, description, actions }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -26,7 +39,7 @@ export function HrPageHeader({ eyebrow = 'Quản lý nhân sự', title, descrip
 export function HrStatusBadge({ status, label }) {
   const tone = statusTone(status);
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${TONE_CLASSES[tone]}`}>
+    <span className={`inline-flex min-w-max items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium leading-none ${TONE_CLASSES[tone]}`}>
       {label || statusLabel(status)}
     </span>
   );

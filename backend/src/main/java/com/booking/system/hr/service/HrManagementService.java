@@ -463,7 +463,8 @@ public class HrManagementService {
                 id(employment == null ? null : employment.getWorkingCondition()),
                 code(employment == null ? null : employment.getWorkingCondition()),
                 name(employment == null ? null : employment.getWorkingCondition()),
-                employment == null ? null : employment.getHireDate(), employee.getRowVersion(), employee.getUpdatedAt()
+                employment == null ? null : employment.getHireDate(),
+                employee.getRowVersion(), employee.getUpdatedAt()
         );
     }
 

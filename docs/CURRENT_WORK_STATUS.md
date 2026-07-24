@@ -272,6 +272,13 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Sheet roster vẫn không chứa CCCD/CMND, BHXH/BHYT, địa chỉ, điện thoại hoặc lương/phụ cấp.
 - Tài liệu: [HR Phase 6 — Export Excel](HR_PHASE_6_EXCEL_EXPORT.md).
 
+## Phân Hệ HR — Phase 7 Ngày Phép
+
+- Phase 7 tính ngày phép tự động đã được gỡ khỏi source theo quyết định ngày `2026-07-24` vì công thức nghiệp vụ chưa chốt.
+- Không còn `HrLeaveEntitlementService`, không còn API `currentLeaveDays`, và frontend không hiển thị ngày phép tự tính.
+- Dữ liệu `leave_days` có sẵn từ import/snapshot vẫn không bị xóa khỏi schema/database; hệ thống chỉ không tự tính hoặc dùng nó trên UI hiện tại.
+- Nếu cần triển khai lại, nên làm phase riêng sau khi có quy tắc nhân sự chính thức và case test từ phòng TCHC.
+
 ## Rủi Ro / Việc Còn Lại
 
 - Flyway V1/V2 đã được người dùng báo áp dụng; bộ 329 từng import rồi đã xóa, nhưng chưa có query độc lập xác nhận HR hiện trống sạch. Không chạy initialization chỉ để thử.

@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Save } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrError, HrLoading, HrPageHeader, HrReadOnlyNotice } from '../../components/hr/HrUi';
+import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { apiErrorMessage } from '../../utils/hr';
@@ -225,7 +225,7 @@ export default function HrEmployeeForm() {
   }
 
   return (
-    <div className="w-full max-w-6xl">
+    <HrPageShell size="standard">
       <SEOHead title={`CFC Base | ${isEdit ? 'Chỉnh sửa' : 'Thêm'} hồ sơ nhân sự`} />
       <HrPageHeader
         title={isEdit ? 'Chỉnh sửa hồ sơ nháp' : 'Thêm hồ sơ nhân sự'}
@@ -306,6 +306,6 @@ export default function HrEmployeeForm() {
           <Button type="submit" disabled={saving}><Save className="mr-1.5 h-4 w-4" />{saving ? 'Đang lưu...' : isEdit ? 'Lưu thay đổi' : 'Tạo hồ sơ nháp'}</Button>
         </div>
       </form>
-    </div>
+    </HrPageShell>
   );
 }
