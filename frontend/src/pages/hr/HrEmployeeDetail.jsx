@@ -166,7 +166,6 @@ export default function HrEmployeeDetail() {
           <DetailItem label="CCCD" value={identity.citizenIdentityNumberMasked || identity.citizenIdentityNumber} />
           <DetailItem label="Ngày cấp" value={formatHrDate(identity.issuedDate)} />
           <DetailItem label="Nơi cấp" value={identity.issuedPlace} />
-          <DetailItem label="Xác minh" value={identity.verificationStatusLabel || identity.verificationStatus} />
         </DetailSection>
 
         <DetailSection icon={HeartPulse} title="Bảo hiểm" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
@@ -174,7 +173,6 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Số BHYT" value={insurance.healthInsuranceNumberMasked || insurance.healthInsuranceNumber} />
           <DetailItem label="Hiệu lực từ" value={formatHrDate(insurance.validFrom)} />
           <DetailItem label="Hiệu lực đến" value={formatHrDate(insurance.validUntil)} />
-          <DetailItem label="Trạng thái" value={insurance.statusLabel || insurance.status} />
         </DetailSection>
 
         <DetailSection icon={Contact} title="Liên hệ" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">

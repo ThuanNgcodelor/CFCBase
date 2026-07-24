@@ -103,7 +103,7 @@ export default function HrOverview() {
             <StatCard label="Ngừng hoạt động" value={overviewValue(data, 'inactiveEmployees', 'employeeCounts.inactive')} icon={UserMinus} color="gray" />
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          {/* <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -139,14 +139,8 @@ export default function HrOverview() {
               </dl>
             </div>
 
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-5">
-              <Building2 className="h-6 w-6 text-emerald-700" />
-              <h2 className="mt-4 font-semibold text-emerald-950">Phân hệ độc lập</h2>
-              <p className="mt-2 text-sm leading-6 text-emerald-800">
-                Hồ sơ nhân sự và tài khoản đăng nhập được quản lý độc lập. Chỉ tài khoản Quản lý nhân sự mới được truy cập khu vực này.
-              </p>
-            </div>
-          </div>
+
+          </div> */}
 
           <h2 className="mb-3 mt-8 text-lg font-semibold text-gray-900">Truy cập nhanh</h2>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
