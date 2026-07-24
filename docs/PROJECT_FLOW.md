@@ -1,6 +1,6 @@
 # Luồng Dự Án BookingBase
 
-Cập nhật: 2026-07-23
+Cập nhật: 2026-07-24
 
 File này mô tả flow nghiệp vụ hiện tại bằng tiếng Việt. Giữ nguyên thuật ngữ kỹ thuật như `JWT`, `DTO`, `WebSocket`, `Service Worker`, `PWA`, `Redis`, `range-based fetch`.
 
@@ -288,4 +288,4 @@ Danh sách tháng:
 
 Hard-delete chỉ áp dụng cho Employee/movement/roster `DRAFT` tạo tay và chưa có reference. Snapshot không chứa CCCD, BHXH/BHYT, địa chỉ, điện thoại hoặc lương. Chi tiết tại `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`; flow file khóa 339 tại `docs/HR_WORKFORCE_IMPORT_339.md`.
 
-Chi tiết hồ sơ HR trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER` để tra cứu/chỉnh sửa hồ sơ. Danh sách tháng và audit metadata vẫn không sao chép các giá trị nhạy cảm này.
+Chi tiết hồ sơ HR trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER` để tra cứu/chỉnh sửa hồ sơ. Danh sách tháng và audit metadata vẫn không sao chép các giá trị nhạy cảm này; riêng export Excel Phase 6 có thể join lại hồ sơ Employee để xuất đúng template đầy đủ cho `MANAGER`.

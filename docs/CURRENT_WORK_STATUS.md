@@ -1,6 +1,6 @@
 # Trạng Thái Công Việc Hiện Tại
 
-Cập nhật lần cuối: 2026-07-23
+Cập nhật lần cuối: 2026-07-24
 
 ## Trạng Thái Production
 
@@ -269,15 +269,25 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Export năm gọi `GET /api/v1/hr/exports/year?year=2026` và tạo workbook 14 sheet: `Tăng`, `Giảm`, `T1 26` ... `T12 26`.
 - Export tháng gọi `GET /api/v1/hr/exports/month?year=2026&month=6` và tạo workbook 3 sheet: `Tăng`, `Giảm`, `T6 26`.
 - Sheet tháng chưa có roster vẫn được tạo với header để giữ đúng cấu trúc file.
-- Sheet roster vẫn không chứa CCCD/CMND, BHXH/BHYT, địa chỉ, điện thoại hoặc lương/phụ cấp.
+- Sheet roster export theo template workbook chuẩn và join lại hồ sơ Employee để xuất đủ các cột BHXH/BHYT, CCCD/CMND, địa chỉ, điện thoại, lương/phụ cấp nếu dữ liệu hiện có.
 - Tài liệu: [HR Phase 6 — Export Excel](HR_PHASE_6_EXCEL_EXPORT.md).
 
-## Phân Hệ HR — Phase 7 Ngày Phép
+## Phân Hệ HR — Phase 7 Ngày Phép Đã Gỡ
 
 - Phase 7 tính ngày phép tự động đã được gỡ khỏi source theo quyết định ngày `2026-07-24` vì công thức nghiệp vụ chưa chốt.
 - Không còn `HrLeaveEntitlementService`, không còn API `currentLeaveDays`, và frontend không hiển thị ngày phép tự tính.
 - Dữ liệu `leave_days` có sẵn từ import/snapshot vẫn không bị xóa khỏi schema/database; hệ thống chỉ không tự tính hoặc dùng nó trên UI hiện tại.
 - Nếu cần triển khai lại, nên làm phase riêng sau khi có quy tắc nhân sự chính thức và case test từ phòng TCHC.
+
+## Dọn Dẹp Repo Ngày 2026-07-24
+
+- Đã dọn đúng các file tạm an toàn:
+  - `docs/.~lock.Danh sách nhân sự 2026.xlsx#`
+  - `docs/hr-template/archive/.~lock.baseline-values-2026-user-formatted-source.xlsx#`
+  - `scripts/hr-template/__pycache__/build-workforce-update-339-2026.cpython-314.pyc`
+  - `scripts/hr-template/__pycache__/hr_baseline_values_contract.cpython-314.pyc`
+- Không xóa workbook gốc, archive, baseline, artifact 339, template backend, script builder/verifier hoặc tài liệu phase.
+- Không thay đổi database/runtime production trong bước dọn dẹp này.
 
 ## Rủi Ro / Việc Còn Lại
 
@@ -285,6 +295,7 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Production secrets/default secrets cần được đưa hoàn toàn ra environment variables và rotate.
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
 - Phase 5 và Phase 6 export đã có ở source nhưng chưa deploy/UAT runtime; import sheet Tăng/Giảm hàng loạt từ workbook bất kỳ vẫn chưa triển khai.
+- Phase 7 ngày phép tự động hiện không còn trong source active; chỉ làm lại khi có công thức nghiệp vụ chính thức.
 - Cần test end-to-end PWA push trên nhiều thiết bị iOS/Android thật, đặc biệt notification click khi app đóng.
 - Cần test social preview cache trên các nền tảng gửi link khác nhau.
 - Có orphan `booking_adminer` container được Docker Compose cảnh báo; chưa xóa vì không liên quan runtime chính và tránh thao tác phá hủy ngoài yêu cầu.

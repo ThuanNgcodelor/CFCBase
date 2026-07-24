@@ -1,6 +1,6 @@
 # Ngữ Cảnh AI Cho BookingBase
 
-Cập nhật: 2026-07-23
+Cập nhật: 2026-07-24
 
 File này là context tiếng Việt cho AI agent. Code và config hiện tại luôn là `Source of Truth`. Giữ nguyên thuật ngữ kỹ thuật như `Frontend`, `Backend`, `JWT`, `DTO`, `PWA`, `Service Worker`, `WebSocket`, `STOMP`, `runtime cache`.
 
@@ -249,8 +249,8 @@ Approval:
 - Movement dùng idempotency key, lock, `rowVersion`, actor từ principal; `CONFIRMED` không sửa/xóa.
 - Roster tạo tuần tự `DRAFT -> OPEN -> CLOSED`; close dựng lại item và checksum. Reopen có lý do, không áp dụng cho baseline/kỳ exported/kỳ đã có downstream.
 - Hard-delete chỉ cho dữ liệu `DRAFT` tạo tay chưa có reference.
-- HR detail trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER`; roster/audit vẫn không sao chép các giá trị nhạy cảm này.
-- Transition 339 là flow khóa cứng theo file/kỳ/chênh lệch, không phải generic bulk import/export của Phase 6. Phase 7 ngày phép và Phase 8 đơn nghỉ vẫn chưa thuộc flow Phase 5.
+- HR detail trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER`; roster/audit metadata vẫn không sao chép các giá trị nhạy cảm này. Export Excel Phase 6 có thể join lại Employee để xuất đúng template đầy đủ cho `MANAGER`.
+- Transition 339 là flow khóa cứng theo file/kỳ/chênh lệch, không phải generic bulk import/export của Phase 6. Phase 7 ngày phép tự động đã được gỡ/defer ngày 2026-07-24; Phase 8 đơn nghỉ vẫn chưa thuộc flow hiện tại.
 
 ## Trạng Thái PWA Hiện Tại
 
