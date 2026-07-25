@@ -65,6 +65,11 @@ export const hrProbationApi = {
     return unwrapApiData(response);
   },
 
+  getJobTemplate: async (id, options = {}) => {
+    const response = await baseApi.get(`/hr/probation/job-templates/${id}`, { signal: options.signal });
+    return unwrapApiData(response);
+  },
+
   getAllJobTemplates: async (params = {}, options = {}) => {
     const size = 50;
     const firstPage = normalizePage(await hrProbationApi.getJobTemplates(

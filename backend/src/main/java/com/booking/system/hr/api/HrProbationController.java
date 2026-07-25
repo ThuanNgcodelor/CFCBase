@@ -186,6 +186,15 @@ public class HrProbationController {
                 "Lấy mẫu công việc thử việc thành công"));
     }
 
+    @GetMapping("/job-templates/{templateId}")
+    public ResponseEntity<ApiResponse<HrProbationDtos.JobTemplateSummary>> jobTemplate(
+            @PathVariable String templateId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                probationService.getJobTemplate(templateId),
+                "Lấy chi tiết mẫu công việc thử việc thành công"));
+    }
+
     @PostMapping("/job-templates")
     public ResponseEntity<ApiResponse<HrProbationDtos.JobTemplateSummary>> createJobTemplate(
             @AuthenticationPrincipal User principal,

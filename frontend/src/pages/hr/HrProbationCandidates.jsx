@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   CheckCircle2,
@@ -49,23 +50,6 @@ const EMPTY_CANDIDATE_FORM = {
   salaryNote: '',
   jobDescription: '',
   departmentRuleNote: '',
-};
-
-const EMPTY_TEMPLATE_FORM = {
-  code: '',
-  name: '',
-  description: '',
-  departmentId: '',
-  positionId: '',
-  workingConditionId: '',
-  probationContractType: 'Xác định thời hạn 02 tháng',
-  jobDescription: '',
-  baseSalary: '',
-  salaryNote: '',
-  departmentRuleNote: '',
-  sortOrder: 0,
-  status: 'ACTIVE',
-  rowVersion: null,
 };
 
 function refId(value) {
@@ -124,23 +108,6 @@ function candidatePayload(form) {
   };
 }
 
-function templatePayload(form) {
-  return {
-    code: form.code.trim().toUpperCase(),
-    name: form.name.trim(),
-    description: nullableText(form.description),
-    departmentId: form.departmentId || null,
-    positionId: form.positionId || null,
-    workingConditionId: form.workingConditionId || null,
-    probationContractType: nullableText(form.probationContractType),
-    jobDescription: nullableText(form.jobDescription),
-    baseSalary: nullableNumber(form.baseSalary),
-    salaryNote: nullableText(form.salaryNote),
-    departmentRuleNote: nullableText(form.departmentRuleNote),
-    sortOrder: Number(form.sortOrder) || 0,
-  };
-}
-
 function formFromCandidate(candidate) {
   return {
     candidateCode: stringValue(candidate.candidateCode),
@@ -167,25 +134,6 @@ function formFromCandidate(candidate) {
     salaryNote: stringValue(candidate.salaryNote),
     jobDescription: stringValue(candidate.jobDescription),
     departmentRuleNote: stringValue(candidate.departmentRuleNote),
-  };
-}
-
-function formFromTemplate(template) {
-  return {
-    code: stringValue(template.code),
-    name: stringValue(template.name),
-    description: stringValue(template.description),
-    departmentId: refId(template.department),
-    positionId: refId(template.position),
-    workingConditionId: refId(template.workingCondition),
-    probationContractType: stringValue(template.probationContractType || 'Xác định thời hạn 02 tháng'),
-    jobDescription: stringValue(template.jobDescription),
-    baseSalary: moneyValue(template.baseSalary),
-    salaryNote: stringValue(template.salaryNote),
-    departmentRuleNote: stringValue(template.departmentRuleNote),
-    sortOrder: template.sortOrder ?? 0,
-    status: template.status || 'ACTIVE',
-    rowVersion: template.rowVersion ?? template.version,
   };
 }
 
@@ -245,7 +193,9 @@ function CatalogSelect({ value, onChange, items, placeholder = 'Chưa chọn' })
 }
 
 export default function HrProbationCandidates() {
-  const [activeTab, setActiveTab] = useState('candidates');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'templates' ? 'templates' : 'candidates';
   const [page, setPage] = useState(0);
   const [filters, setFilters] = useState({
     keyword: '',
@@ -269,11 +219,6 @@ export default function HrProbationCandidates() {
   const [candidateRowVersion, setCandidateRowVersion] = useState(null);
   const [candidateForm, setCandidateForm] = useState(EMPTY_CANDIDATE_FORM);
   const [candidateSaving, setCandidateSaving] = useState(false);
-
-  const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [templateEditingId, setTemplateEditingId] = useState(null);
-  const [templateForm, setTemplateForm] = useState(EMPTY_TEMPLATE_FORM);
-  const [templateSaving, setTemplateSaving] = useState(false);
 
   const [busyAction, setBusyAction] = useState('');
 
@@ -338,16 +283,22 @@ export default function HrProbationCandidates() {
     setCandidateForm((current) => ({ ...current, [field]: value }));
   };
 
-  const updateTemplateForm = (field, value) => {
-    setTemplateForm((current) => ({ ...current, [field]: value }));
-  };
+  const selectTab = useCallback((tab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'templates') {
+      next.set('tab', 'templates');
+    } else {
+      next.delete('tab');
+    }
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const openCreateCandidate = () => {
     setCandidateEditingId(null);
     setCandidateRowVersion(null);
     setCandidateForm(EMPTY_CANDIDATE_FORM);
     setShowCandidateForm(true);
-    setActiveTab('candidates');
+    selectTab('candidates');
   };
 
   const openEditCandidate = async (candidate) => {
@@ -358,7 +309,7 @@ export default function HrProbationCandidates() {
       setCandidateRowVersion(detail.rowVersion ?? detail.version);
       setCandidateForm(formFromCandidate(detail));
       setShowCandidateForm(true);
-      setActiveTab('candidates');
+      selectTab('candidates');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (requestError) {
       toast.error(apiErrorMessage(requestError, 'Không thể tải chi tiết ứng viên.'));
@@ -420,46 +371,12 @@ export default function HrProbationCandidates() {
     }
   };
 
-  const saveTemplate = async (event) => {
-    event.preventDefault();
-    setTemplateSaving(true);
-    try {
-      const payload = templatePayload(templateForm);
-      if (templateEditingId) {
-        await hrProbationApi.updateJobTemplate(templateEditingId, {
-          rowVersion: templateForm.rowVersion,
-          template: payload,
-          status: templateForm.status,
-        });
-        toast.success('Đã cập nhật mẫu công việc thử việc');
-      } else {
-        await hrProbationApi.createJobTemplate(payload);
-        toast.success('Đã thêm mẫu công việc thử việc');
-      }
-      setShowTemplateForm(false);
-      setTemplateEditingId(null);
-      setTemplateForm(EMPTY_TEMPLATE_FORM);
-      setOptionsReloadKey((value) => value + 1);
-    } catch (requestError) {
-      toast.error(apiErrorMessage(requestError, 'Không thể lưu mẫu công việc.'));
-    } finally {
-      setTemplateSaving(false);
-    }
-  };
-
   const openCreateTemplate = () => {
-    setTemplateEditingId(null);
-    setTemplateForm(EMPTY_TEMPLATE_FORM);
-    setShowTemplateForm(true);
-    setActiveTab('templates');
+    navigate('/manager/hr/probation/templates/new');
   };
 
   const openEditTemplate = (template) => {
-    setTemplateEditingId(template.id);
-    setTemplateForm(formFromTemplate(template));
-    setShowTemplateForm(true);
-    setActiveTab('templates');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(`/manager/hr/probation/templates/${template.id}/edit`);
   };
 
   const applyFilters = (event) => {
@@ -541,7 +458,7 @@ export default function HrProbationCandidates() {
         description="Tạo hồ sơ ứng viên, sinh hợp đồng thử việc từ file Word mẫu, theo dõi kết quả thử việc rồi chuyển thành hồ sơ nhân sự nháp khi đạt."
         actions={(
           <>
-            <Button type="button" variant="secondary" onClick={openCreateTemplate}>
+            <Button type="button" variant="secondary" onClick={() => selectTab('templates')}>
               <FileText className="mr-1.5 h-4 w-4" />Mẫu công việc
             </Button>
             <Button type="button" onClick={openCreateCandidate}>
@@ -552,10 +469,10 @@ export default function HrProbationCandidates() {
       />
 
       <div className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-        <button type="button" onClick={() => setActiveTab('candidates')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'candidates' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+        <button type="button" onClick={() => selectTab('candidates')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'candidates' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
           Ứng viên
         </button>
-        <button type="button" onClick={() => setActiveTab('templates')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'templates' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+        <button type="button" onClick={() => selectTab('templates')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'templates' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
           Mẫu công việc thử việc
         </button>
       </div>
@@ -683,41 +600,6 @@ export default function HrProbationCandidates() {
 
       {activeTab === 'templates' && (
         <div className="space-y-5">
-          {showTemplateForm && (
-            <form onSubmit={saveTemplate} className="space-y-5 rounded-xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold text-gray-900">{templateEditingId ? 'Chỉnh sửa mẫu công việc' : 'Thêm mẫu công việc'}</h2>
-                  <p className="mt-1 text-sm text-gray-500">Mẫu này dùng để tự điền nhanh thông tin khi thêm ứng viên thử việc.</p>
-                </div>
-                <button type="button" className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100" onClick={() => setShowTemplateForm(false)}>
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <FormSection title="Thông tin mẫu">
-                <Field label="Mã mẫu *"><input required maxLength={32} value={templateForm.code} onChange={(event) => updateTemplateForm('code', event.target.value.toUpperCase())} className={INPUT_CLASS} /></Field>
-                <Field label="Tên mẫu *"><input required maxLength={255} value={templateForm.name} onChange={(event) => updateTemplateForm('name', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Phòng ban HR"><CatalogSelect value={templateForm.departmentId} onChange={(value) => updateTemplateForm('departmentId', value)} items={catalogs.departments} /></Field>
-                <Field label="Chức vụ HR"><CatalogSelect value={templateForm.positionId} onChange={(value) => updateTemplateForm('positionId', value)} items={catalogs.positions} /></Field>
-                <Field label="Điều kiện lao động"><CatalogSelect value={templateForm.workingConditionId} onChange={(value) => updateTemplateForm('workingConditionId', value)} items={catalogs.conditions} /></Field>
-                <Field label="Loại hợp đồng"><input maxLength={100} value={templateForm.probationContractType} onChange={(event) => updateTemplateForm('probationContractType', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Lương thử việc"><input type="number" min="0" step="1" value={templateForm.baseSalary} onChange={(event) => updateTemplateForm('baseSalary', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Thứ tự"><input type="number" min="0" value={templateForm.sortOrder} onChange={(event) => updateTemplateForm('sortOrder', event.target.value)} className={INPUT_CLASS} /></Field>
-                {templateEditingId && (
-                  <Field label="Trạng thái"><select value={templateForm.status} onChange={(event) => updateTemplateForm('status', event.target.value)} className={INPUT_CLASS}><option value="ACTIVE">Đang hoạt động</option><option value="INACTIVE">Ngừng hoạt động</option></select></Field>
-                )}
-                <Field label="Mô tả" wide><textarea value={templateForm.description} onChange={(event) => updateTemplateForm('description', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-                <Field label="Ghi chú lương" wide><input maxLength={255} value={templateForm.salaryNote} onChange={(event) => updateTemplateForm('salaryNote', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Công việc phải làm" wide><textarea value={templateForm.jobDescription} onChange={(event) => updateTemplateForm('jobDescription', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-                <Field label="Quy định riêng phòng ban" wide><textarea value={templateForm.departmentRuleNote} onChange={(event) => updateTemplateForm('departmentRuleNote', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-              </FormSection>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setShowTemplateForm(false)} disabled={templateSaving}>Đóng</Button>
-                <Button type="submit" disabled={templateSaving}>{templateSaving ? 'Đang lưu...' : 'Lưu mẫu công việc'}</Button>
-              </div>
-            </form>
-          )}
-
           <div className="flex justify-end">
             <Button type="button" onClick={openCreateTemplate}><Plus className="mr-1.5 h-4 w-4" />Thêm mẫu công việc</Button>
           </div>

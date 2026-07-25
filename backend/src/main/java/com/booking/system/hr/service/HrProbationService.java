@@ -366,6 +366,11 @@ public class HrProbationService {
         return HrPageResponse.from(result, item -> item);
     }
 
+    @Transactional(readOnly = true)
+    public HrProbationDtos.JobTemplateSummary getJobTemplate(String templateId) {
+        return toTemplateSummary(requireJobTemplate(templateId));
+    }
+
     @Transactional
     public HrProbationDtos.JobTemplateSummary createJobTemplate(
             HrProbationDtos.JobTemplateInput input,
@@ -395,9 +400,7 @@ public class HrProbationService {
             HrProbationDtos.UpdateJobTemplateRequest request,
             HrImportActor actor
     ) {
-        HrProbationJobTemplate template = jobTemplateRepository.findById(templateId)
-                .orElseThrow(() -> HrApiException.notFound("PROBATION_TEMPLATE_NOT_FOUND",
-                        "Không tìm thấy mẫu công việc thử việc."));
+        HrProbationJobTemplate template = requireJobTemplate(templateId);
         requireVersion(template.getRowVersion(), request.rowVersion(), "STALE_PROBATION_TEMPLATE_VERSION",
                 "Mẫu công việc đã được cập nhật ở nơi khác. Vui lòng tải lại.");
         String code = normalizeCode(request.template().code());
@@ -417,6 +420,12 @@ public class HrProbationService {
                 List.of("code", "name", "department", "position", "salary", "status"),
                 Map.of("status", template.getStatus().name()));
         return toTemplateSummary(template);
+    }
+
+    private HrProbationJobTemplate requireJobTemplate(String templateId) {
+        return jobTemplateRepository.findById(templateId)
+                .orElseThrow(() -> HrApiException.notFound("PROBATION_TEMPLATE_NOT_FOUND",
+                        "Không tìm thấy mẫu công việc thử việc."));
     }
 
     private void validateCandidateInput(HrProbationDtos.CandidateInput input) {
