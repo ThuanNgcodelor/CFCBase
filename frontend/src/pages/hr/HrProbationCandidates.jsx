@@ -22,8 +22,8 @@ import { normalizePage } from '../../api/hrApiUtils';
 import { hrProbationApi } from '../../api/hrProbationApi';
 import { apiErrorMessage, formatHrDate, formatHrDateTime, nonEmpty, statusLabel } from '../../utils/hr';
 
-const INPUT_CLASS = 'h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
-const TEXTAREA_CLASS = 'min-h-24 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
+const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
+const TEXTAREA_CLASS = 'min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
 
 const EMPTY_CANDIDATE_FORM = {
   candidateCode: '',
@@ -468,7 +468,7 @@ export default function HrProbationCandidates() {
         )}
       />
 
-      <div className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+      <div className="mb-4 flex max-w-full flex-wrap gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
         <button type="button" onClick={() => selectTab('candidates')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'candidates' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
           Ứng viên
         </button>
@@ -530,14 +530,14 @@ export default function HrProbationCandidates() {
                 <Field label="Quy định riêng phòng ban" wide><textarea value={candidateForm.departmentRuleNote} onChange={(event) => updateCandidateForm('departmentRuleNote', event.target.value)} className={TEXTAREA_CLASS} /></Field>
               </FormSection>
 
-              <div className="sticky bottom-3 z-10 flex flex-col justify-end gap-2 rounded-xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:flex-row">
-                <Button type="button" variant="secondary" onClick={closeCandidateForm} disabled={candidateSaving}>Đóng</Button>
-                <Button type="submit" disabled={candidateSaving}><UserCheck className="mr-1.5 h-4 w-4" />{candidateSaving ? 'Đang lưu...' : candidateEditingId ? 'Lưu ứng viên' : 'Thêm ứng viên'}</Button>
+              <div className="sticky bottom-0 z-10 flex flex-col justify-end gap-2 rounded-xl border border-gray-200 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg backdrop-blur sm:flex-row">
+                <Button type="button" variant="secondary" onClick={closeCandidateForm} disabled={candidateSaving} className="w-full sm:w-auto">Đóng</Button>
+                <Button type="submit" disabled={candidateSaving} className="w-full sm:w-auto"><UserCheck className="mr-1.5 h-4 w-4" />{candidateSaving ? 'Đang lưu...' : candidateEditingId ? 'Lưu ứng viên' : 'Thêm ứng viên'}</Button>
               </div>
             </form>
           )}
 
-          <form onSubmit={applyFilters} className="mb-4 grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_180px_220px_180px_auto_auto]">
+          <form onSubmit={applyFilters} className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-[minmax(260px,1fr)_180px_220px_180px_auto_auto]">
             <label className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="Tìm mã hoặc tên ứng viên" className="h-10 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-emerald-500" />
@@ -564,7 +564,7 @@ export default function HrProbationCandidates() {
 
           {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
 
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
             <table className="w-full min-w-[1180px] divide-y divide-gray-200">
               <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 <tr>
@@ -594,6 +594,22 @@ export default function HrProbationCandidates() {
             </table>
           </div>
 
+          <div className="space-y-3 md:hidden">
+            {loading ? (
+              <div className="rounded-xl border border-gray-200 bg-white py-10 text-center text-sm text-gray-500">Đang tải ứng viên thử việc...</div>
+            ) : result.content.map((candidate) => (
+              <CandidateCard
+                key={candidate.id}
+                candidate={candidate}
+                busyAction={busyAction}
+                onEdit={openEditCandidate}
+                onAction={runCandidateAction}
+                onDownload={downloadContract}
+              />
+            ))}
+            {!loading && result.content.length === 0 && <HrEmpty title="Chưa có ứng viên thử việc" description="Bấm “Thêm ứng viên” để bắt đầu nhập hồ sơ và sinh hợp đồng thử việc." />}
+          </div>
+
           <div className="mt-4"><HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={setPage} /></div>
         </>
       )}
@@ -604,7 +620,7 @@ export default function HrProbationCandidates() {
             <Button type="button" onClick={openCreateTemplate}><Plus className="mr-1.5 h-4 w-4" />Thêm mẫu công việc</Button>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
             <table className="w-full min-w-[980px] divide-y divide-gray-200">
               <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 <tr>
@@ -640,6 +656,30 @@ export default function HrProbationCandidates() {
                 {sortedTemplates.length === 0 && <tr><td colSpan="5" className="p-5"><HrEmpty title="Chưa có mẫu công việc" description="Có thể nhập ứng viên thủ công, nhưng tạo mẫu sẽ nhanh hơn khi nhiều vị trí có lương/công việc giống nhau." /></td></tr>}
               </tbody>
             </table>
+          </div>
+
+          <div className="space-y-3 md:hidden">
+            {sortedTemplates.map((template) => (
+              <div key={template.id} className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{template.name}</p>
+                    <p className="mt-0.5 text-xs text-emerald-700">{template.code}</p>
+                  </div>
+                  <HrStatusBadge status={template.status} />
+                </div>
+                {template.jobDescription && <p className="mt-2 line-clamp-2 text-xs text-gray-500">{template.jobDescription}</p>}
+                <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-xs">
+                  <div><span className="text-gray-400">Phòng ban</span><p className="mt-1 font-medium text-gray-700">{nonEmpty(template.department?.name)}</p></div>
+                  <div><span className="text-gray-400">Chức vụ</span><p className="mt-1 font-medium text-gray-700">{nonEmpty(template.position?.name)}</p></div>
+                  <div className="col-span-2"><span className="text-gray-400">Lương</span><p className="mt-1 font-medium text-gray-700">{template.baseSalary ? Number(template.baseSalary).toLocaleString('vi-VN') : '—'} {template.salaryNote ? `(${template.salaryNote})` : ''}</p></div>
+                </div>
+                <div className="mt-3">
+                  <Button type="button" className="w-full" size="sm" variant="secondary" onClick={() => openEditTemplate(template)}><PencilLine className="mr-1 h-3.5 w-3.5" />Sửa</Button>
+                </div>
+              </div>
+            ))}
+            {sortedTemplates.length === 0 && <HrEmpty title="Chưa có mẫu công việc" description="Có thể nhập ứng viên thủ công, nhưng tạo mẫu sẽ nhanh hơn khi nhiều vị trí có lương/công việc giống nhau." />}
           </div>
         </div>
       )}
@@ -701,5 +741,55 @@ function CandidateRow({ candidate, busyAction, onEdit, onAction, onDownload }) {
         </div>
       </td>
     </tr>
+  );
+}
+
+function CandidateCard({ candidate, busyAction, onEdit, onAction, onDownload }) {
+  const latestContract = candidate.latestContract;
+  const canGenerate = !['FAILED', 'CONVERTED', 'CANCELLED'].includes(candidate.status);
+  const canStart = ['DRAFT', 'CONTRACT_CREATED'].includes(candidate.status);
+  const canPass = candidate.status === 'IN_PROBATION';
+  const canFail = !['FAILED', 'CONVERTED', 'CANCELLED'].includes(candidate.status);
+  const canConvert = candidate.status === 'PASSED';
+  const disabled = Boolean(busyAction);
+
+  return (
+    <div className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-700">
+            {candidate.fullName?.charAt(0) || 'U'}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-gray-900">{candidate.fullName}</p>
+            <p className="mt-0.5 text-xs text-gray-500">{candidate.candidateCode}</p>
+          </div>
+        </div>
+        <HrStatusBadge status={candidate.status} label={candidate.status === 'FAILED' ? 'Không đạt' : undefined} />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-xs">
+        <div><span className="text-gray-400">Phòng ban</span><p className="mt-1 font-medium text-gray-700">{nonEmpty(candidate.department?.name)}</p></div>
+        <div><span className="text-gray-400">Chức vụ</span><p className="mt-1 font-medium text-gray-700">{nonEmpty(candidate.position?.name)}</p></div>
+        <div><span className="text-gray-400">Thử việc</span><p className="mt-1 font-medium text-gray-700">{formatHrDate(candidate.probationStartDate)} → {formatHrDate(candidate.probationEndDate)}</p></div>
+        <div>
+          <span className="text-gray-400">Hợp đồng</span>
+          <div className="mt-1">
+            {latestContract ? (
+              <button type="button" disabled={disabled} onClick={() => onDownload(latestContract)} className="inline-flex items-center gap-1 text-blue-700 disabled:opacity-50">
+                <Download className="h-3.5 w-3.5" /> {latestContract.contractNo}/{latestContract.contractYear}
+              </button>
+            ) : <span className="text-gray-500">Chưa tạo</span>}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="secondary" disabled={disabled} onClick={() => onEdit(candidate)}><PencilLine className="mr-1 h-3.5 w-3.5" />Sửa</Button>
+        {canGenerate && <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'generate')}><FileText className="mr-1 h-3.5 w-3.5" />Tạo HĐ</Button>}
+        {canStart && <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'start')}><PlayCircle className="mr-1 h-3.5 w-3.5" />Bắt đầu</Button>}
+        {canPass && <Button type="button" className="flex-1 min-w-[90px]" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'pass')}><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Đạt</Button>}
+        {canFail && <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="danger" disabled={disabled} onClick={() => onAction(candidate, 'fail')}><XCircle className="mr-1 h-3.5 w-3.5" />Không đạt</Button>}
+        {canConvert && <Button type="button" className="flex-1 min-w-[90px]" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'convert')}><UserCheck className="mr-1 h-3.5 w-3.5" />Chuyển</Button>}
+      </div>
+    </div>
   );
 }

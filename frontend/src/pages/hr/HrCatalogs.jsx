@@ -16,7 +16,7 @@ const TYPES = [
 ];
 
 const EMPTY_FORM = { code: '', name: '', description: '', sortOrder: 0, parentId: '', rowVersion: null };
-const INPUT_CLASS = 'h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
+const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
 
 export default function HrCatalogs() {
   const [type, setType] = useState('departments');
@@ -172,7 +172,7 @@ export default function HrCatalogs() {
 
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
         <table className="w-full min-w-[980px] divide-y divide-gray-200">
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
             <tr><th className="px-5 py-4">Mã</th><th className="px-5 py-4">Tên danh mục</th><th className="hidden px-5 py-4 lg:table-cell">Mô tả / cấp trên</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4"></th></tr>
@@ -199,13 +199,37 @@ export default function HrCatalogs() {
         </table>
       </div>
 
+      <div className="space-y-3 md:hidden">
+        {loading ? (
+          <div className="rounded-xl border border-gray-200 bg-white py-10 text-center text-sm text-gray-500">Đang tải danh mục...</div>
+        ) : result.content.map((item) => (
+          <div key={item.id} className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900">{item.name}</p>
+                <p className="mt-0.5 text-xs text-emerald-700">{item.code}</p>
+              </div>
+              <HrStatusBadge status={item.status} />
+            </div>
+            {nonEmpty(item.parentName || item.description) && (
+              <p className="mt-2 text-xs text-gray-500">{item.parentName || item.description}</p>
+            )}
+            <div className="mt-3 flex gap-2">
+              <Button type="button" className="flex-1" size="sm" variant="secondary" onClick={() => openEdit(item)}><FilePenLine className="mr-1 h-3.5 w-3.5" />Sửa</Button>
+              {item.status !== 'INACTIVE' && <Button type="button" className="flex-1" size="sm" variant="danger" onClick={() => deactivate(item)}><Power className="mr-1 h-3.5 w-3.5" />Ngừng</Button>}
+            </div>
+          </div>
+        ))}
+        {!loading && result.content.length === 0 && <HrEmpty title="Chưa có danh mục phù hợp" />}
+      </div>
+
       <div className="mt-4"><HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={setPage} /></div>
 
       <Modal isOpen={modalOpen} onClose={() => !saving && setModalOpen(false)} title={editingId ? `Sửa ${activeTypeLabel}` : `Thêm ${activeTypeLabel}`}>
         <form onSubmit={save} className="space-y-4">
           <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Mã *</span><input required maxLength={32} value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))} className={INPUT_CLASS} /></label>
           <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Tên *</span><input required maxLength={255} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={INPUT_CLASS} /></label>
-          <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" /></label>
+          <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" /></label>
           {type === 'departments' && (
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-gray-700">Phòng ban cấp trên</span>

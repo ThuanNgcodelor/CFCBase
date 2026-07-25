@@ -195,36 +195,36 @@ export default function HrEmployees() {
               className="h-10 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
-          <select value={draftFilters.status} onChange={(event) => updateDraft('status', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
+          <select value={draftFilters.status} onChange={(event) => updateDraft('status', event.target.value)} className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả trạng thái</option>
             <option value="DRAFT">Hồ sơ nháp</option>
             <option value="ACTIVE">Đang làm</option>
             <option value="INACTIVE">Đã nghỉ</option>
           </select>
-          <select value={draftFilters.departmentId} onChange={(event) => updateDraft('departmentId', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
+          <select value={draftFilters.departmentId} onChange={(event) => updateDraft('departmentId', event.target.value)} className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả phòng ban</option>
             {catalogs.departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
-          <select value={draftFilters.positionId} onChange={(event) => updateDraft('positionId', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
+          <select value={draftFilters.positionId} onChange={(event) => updateDraft('positionId', event.target.value)} className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả chức vụ</option>
             {catalogs.positions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
-          <select value={draftFilters.workingConditionId} onChange={(event) => updateDraft('workingConditionId', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
+          <select value={draftFilters.workingConditionId} onChange={(event) => updateDraft('workingConditionId', event.target.value)} className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
             <option value="">Tất cả điều kiện</option>
             {catalogs.conditions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </div>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <select value={draftFilters.sort} onChange={(event) => updateDraft('sort', event.target.value)} className="h-9 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500">
+          <select value={draftFilters.sort} onChange={(event) => updateDraft('sort', event.target.value)} className="h-9 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500 sm:w-auto">
             <option value="employeeCode,asc">Mã tăng dần</option>
             <option value="employeeCode,desc">Mã giảm dần</option>
             <option value="fullName,asc">Tên A–Z</option>
             <option value="fullName,desc">Tên Z–A</option>
             <option value="hireDate,desc">Ngày vào làm mới nhất</option>
           </select>
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={clearFilters} disabled={!hasFilters && !draftFilters.keyword}>Xóa lọc</Button>
-            <Button type="submit"><Filter className="mr-1.5 h-4 w-4" />Áp dụng</Button>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button type="button" variant="secondary" className="flex-1 sm:flex-none" onClick={clearFilters} disabled={!hasFilters && !draftFilters.keyword}>Xóa lọc</Button>
+            <Button type="submit" className="flex-1 sm:flex-none"><Filter className="mr-1.5 h-4 w-4" />Áp dụng</Button>
           </div>
         </div>
       </form>

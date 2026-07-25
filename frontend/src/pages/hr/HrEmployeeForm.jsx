@@ -112,8 +112,8 @@ function Field({ label, wide = false, children }) {
   );
 }
 
-const INPUT_CLASS = 'h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
-const TEXTAREA_CLASS = 'min-h-24 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
+const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
+const TEXTAREA_CLASS = 'min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
 
 export default function HrEmployeeForm() {
   const { id } = useParams();
@@ -302,7 +302,7 @@ export default function HrEmployeeForm() {
           <Field label="Quan hệ"><input value={form.contact.emergencyContactRelation} onChange={(e) => update('contact', 'emergencyContactRelation', e.target.value)} className={INPUT_CLASS} /></Field>
         </FormSection>
 
-        <div className="sticky bottom-3 z-10 flex justify-end rounded-xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+        <div className="sticky bottom-0 z-10 flex justify-end rounded-xl border border-gray-200 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg backdrop-blur">
           <Button type="submit" disabled={saving}><Save className="mr-1.5 h-4 w-4" />{saving ? 'Đang lưu...' : isEdit ? 'Lưu thay đổi' : 'Tạo hồ sơ nháp'}</Button>
         </div>
       </form>

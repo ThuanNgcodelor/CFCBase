@@ -31,7 +31,7 @@ export function HrPageHeader({ eyebrow = 'Quản lý nhân sự', title, descrip
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{title}</h1>
         {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-500">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">{actions}</div>}
     </div>
   );
 }
