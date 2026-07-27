@@ -22,7 +22,7 @@ const CANDIDATE_LIST_PATH = '/manager/hr/probation';
 
 const ID_CARD_ISSUING_AUTHORITIES = [
   'Bộ Công an',
-  'Cục Cảnh sát quản lý hành chính về trật tự xã hội',
+  'Cục cảnh sát QLHC về TTXH',
 ];
 
 const EMPTY_CANDIDATE_FORM = {
