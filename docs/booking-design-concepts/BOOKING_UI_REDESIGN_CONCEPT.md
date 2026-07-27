@@ -2,7 +2,7 @@
 
 Cập nhật: 2026-07-27
 
-Trạng thái: **Phase 1 — chờ duyệt concept, chưa triển khai vào source code**
+Trạng thái: **Hoàn thành Phase 0–3 — baseline, concept, design system và app shell**
 
 Visual reference được người dùng chọn:
 
@@ -130,12 +130,36 @@ Dữ liệu trong ảnh chỉ là dữ liệu minh họa. Khi triển khai, copy
 - Input, button và icon action có touch target tối thiểu 44px.
 - Khi bàn phím mở, sticky action vẫn nhìn thấy và bottom nav được ẩn nếu cần.
 
-## 7. Giới hạn của Phase 1
+## 7. Trạng thái triển khai
 
-- Chưa sửa React/CSS runtime.
-- Chưa thay đổi backend/API.
-- Chưa đổi route, role, redirect hoặc deep link.
-- Chưa đổi logic calendar, create, approve, reject hoặc cancel.
-- Chưa deploy/restart server.
-- Ảnh concept là specification để người dùng duyệt trước Phase 2.
+### Phase 0 — Baseline
 
+- Đã chốt route, role, luồng nghiệp vụ, notification và PWA không được thay đổi.
+- Đã ghi nhận hiện trạng trước redesign trong `docs/BOOKING_UI_PHASE_0_BASELINE.md`.
+
+### Phase 1 — Concept
+
+- Đã tạo và duyệt 8 màn hình tham chiếu trong thư mục này.
+- Hướng thiết kế được chọn là `CFC Operations Desk`.
+
+### Phase 2 — Design system
+
+- Đã tạo token thương hiệu tại `frontend/src/styles/cfc-design-system.css`.
+- Đã chuẩn hóa Button, Input, Modal và bổ sung Avatar, Surface, StatusBadge, BottomSheet.
+- Touch target chính tối thiểu 44px, focus ring rõ, có reduced-motion và safe-area utility.
+
+### Phase 3 — App shell
+
+- Đã tách sidebar, top bar, notification menu, user menu, mobile bottom navigation, mobile more sheet và footer thành component riêng.
+- Desktop dùng sidebar navy có thể thu gọn; trạng thái thu gọn được giữ trong local storage.
+- Mobile/PWA dùng app bar + bottom navigation theo role; form/detail tự ẩn bottom navigation.
+- ADMIN, MANAGER và EMPLOYEE tiếp tục dùng đúng route/guard cũ.
+- Chi tiết kiểm thử và danh sách file: `docs/BOOKING_UI_PHASE_2_3_IMPLEMENTATION.md`.
+
+## 8. Phạm vi chưa triển khai
+
+- Chưa redesign nội dung riêng của Dashboard, calendar, form booking, booking detail và admin ledgers; đây là các phase tiếp theo.
+- Không thay đổi backend/API.
+- Không đổi route, role, redirect, deep link hoặc nghiệp vụ.
+- Không đổi logic calendar, create, approve, reject hoặc cancel.
+- Chưa deploy/restart server production.

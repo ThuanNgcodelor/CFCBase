@@ -1,29 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import {
-  ArrowUpDown,
-  Bell,
-  CalendarRange,
-  CarFront,
-  CheckSquare,
-  ContactRound,
-  FileCheck2,
-  Home,
-  LayoutDashboard,
-  Library,
-  LogOut,
-  Menu,
-  TableProperties,
-  UserPlus,
-  Users,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi';
 import { userApi } from '../api/userApi';
-import { NotificationProvider } from '../contexts/NotificationContext';
-import { useNotificationList, useNotificationUnreadCount } from '../contexts/useNotificationCenter';
-import { usePushNotifications } from '../hooks/usePushNotifications';
 import RequiredPushNotificationGate from '../components/RequiredPushNotificationGate';
-import { resolveNotificationTarget } from '../utils/notificationNavigation';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { AppFooter } from './app-shell/AppFooter';
+import { AppSidebar } from './app-shell/AppSidebar';
+import { AppTopBar } from './app-shell/AppTopBar';
+import { MobileBottomNav } from './app-shell/MobileBottomNav';
+import { MobileMoreSheet } from './app-shell/MobileMoreSheet';
+import {
+  buildMobileNavigation,
+  buildNavigation,
+  getPageTitle,
+  isNavigationItemActive,
+  shouldHideMobileBottomNavigation,
+} from './app-shell/navigation';
 
 export default function DashboardLayout() {
   return (
@@ -36,20 +29,18 @@ export default function DashboardLayout() {
 function DashboardLayoutContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
-  const [imageError, setImageError] = useState(false);
-  const [collapsedImageError, setCollapsedImageError] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(
+    () => window.localStorage.getItem('cfc-sidebar-collapsed') !== 'true',
+  );
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [user, setUser] = useState(() => authApi.getUser() || {});
   const [pendingRegistrationCount, setPendingRegistrationCount] = useState(0);
 
   const isAdmin = user.role === 'ADMIN';
   const isManager = user.role === 'MANAGER';
   const isApprover = user.role === 'ADMIN' || user.role === 'MANAGER';
-
   const pushState = usePushNotifications({ autoRegister: true });
 
-  // JWT chỉ giữ identity/role. Luôn đồng bộ profile mới nhất từ backend
-  // để login email và cookie cũ vẫn có fullName/avatar chính xác.
   useEffect(() => {
     let active = true;
 
@@ -58,8 +49,6 @@ function DashboardLayoutContent() {
         if (!active || !currentUser) return;
         setUser(currentUser);
         authApi.updateUser(currentUser);
-        setImageError(false);
-        setCollapsedImageError(false);
       })
       .catch((error) => {
         console.error('Không thể đồng bộ thông tin người dùng:', error);
@@ -73,467 +62,113 @@ function DashboardLayoutContent() {
   useEffect(() => {
     if (!isAdmin) return;
     userApi.getPendingRegistrationCount()
-      .then(count => setPendingRegistrationCount(Number(count) || 0))
-      .catch(() => { });
+      .then((count) => setPendingRegistrationCount(Number(count) || 0))
+      .catch(() => {});
   }, [isAdmin, location.pathname]);
 
-  // Tự động đóng sidebar trên mobile khi đổi trang
   useEffect(() => {
-    if (window.innerWidth < 768) {
-      setIsSidebarOpen(false);
-    }
+    setMobileMoreOpen(false);
   }, [location.pathname]);
+
+  const navigation = useMemo(
+    () => buildNavigation({
+      isAdmin,
+      isManager,
+      isApprover,
+      pendingRegistrationCount,
+    }),
+    [isAdmin, isApprover, isManager, pendingRegistrationCount],
+  );
+  const mobileNavigation = useMemo(
+    () => buildMobileNavigation({
+      isManager,
+      primaryItems: navigation.primaryItems,
+      adminItems: navigation.adminItems,
+      hrItems: navigation.hrItems,
+    }),
+    [isManager, navigation],
+  );
+
+  const allNavigationItems = useMemo(
+    () => navigation.sections.flatMap((section) => section.items),
+    [navigation.sections],
+  );
+  const pageTitle = getPageTitle(location.pathname, allNavigationItems);
+  const isCalendarRoute = location.pathname.startsWith('/cars')
+    || location.pathname.startsWith('/rooms');
+  const isHrRoute = location.pathname.startsWith('/manager/hr');
+  const hideMobileNavigation = shouldHideMobileBottomNavigation(location.pathname);
+  const moreActive = mobileNavigation.moreSections
+    .flatMap((section) => section.items)
+    .some((item) => isNavigationItemActive(item, location.pathname));
+
+  const handleSidebarToggle = () => {
+    setSidebarExpanded((current) => {
+      const next = !current;
+      window.localStorage.setItem('cfc-sidebar-collapsed', String(!next));
+      return next;
+    });
+  };
 
   const handleLogout = async () => {
     await authApi.logout();
     navigate('/login');
   };
 
-  const mainNavItems = [
-    { name: 'Trang chủ', path: '/', icon: Home, show: !isManager },
-    { name: 'Lịch phòng họp', path: '/rooms', icon: CalendarRange, show: !isManager },
-    { name: 'Lịch xe', path: '/cars', icon: CarFront, show: !isManager },
-    { name: 'Thông báo', path: '/notifications', icon: Bell, show: true },
-  ];
-
-  const adminNavItems = [
-    { name: 'Duyệt đặt chỗ', path: '/admin/approvals', icon: CheckSquare, show: isApprover && !isManager },
-    { name: 'Duyệt hồ sơ', path: '/admin/profile-approvals', icon: FileCheck2, show: isAdmin },
-    { name: 'Tài khoản', path: '/admin/users', icon: Users, show: isAdmin, badge: pendingRegistrationCount },
-  ];
-
-  const hrNavItems = [
-    { name: 'Tổng quan', path: '/manager/hr', icon: LayoutDashboard },
-    { name: 'Nhân sự', path: '/manager/hr/employees', icon: ContactRound },
-    { name: 'Thử việc', path: '/manager/hr/probation', icon: UserPlus },
-    { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
-    { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
-    { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
-    // { name: 'Nhập dữ liệu', path: '/manager/hr/imports', icon: Upload },
-    // { name: 'Nhật ký thay đổi', path: '/manager/hr/audit', icon: History },
-  ];
-
-  const isCalendarRoute = location.pathname.startsWith('/cars') || location.pathname.startsWith('/rooms');
-  const isHrRoute = location.pathname.startsWith('/manager/hr');
+  const contentPadding = isCalendarRoute
+    ? 'p-0'
+    : isHrRoute
+      ? 'px-4 py-5 sm:px-6 sm:py-6 xl:px-8 xl:py-7 2xl:px-10'
+      : 'px-4 py-5 sm:px-6 sm:py-7 xl:px-8';
 
   return (
-    <div className="flex h-[100dvh] bg-[#F9FAFB] font-sans text-gray-900 overflow-hidden relative">
+    <div className="relative flex h-[100dvh] overflow-hidden bg-[var(--cfc-canvas)] text-[var(--cfc-ink)]">
       <RequiredPushNotificationGate pushState={pushState} />
 
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 z-20 md:hidden transition-opacity"
-          onClick={() => setIsSidebarOpen(false)}
+      <AppSidebar
+        expanded={sidebarExpanded}
+        onToggle={handleSidebarToggle}
+        sections={navigation.sections}
+        pathname={location.pathname}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <AppTopBar
+          pageTitle={pageTitle}
+          user={user}
+          navigate={navigate}
+          onLogout={handleLogout}
+          onOpenMore={() => setMobileMoreOpen(true)}
+          hasMoreItems={mobileNavigation.moreSections.length > 0}
         />
-      )}
 
-      {/* Sidebar Navigation */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 md:relative md:translate-x-0
-        ${isSidebarOpen ? 'translate-x-0 w-54' : '-translate-x-full md:w-20'}
-        bg-white border-r border-gray-200 flex flex-col shrink-0
-      `}>
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-          {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-blue-700">CFC Base</span>}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 hidden md:block">
-            <Menu className="w-5 h-5" />
-          </button>
-        </div>
-
-        <nav className="flex-1 py-4 px-3 space-y-6 overflow-y-auto">
-          {/* Nhóm chức năng chính */}
-          <div className="space-y-1">
-            {isSidebarOpen && <div className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Chức năng chính</div>}
-            {mainNavItems.filter(item => item.show).map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/');
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  title={!isSidebarOpen ? item.name : ""}
-                  className={`relative flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                >
-                  <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-700' : 'text-gray-400'}`} />
-                  {isSidebarOpen && <span className="flex-1">{item.name}</span>}
-                  {isSidebarOpen && item.badge > 0 && (
-                    <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold leading-5 text-white">
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Nhóm quản trị */}
-          {adminNavItems.some((item) => item.show) && (
-            <div className="space-y-1">
-              {isSidebarOpen && <div className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">Quản trị hệ thống</div>}
-              {adminNavItems.filter(item => item.show).map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname.startsWith(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    title={!isSidebarOpen ? item.name : ""}
-                    className={`relative flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
-                      ? 'bg-amber-50 text-amber-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                  >
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-amber-700' : 'text-gray-400'}`} />
-                    {isSidebarOpen && <span className="flex-1">{item.name}</span>}
-                    {item.badge > 0 && (
-                      <span className={`${isSidebarOpen ? '' : 'absolute -right-1 -top-1'} inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold leading-5 text-white`}>
-                        {item.badge > 99 ? '99+' : item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
-          {/* HR là phân hệ độc lập và chỉ hiển thị cho MANAGER. */}
-          {isManager && (
-            <div className="space-y-1">
-              {isSidebarOpen && <div className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">Quản lý nhân sự</div>}
-              {hrNavItems.map((item) => {
-                const Icon = item.icon;
-                const isOverview = item.path === '/manager/hr';
-                const isActive = isOverview
-                  ? location.pathname === item.path
-                  : location.pathname.startsWith(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    title={!isSidebarOpen ? item.name : ''}
-                    className={`relative flex items-center ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center'} py-2.5 rounded-md text-sm transition-colors ${isActive
-                      ? 'bg-emerald-50 text-emerald-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                  >
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-emerald-700' : 'text-gray-400'}`} />
-                    {isSidebarOpen && <span className="flex-1">{item.name}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </nav>
-
-        {/* User Profile & Logout */}
-        <div className="p-3 border-t border-gray-200">
-          {isSidebarOpen ? (
-            <div className="flex flex-col gap-2">
-              <div
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded-md transition-colors"
-                onClick={() => navigate('/profile')}
-              >
-                {user.avatarUrl && !imageError ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt="Avatar"
-                    className="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0 border border-gray-100"
-                    referrerPolicy="no-referrer"
-                    onError={() => setImageError(true)}
-                  />
-                ) : (
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold flex-shrink-0 shadow-sm">
-                    {user.fullName?.charAt(0) || 'U'}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate hover:text-blue-700 transition-colors">
-                    {user.fullName || user.email || 'Người dùng'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 border-t border-gray-100 pt-2">
-                <NotificationMenu expanded navigate={navigate} />
-
-                <button
-                  onClick={handleLogout}
-                  className="flex-1 flex items-center justify-center p-2 rounded-md hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors"
-                  title="Đăng xuất"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => navigate('/profile')}
-                title={user.fullName}
-              >
-                {user.avatarUrl && !collapsedImageError ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt="Avatar"
-                    className="w-full h-full rounded-full object-cover shadow-sm border border-gray-100"
-                    referrerPolicy="no-referrer"
-                    onError={() => setCollapsedImageError(true)}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold shadow-sm">
-                    {user.fullName?.charAt(0) || 'U'}
-                  </div>
-                )}
-              </div>
-
-              <NotificationMenu navigate={navigate} />
-
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center p-2 rounded-full hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors"
-                title="Đăng xuất"
-              >
-                <LogOut className="w-5 h-5 flex-shrink-0" />
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-
-        {/* Top Header (Only visible on mobile) */}
-        <header className="md:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 shrink-0 z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <h1 className="text-lg font-medium text-gray-800">
-              {[...hrNavItems, ...adminNavItems, ...mainNavItems]
-                .filter(item => location.pathname.startsWith(item.path) && (item.path !== '/' || location.pathname === '/'))
-                .sort((left, right) => right.path.length - left.path.length)[0]?.name || 'Hệ thống'}
-            </h1>
-          </div>
-        </header>
-
-        {/* Page Content */}
-        <main className={`flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden ${isCalendarRoute ? 'bg-white' : isHrRoute ? 'bg-[#F7FAF8]' : 'bg-[#F9FAFB]'}`}>
-          <div className={`flex-1 flex flex-col ${isCalendarRoute ? 'p-0' : isHrRoute ? 'p-4 sm:p-6 xl:p-8 2xl:p-10' : 'p-4 sm:p-8'}`}>
+        <main
+          className={`cfc-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto
+            ${isCalendarRoute ? 'bg-white' : 'bg-[var(--cfc-canvas)]'}
+          `}
+        >
+          <div className={`flex flex-1 flex-col ${contentPadding} ${hideMobileNavigation ? '' : 'pb-[calc(var(--cfc-mobile-nav-height)+env(safe-area-inset-bottom,0px)+1rem)] md:pb-7'}`}>
             <Outlet />
           </div>
-
-          {/* System Footer */}
-          <footer className="mt-auto border-t border-gray-200 bg-white px-4 py-6 sm:px-8 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <img src="/logo2.png" alt="CFC Logo" className="h-10 w-auto object-contain" />
-              <div>
-                <p className="font-semibold text-gray-700 text-sm">CÔNG TY CỔ PHẦN PHÂN BÓN & HÓA CHẤT CẦN THƠ</p>
-                <p className="text-xs text-gray-500 mt-0.5">© Bản quyền thuộc về CFC | Cung cấp bởi phòng TCHC</p>
-                <p className="text-xs text-gray-500 mt-0.5">Thiết kế và phát triển bởi: <span className="font-medium">Nguyễn Trung Thuận (David Nguyen)</span></p>
-              </div>
-            </div>
-            <div className="text-left md:text-right text-xs text-gray-500 space-y-0.5">
-              <p>Trục Chính Khu Công Nghiệp Trà Nóc 1, P. Thới An Đông, Q. Bình Thủy, TP. Cần Thơ</p>
-              <p>Điện thoại: <span className="font-medium text-gray-600">1900 5307</span> | Email: <span className="font-medium text-gray-600">info@cfccobay.com</span></p>
-            </div>
-          </footer>
+          {!isCalendarRoute && <AppFooter />}
         </main>
       </div>
-    </div>
-  );
-}
 
-function NotificationMenu({ expanded = false, navigate }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
-  const { unreadCount } = useNotificationUnreadCount();
-  const unreadBadgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  return (
-    <div className={expanded ? 'relative flex-1' : 'relative w-full flex justify-center'} ref={menuRef}>
-      <button
-        onClick={(event) => {
-          event.stopPropagation();
-          setIsOpen((current) => !current);
-        }}
-        className={expanded
-          ? 'w-full flex items-center justify-center p-2 rounded-md hover:bg-gray-100 transition-colors text-gray-600 focus:outline-none'
-          : 'relative p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600 focus:outline-none'}
-        title="Thông báo"
-      >
-        <Bell className={expanded ? 'w-4 h-4' : 'w-5 h-5'} />
-        {unreadCount > 0 && (
-          <span className={`absolute inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-white ${expanded ? '-top-1 right-2' : '-top-1 -right-1'
-            }`}>
-            {unreadBadgeLabel}
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <NotificationDropdown
-          expanded={expanded}
-          navigate={navigate}
-          unreadCount={unreadCount}
-          onClose={() => setIsOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-function NotificationDropdown({ expanded, navigate, unreadCount, onClose }) {
-  const {
-    notifications,
-    loading,
-    error,
-    loadNotifications,
-    markAsRead,
-    markAllAsRead,
-  } = useNotificationList();
-
-  const handleMarkAsRead = async (notif) => {
-    try {
-      await markAsRead(notif);
-    } catch (err) {
-      console.error(err);
-    }
-
-    navigate(resolveNotificationTarget(notif));
-    onClose();
-  };
-
-  const handleMarkAllAsRead = async () => {
-    try {
-      await markAllAsRead();
-      await loadNotifications(0, 10);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  return (
-    <div className={`absolute bottom-full mb-2 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg z-50 ${expanded ? 'left-0' : 'left-12'
-      }`}>
-      <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-        <span className="font-semibold text-gray-900">Thông báo</span>
-        <button
-          onClick={(event) => {
-            event.stopPropagation();
-            handleMarkAllAsRead();
-          }}
-          className="text-xs font-medium text-blue-600 disabled:text-gray-400"
-          disabled={unreadCount === 0}
-        >
-          Đã đọc tất cả
-        </button>
-      </div>
-
-      <div className="max-h-[300px] overflow-y-auto">
-        {loading && (
-          <div className="p-4 text-center text-sm text-gray-500">Đang tải thông báo...</div>
-        )}
-        {error && !loading && (
-          <div className="p-4 text-center text-sm text-red-500">{error}</div>
-        )}
-
-        {notifications.slice(0, 5).map((notif) => (
-          expanded ? (
-            <ExpandedNotificationItem key={notif.id} notif={notif} onClick={() => handleMarkAsRead(notif)} />
-          ) : (
-            <CollapsedNotificationItem key={notif.id} notif={notif} onClick={() => handleMarkAsRead(notif)} />
-          )
-        ))}
-
-        {notifications.length === 0 && !loading && !error && (
-          <div className="p-4 text-center text-sm text-gray-500">Bạn không có thông báo nào</div>
-        )}
-      </div>
-
-      <div className="p-2 bg-gray-50/50 border-t border-gray-100">
-        <button
-          onClick={() => {
-            onClose();
-            navigate('/notifications');
-          }}
-          className="w-full py-1.5 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-md transition-colors"
-        >
-          Xem tất cả
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ExpandedNotificationItem({ notif, onClick }) {
-  const hasSender = !!notif.sender;
-  const senderName = notif.sender?.fullName || 'Hệ thống';
-  const avatarUrl = notif.sender?.avatarUrl;
-
-  return (
-    <div
-      onClick={onClick}
-      className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${notif.isRead ? 'opacity-70' : 'bg-blue-50/20'}`}
-    >
-      <div className="flex gap-3">
-        <div className="shrink-0 mt-0.5">
-          {hasSender ? (
-            avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover border border-gray-200" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                {senderName.charAt(0).toUpperCase()}
-              </div>
-            )
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-              <Bell className="w-4 h-4 text-blue-500" />
-            </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start mb-1">
-            <span className={`text-sm font-medium truncate ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</span>
-            <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">{new Date(notif.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2">{notif.message || notif.description}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CollapsedNotificationItem({ notif, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${notif.isRead ? 'opacity-70' : 'bg-blue-50/20'}`}
-    >
-      <div className="flex justify-between items-start mb-1">
-        <span className={`text-sm font-medium ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</span>
-        <span className="text-xs text-gray-400">{new Date(notif.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-      <p className="text-sm text-gray-500">{notif.message || notif.description}</p>
+      <MobileBottomNav
+        items={mobileNavigation.primary}
+        pathname={location.pathname}
+        hidden={hideMobileNavigation}
+        moreActive={moreActive}
+        onOpenMore={() => setMobileMoreOpen(true)}
+      />
+      <MobileMoreSheet
+        isOpen={mobileMoreOpen}
+        onClose={() => setMobileMoreOpen(false)}
+        sections={mobileNavigation.moreSections}
+        pathname={location.pathname}
+        navigate={navigate}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }

@@ -1,0 +1,124 @@
+:root {
+  --cfc-navy: #062a3d;
+  --cfc-navy-soft: #0b354a;
+  --cfc-ink: #0b1f3a;
+  --cfc-emerald: #009b63;
+  --cfc-emerald-dark: #007f52;
+  --cfc-cobalt: #0f5bff;
+  --cfc-cobalt-dark: #094bd7;
+  --cfc-room: #2563eb;
+  --cfc-vehicle: #0f8a83;
+  --cfc-amber: #d97706;
+  --cfc-danger: #e5484d;
+  --cfc-danger-dark: #c9363c;
+  --cfc-canvas: #f5f8f7;
+  --cfc-surface: #ffffff;
+  --cfc-surface-muted: #f8fafb;
+  --cfc-border: #d7e0e6;
+  --cfc-border-strong: #bdcad3;
+  --cfc-muted: #637087;
+  --cfc-sidebar-expanded: 248px;
+  --cfc-sidebar-collapsed: 84px;
+  --cfc-topbar-height: 76px;
+  --cfc-mobile-bar-height: 64px;
+  --cfc-mobile-nav-height: 68px;
+  --cfc-radius-sm: 8px;
+  --cfc-radius-md: 10px;
+  --cfc-radius-lg: 12px;
+  --cfc-shadow-sm: 0 1px 2px rgb(11 31 58 / 7%), 0 1px 3px rgb(11 31 58 / 5%);
+  --cfc-shadow-panel: 0 10px 30px rgb(6 42 61 / 12%);
+  --cfc-font-sans: "Be Vietnam Pro", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+html {
+  background: var(--cfc-canvas);
+}
+
+body {
+  min-width: 320px;
+  background: var(--cfc-canvas);
+  color: var(--cfc-ink);
+  font-family: var(--cfc-font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cfc-cobalt);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(15 91 255 / 18%);
+  color: var(--cfc-ink);
+}
+
+.cfc-scrollbar {
+  scrollbar-color: rgb(99 112 135 / 38%) transparent;
+  scrollbar-width: thin;
+}
+
+.cfc-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.cfc-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(99 112 135 / 32%);
+  border-radius: 999px;
+}
+
+.cfc-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.cfc-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.cfc-app-surface {
+  background: var(--cfc-surface);
+  border: 1px solid var(--cfc-border);
+  border-radius: var(--cfc-radius-lg);
+  box-shadow: var(--cfc-shadow-sm);
+}
+
+.cfc-data-label {
+  color: var(--cfc-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+@media (display-mode: standalone) {
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
