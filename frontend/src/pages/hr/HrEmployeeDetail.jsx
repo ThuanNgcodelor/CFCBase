@@ -129,7 +129,7 @@ export default function HrEmployeeDetail() {
       {employmentStatus !== 'DRAFT' && (
         <div className="mb-5">
           <HrReadOnlyNotice>
-            Đây là hồ sơ chính thức và được mở ở chế độ tra cứu. Việc ngừng làm việc phải thực hiện qua Tăng/Giảm để giữ đầy đủ ngày hiệu lực, người thao tác và lịch sử.
+            Đây là hồ sơ chính thức và được mở ở chế độ tra cứu.
           </HrReadOnlyNotice>
         </div>
       )}
