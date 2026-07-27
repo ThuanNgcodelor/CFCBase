@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { CalendarClock, Download, Eye, TableProperties, Users } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, Download, Eye, RefreshCw, TableProperties, Users } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrReadOnlyNotice } from '../../components/hr/HrUi';
@@ -25,6 +25,9 @@ export default function HrRosters() {
   const [reloadKey, setReloadKey] = useState(0);
   const [exportYear, setExportYear] = useState(() => new Date().getFullYear());
   const [exporting, setExporting] = useState('');
+  const [reconciliation, setReconciliation] = useState(null);
+  const [reconciling, setReconciling] = useState(true);
+  const [reconciliationError, setReconciliationError] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -36,6 +39,25 @@ export default function HrRosters() {
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [page, reloadKey]);
+
+  const loadReconciliation = async (signal) => {
+    setReconciling(true);
+    setReconciliationError('');
+    try {
+      const data = await hrActivityApi.getRosterReconciliation({ signal });
+      if (!signal?.aborted) setReconciliation(data);
+    } catch (requestError) {
+      if (!signal?.aborted) setReconciliationError(apiErrorMessage(requestError, 'Không thể đối soát quân số hiện tại.'));
+    } finally {
+      if (!signal?.aborted) setReconciling(false);
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadReconciliation(controller.signal);
+    return () => controller.abort();
+  }, [reloadKey]);
 
   const parsePeriod = (periodStart) => {
     const [year, month] = String(periodStart || '').slice(0, 10).split('-').map(Number);
@@ -106,6 +128,13 @@ export default function HrRosters() {
       />
       <div className="mb-4"><HrReadOnlyNotice>Tháng hiện tại tự xuất hiện. Khi xác nhận Tăng/Giảm, tháng hiệu lực và các tháng sau tự cập nhật lại quân số.</HrReadOnlyNotice></div>
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
+      <section className="mb-5 rounded-xl border border-emerald-100 bg-white p-4 shadow-[var(--cfc-shadow-sm)] sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><ClipboardCheck className="h-5 w-5" /></span><div><h2 className="font-semibold text-[var(--cfc-ink)]">Đối soát quân số</h2><p className="mt-1 text-sm text-[var(--cfc-muted)]">Chỉ đọc dữ liệu nền và biến động đã xác nhận; không sửa bất kỳ hồ sơ nào.</p></div></div>
+          <Button type="button" size="sm" variant="secondary" disabled={reconciling} onClick={() => loadReconciliation()}><RefreshCw className={`mr-1.5 h-4 w-4 ${reconciling ? 'animate-spin' : ''}`} />Đối soát lại</Button>
+        </div>
+        {reconciliationError ? <p className="mt-4 text-sm text-red-600">{reconciliationError}</p> : reconciliation ? <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-lg bg-[var(--cfc-surface-muted)] p-3"><p className="text-xs text-[var(--cfc-muted)]">Quân số hiện tại</p><p className="mt-1 text-xl font-semibold text-emerald-700">{reconciliation.currentHeadcount}</p><p className="mt-1 text-xs text-gray-500">{formatPeriod(reconciliation.currentPeriodStart)}</p></div><div className="rounded-lg bg-[var(--cfc-surface-muted)] p-3"><p className="text-xs text-[var(--cfc-muted)]">Dữ liệu nền T6</p><p className="mt-1 text-xl font-semibold text-[var(--cfc-ink)]">{reconciliation.baselineSnapshotHeadcount}</p><p className="mt-1 text-xs text-gray-500">{formatPeriod(reconciliation.baselinePeriodStart)}</p></div><div className="rounded-lg bg-[var(--cfc-surface-muted)] p-3"><p className="text-xs text-[var(--cfc-muted)]">Biến động đã tính</p><p className="mt-1 text-xl font-semibold text-[var(--cfc-ink)]">{reconciliation.confirmedMovements}</p><p className="mt-1 text-xs text-gray-500">Từ nền đến tháng hiện tại</p></div><div className="rounded-lg bg-[var(--cfc-surface-muted)] p-3"><p className="text-xs text-[var(--cfc-muted)]">Bản điều chỉnh</p><p className="mt-1 text-xl font-semibold text-[var(--cfc-ink)]">{reconciliation.confirmedAdjustments}</p><p className="mt-1 text-xs text-gray-500">Đã giữ lịch sử gốc</p></div></div> : <p className="mt-4 text-sm text-[var(--cfc-muted)]">Đang đọc số liệu đối soát...</p>}
+      </section>
       <section className="overflow-hidden rounded-xl border border-[var(--cfc-border)] bg-white shadow-[var(--cfc-shadow-sm)]">
         <div className="hr-roster-ledger-desktop grid-cols-[1.1fr_0.75fr_0.75fr_1.45fr] border-b border-[var(--cfc-border)] bg-[var(--cfc-surface-muted)] px-8 py-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--cfc-muted)]">
           <span>Tháng</span>

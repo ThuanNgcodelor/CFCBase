@@ -2,7 +2,9 @@ package com.booking.system.hr.service;
 
 import com.booking.system.hr.api.HrApiException;
 import com.booking.system.hr.api.HrActivityQueryService;
+import com.booking.system.hr.api.dto.HrMovementImpactPreviewResponse;
 import com.booking.system.hr.api.dto.HrPageResponse;
+import com.booking.system.hr.api.dto.HrRosterReconciliationResponse;
 import com.booking.system.hr.api.dto.HrRosterItemResponse;
 import com.booking.system.hr.api.dto.HrRosterResponse;
 import com.booking.system.hr.entity.HrCatalogEntity;
@@ -31,10 +33,12 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
@@ -72,8 +76,9 @@ public class HrRosterProjectionService {
         int fromIndex = Math.min(safePage * safeSize, periods.size());
         int toIndex = Math.min(fromIndex + safeSize, periods.size());
         Map<LocalDate, HrMonthlyRoster> storedRosters = storedRosters(firstPeriod, lastPeriod);
+        List<HrEmployeeMovement> timeline = confirmedProjectionMovements();
         List<HrRosterResponse> content = periods.subList(fromIndex, toIndex).stream()
-                .map(period -> rosterResponse(period, storedRosters.get(period), baseline.get()))
+                .map(period -> rosterResponse(period, storedRosters.get(period), baseline.get(), timeline))
                 .toList();
 
         return pageResponse(content, safePage, safeSize, periods.size());
@@ -81,12 +86,17 @@ public class HrRosterProjectionService {
 
     public HrRosterResponse roster(String rosterIdOrPeriod) {
         ResolvedRoster resolved = resolveRoster(rosterIdOrPeriod);
-        return rosterResponse(resolved.periodStart(), resolved.storedRoster().orElse(null), resolved.baseline());
+        return rosterResponse(
+                resolved.periodStart(),
+                resolved.storedRoster().orElse(null),
+                resolved.baseline(),
+                confirmedProjectionMovements()
+        );
     }
 
     public HrPageResponse<HrRosterItemResponse> rosterItems(String rosterIdOrPeriod, int page, int size) {
         LocalDate periodStart = resolveRoster(rosterIdOrPeriod).periodStart();
-        List<ProjectedRosterItem> items = projectedItems(periodStart);
+        List<ProjectedRosterItem> items = projectedItems(periodStart, null, confirmedProjectionMovements());
         int safePage = Math.max(0, page);
         int safeSize = safeSize(size);
         int fromIndex = Math.min(safePage * safeSize, items.size());
@@ -98,6 +108,99 @@ public class HrRosterProjectionService {
     }
 
     public List<ProjectedRosterItem> projectedItems(LocalDate periodStart) {
+        return projectedItems(periodStart, null, confirmedProjectionMovements());
+    }
+
+    public HrMovementImpactPreviewResponse previewMovement(HrEmployeeMovement draftMovement) {
+        if (draftMovement == null || draftMovement.getEffectiveDate() == null) {
+            throw HrApiException.badRequest("MOVEMENT_PREVIEW_INVALID", "Biến động nháp không hợp lệ để xem trước.");
+        }
+        HrMonthlyRoster baseline = baselineRoster().orElseThrow(() -> HrApiException.notFound(
+                "HR_ROSTER_NOT_FOUND", "Cần có dữ liệu nền T6 trước khi xem ảnh hưởng."));
+        LocalDate affectedFrom = draftMovement.getEffectiveDate().withDayOfMonth(1);
+        if (draftMovement.getCorrectionOfMovement() != null) {
+            LocalDate originalPeriod = draftMovement.getCorrectionOfMovement().getEffectiveDate().withDayOfMonth(1);
+            if (originalPeriod.isBefore(affectedFrom)) {
+                affectedFrom = originalPeriod;
+            }
+        }
+        affectedFrom = affectedFrom.isBefore(baseline.getPeriodStart())
+                ? baseline.getPeriodStart()
+                : affectedFrom;
+        LocalDate affectedTo = currentPeriod();
+        if (affectedTo.isBefore(affectedFrom)) {
+            affectedTo = affectedFrom;
+        }
+
+        List<HrEmployeeMovement> timeline = confirmedProjectionMovements();
+        List<HrMovementImpactPreviewResponse.PeriodImpact> periods = new ArrayList<>();
+        for (LocalDate period = affectedFrom; !period.isAfter(affectedTo); period = period.plusMonths(1)) {
+            int before = projectedItems(period, null, timeline).size();
+            int after = projectedItems(period, draftMovement, timeline).size();
+            periods.add(new HrMovementImpactPreviewResponse.PeriodImpact(period, before, after, after - before));
+        }
+        return new HrMovementImpactPreviewResponse(
+                draftMovement.getId(),
+                draftMovement.getEmployee().getFullName(),
+                draftMovement.getMovementType(),
+                draftMovement.getEffectiveDate(),
+                affectedFrom,
+                affectedTo,
+                List.copyOf(periods)
+        );
+    }
+
+    public HrRosterReconciliationResponse reconciliation() {
+        HrMonthlyRoster baseline = baselineRoster().orElseThrow(() -> HrApiException.notFound(
+                "HR_ROSTER_NOT_FOUND", "Chưa có dữ liệu nền để đối soát."));
+        LocalDate current = currentPeriod();
+        if (current.isBefore(baseline.getPeriodStart())) {
+            current = baseline.getPeriodStart();
+        }
+
+        List<HrEmployeeMovement> timeline = confirmedProjectionMovements();
+        Set<String> supersededIds = supersededMovementIds(timeline);
+        List<HrRosterReconciliationResponse.PeriodSummary> periods = new ArrayList<>();
+        for (LocalDate period = baseline.getPeriodStart(); !period.isAfter(current); period = period.plusMonths(1)) {
+            LocalDate periodEnd = period.with(TemporalAdjusters.lastDayOfMonth());
+            int applied = (int) timeline.stream()
+                    .filter(movement -> !supersededIds.contains(movement.getId()))
+                    .filter(movement -> !movement.getEffectiveDate().isAfter(periodEnd))
+                    .count();
+            int adjustments = (int) timeline.stream()
+                    .filter(movement -> movement.getCorrectionOfMovement() != null)
+                    .filter(movement -> !movement.getEffectiveDate().isAfter(periodEnd))
+                    .count();
+            periods.add(new HrRosterReconciliationResponse.PeriodSummary(
+                    period,
+                    projectedItems(period, null, timeline).size(),
+                    applied,
+                    adjustments
+            ));
+        }
+        int baselineSnapshotHeadcount = rosterItemRepository
+                .findAllByRoster_IdOrderByDisplayOrder(baseline.getId())
+                .size();
+        int currentHeadcount = periods.isEmpty() ? 0 : periods.getLast().headcount();
+        int confirmedAdjustments = (int) timeline.stream()
+                .filter(movement -> movement.getCorrectionOfMovement() != null)
+                .count();
+        return new HrRosterReconciliationResponse(
+                baseline.getPeriodStart(),
+                baselineSnapshotHeadcount,
+                current,
+                currentHeadcount,
+                timeline.size(),
+                confirmedAdjustments,
+                List.copyOf(periods)
+        );
+    }
+
+    private List<ProjectedRosterItem> projectedItems(
+            LocalDate periodStart,
+            HrEmployeeMovement candidate,
+            List<HrEmployeeMovement> confirmedTimeline
+    ) {
         LocalDate normalizedPeriod = requirePeriodStart(periodStart);
         Optional<HrMonthlyRoster> baseline = baselineRoster();
         if (baseline.isEmpty()
@@ -113,12 +216,15 @@ public class HrRosterProjectionService {
         }
 
         LocalDate periodEnd = normalizedPeriod.with(TemporalAdjusters.lastDayOfMonth());
-        List<HrEmployeeMovement> movements = movementRepository.findConfirmedForSnapshot(
-                HrMovementStatus.CONFIRMED,
-                LIVE_MOVEMENT_TYPES,
-                periodEnd
-        );
+        List<HrEmployeeMovement> movements = new ArrayList<>(confirmedTimeline);
+        if (candidate != null) {
+            movements.add(candidate);
+        }
+        Set<String> supersededIds = supersededMovementIds(movements);
         for (HrEmployeeMovement movement : movements) {
+            if (supersededIds.contains(movement.getId()) || movement.getEffectiveDate().isAfter(periodEnd)) {
+                continue;
+            }
             String employeeId = movement.getEmployee().getId();
             if (movement.getMovementType() == HrMovementType.DECREASE) {
                 drafts.remove(employeeId);
@@ -135,12 +241,27 @@ public class HrRosterProjectionService {
         return projected;
     }
 
+    private List<HrEmployeeMovement> confirmedProjectionMovements() {
+        return movementRepository.findConfirmedForProjection(HrMovementStatus.CONFIRMED, LIVE_MOVEMENT_TYPES);
+    }
+
+    private static Set<String> supersededMovementIds(List<HrEmployeeMovement> movements) {
+        Set<String> ids = new HashSet<>();
+        for (HrEmployeeMovement movement : movements) {
+            if (movement.getCorrectionOfMovement() != null) {
+                ids.add(movement.getCorrectionOfMovement().getId());
+            }
+        }
+        return ids;
+    }
+
     private HrRosterResponse rosterResponse(
             LocalDate periodStart,
             HrMonthlyRoster storedRoster,
-            HrMonthlyRoster baseline
+            HrMonthlyRoster baseline,
+            List<HrEmployeeMovement> timeline
     ) {
-        int itemCount = projectedItems(periodStart).size();
+        int itemCount = projectedItems(periodStart, null, timeline).size();
         boolean baselinePeriod = baseline.getPeriodStart().equals(periodStart);
         return new HrRosterResponse(
                 storedRoster == null ? periodKey(periodStart) : storedRoster.getId(),

@@ -2,9 +2,11 @@ package com.booking.system.hr.api;
 
 import com.booking.system.dto.ApiResponse;
 import com.booking.system.hr.api.dto.HrAuditEventResponse;
+import com.booking.system.hr.api.dto.HrMovementImpactPreviewResponse;
 import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrPageResponse;
 import com.booking.system.hr.api.dto.HrRosterItemResponse;
+import com.booking.system.hr.api.dto.HrRosterReconciliationResponse;
 import com.booking.system.hr.api.dto.HrRosterResponse;
 import com.booking.system.hr.service.HrExcelExportService;
 import org.springframework.http.ContentDisposition;
@@ -40,6 +42,16 @@ public class HrActivityController {
         ));
     }
 
+    @GetMapping("/movements/{movementId}/impact-preview")
+    public ResponseEntity<ApiResponse<HrMovementImpactPreviewResponse>> movementImpactPreview(
+            @PathVariable String movementId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                queryService.movementImpactPreview(movementId),
+                "Xem trước ảnh hưởng biến động nhân sự thành công"
+        ));
+    }
+
     @GetMapping("/rosters")
     public ResponseEntity<ApiResponse<HrPageResponse<HrRosterResponse>>> rosters(
             @RequestParam(defaultValue = "0") int page,
@@ -48,6 +60,14 @@ public class HrActivityController {
         return ResponseEntity.ok(ApiResponse.success(
                 queryService.rosters(page, size),
                 "Lấy danh sách kỳ nhân sự thành công"
+        ));
+    }
+
+    @GetMapping("/rosters/reconciliation")
+    public ResponseEntity<ApiResponse<HrRosterReconciliationResponse>> rosterReconciliation() {
+        return ResponseEntity.ok(ApiResponse.success(
+                queryService.rosterReconciliation(),
+                "Đối soát danh sách nhân sự tháng thành công"
         ));
     }
 

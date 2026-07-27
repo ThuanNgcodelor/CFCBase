@@ -300,7 +300,7 @@ Chi tiết: [HR Phase 7 — Ứng viên thử việc và hợp đồng Word](HR_
 
 ### Phase 8 — Projection sống cho danh sách tháng
 
-Trạng thái: **đang triển khai source; chưa deploy/restart production và chưa sửa dữ liệu runtime**.
+Trạng thái: **hoàn thành source/automated verification; chưa deploy/restart production và chưa sửa dữ liệu runtime**.
 
 - Backend thêm `HrRosterProjectionService` để tính quân số tháng từ baseline T6 và movement đã xác nhận.
 - `/api/v1/hr/rosters`, detail và items trả số liệu sống từ T6 đến tháng hiện tại.
@@ -312,20 +312,20 @@ Trạng thái: **đang triển khai source; chưa deploy/restart production và 
 
 ### Phase 9 — UX điều chỉnh biến động đã xác nhận
 
-Trạng thái: **plan mới — triển khai sau khi Phase 8 được UAT**.
+Trạng thái: **hoàn thành source/automated verification; runtime UAT còn chờ**.
 
-- Màn Tăng/Giảm có preview ảnh hưởng trước khi xác nhận.
-- Preview hiển thị các tháng sẽ đổi và quân số mới.
-- Nếu movement đã confirmed bị sai, không xóa cứng; dùng flow điều chỉnh/đảo nghiệp vụ có audit.
+- Màn Tăng/Giảm có preview ảnh hưởng trước khi xác nhận: tháng, quân số trước/sau và chênh lệch.
+- Nếu movement đã confirmed bị sai, không xóa cứng; tạo movement điều chỉnh `DRAFT` có liên kết audit tới movement gốc.
+- Điều chỉnh cùng loại để sửa ngày hiệu lực/thông tin; điều chỉnh ngược loại để đảo nghiệp vụ. Có guard chống điều chỉnh khi đã có movement manual downstream.
 - Có thể thêm `ngày đơn vị báo cáo` và lý do báo trễ nếu TCHC cần theo dõi.
 - Danh sách tháng hiển thị số được tính từ bao nhiêu movement.
 - Search/filter/sort/page từ backend; giao diện responsive desktop, Android và iOS PWA.
 
 ### Phase 10 — Đối soát, UAT, hardening và rollout an toàn
 
-Trạng thái: **plan hoàn chỉnh — triển khai sau Phase 8–9**.
+Trạng thái: **đã hoàn thành source read-only reconciliation và automated regression; UAT/rollout còn chờ quyền vận hành**.
 
-- Reconciliation read-only giữa baseline, movement timeline và projection sống.
+- Reconciliation read-only giữa baseline, movement timeline và projection sống đã có API/UI; không tự sửa dữ liệu nếu phát hiện lệch.
 - UAT đầy đủ case tăng/giảm cùng tháng, báo trễ, tái tuyển, trùng movement, quyền và backward compatibility.
 - Kiểm tra index/query, locking, pagination, audit, PII và hiệu năng.
 - Backup/restore và rollout theo gate; không tự sửa dữ liệu khi phát hiện lệch.

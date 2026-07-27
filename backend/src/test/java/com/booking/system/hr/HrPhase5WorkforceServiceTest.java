@@ -2,6 +2,7 @@ package com.booking.system.hr;
 
 import com.booking.system.config.LegacySchemaFilterProvider;
 import com.booking.system.hr.api.HrApiException;
+import com.booking.system.hr.api.dto.HrMovementAdjustmentRequest;
 import com.booking.system.hr.api.dto.HrMovementCreateRequest;
 import com.booking.system.hr.entity.HrEmployee;
 import com.booking.system.hr.enums.HrEmployeeGender;
@@ -136,6 +137,40 @@ class HrPhase5WorkforceServiceTest {
         var unchangedBaseline = rosterRepository.findById(baseline.getId()).orElseThrow();
         assertThat(unchangedBaseline.getItemCount()).isEqualTo(329);
         assertThat(rosterItemRepository.countByRoster_Id(baseline.getId())).isEqualTo(329);
+    }
+
+    @Test
+    void confirmedMovementCanBeAdjustedWithoutRewritingItsHistory() {
+        var uploaded = importService.uploadAndParse("baseline-values-2026.xlsx", WORKBOOK, MANAGER);
+        importService.validate(uploaded.batchId(), MANAGER);
+        importService.confirm(uploaded.batchId(), "phase9-adjustment-baseline", true, MANAGER);
+
+        HrEmployee employee = employeeRepository.findByEmploymentStatus(
+                HrEmploymentStatus.ACTIVE, PageRequest.of(0, 1)).getContent().getFirst();
+        var original = workforceService.createMovement(new HrMovementCreateRequest(
+                employee.getId(), HrMovementType.DECREASE, LocalDate.of(2026, 6, 20),
+                "Nghỉ việc báo ban đầu", "P9-ORIGINAL", LocalDate.of(2026, 6, 20), "phase9-original"
+        ), MANAGER);
+        var confirmedOriginal = workforceService.confirmMovement(original.id(), original.rowVersion(), MANAGER);
+
+        assertThat(rosterProjectionService.roster("period-2026-06-01").itemCount()).isEqualTo(328);
+        assertThat(rosterProjectionService.roster("period-2026-07-01").itemCount()).isEqualTo(328);
+
+        var adjustment = workforceService.createAdjustment(confirmedOriginal.id(), new HrMovementAdjustmentRequest(
+                HrMovementType.DECREASE,
+                LocalDate.of(2026, 7, 5),
+                "Đơn vị báo muộn, hiệu lực đúng là tháng 7", "P9-ADJUST", LocalDate.of(2026, 7, 5),
+                "phase9-adjustment", confirmedOriginal.rowVersion()
+        ), MANAGER);
+        var confirmedAdjustment = workforceService.confirmMovement(adjustment.id(), adjustment.rowVersion(), MANAGER);
+
+        assertThat(movementRepository.findById(confirmedOriginal.id()).orElseThrow().getStatus())
+                .isEqualTo(com.booking.system.hr.enums.HrMovementStatus.CONFIRMED);
+        assertThat(movementRepository.findById(confirmedAdjustment.id()).orElseThrow()
+                .getCorrectionOfMovement().getId()).isEqualTo(confirmedOriginal.id());
+        assertThat(rosterProjectionService.roster("period-2026-06-01").itemCount()).isEqualTo(329);
+        assertThat(rosterProjectionService.roster("period-2026-07-01").itemCount()).isEqualTo(328);
+        assertThat(rosterProjectionService.reconciliation().confirmedAdjustments()).isEqualTo(1);
     }
 
     @Test

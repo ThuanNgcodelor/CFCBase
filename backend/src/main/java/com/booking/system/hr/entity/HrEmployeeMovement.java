@@ -30,7 +30,8 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_hr_movement_employee_date", columnList = "employee_id, effective_date, status"),
                 @Index(name = "idx_hr_movement_status_date_type", columnList = "status, effective_date, movement_type"),
-                @Index(name = "idx_hr_movement_import_batch", columnList = "import_batch_id")
+                @Index(name = "idx_hr_movement_import_batch", columnList = "import_batch_id"),
+                @Index(name = "idx_hr_movement_correction_target", columnList = "correction_of_movement_id")
         }
 )
 public class HrEmployeeMovement extends HrBaseEntity {
@@ -98,6 +99,14 @@ public class HrEmployeeMovement extends HrBaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "import_batch_id", foreignKey = @ForeignKey(name = "fk_hr_movement_import_batch"))
     private HrExcelImportBatch importBatch;
+
+    /**
+     * A confirmed movement is never rewritten.  A later manual movement can instead
+     * replace its timeline effect while retaining a direct audit link to this row.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "correction_of_movement_id", foreignKey = @ForeignKey(name = "fk_hr_movement_correction_target"))
+    private HrEmployeeMovement correctionOfMovement;
 
     @Column(name = "idempotency_key", length = 100)
     private String idempotencyKey;

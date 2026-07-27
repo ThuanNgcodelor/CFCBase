@@ -13,10 +13,10 @@ Cập nhật lần cuối: 2026-07-27
 Trạng thái roadmap HR:
 
 ```text
-Hoàn thành source/UI: Phase 0 -> Phase 7
-Hiện tại: Phase 8 — Projection sống cho danh sách tháng theo ngày hiệu lực
-Tiếp theo: Phase 9 — UX điều chỉnh biến động đã xác nhận
-Cuối cùng: Phase 10 — Đối soát, UAT, hardening và rollout an toàn
+Hoàn thành source/UI: Phase 0 -> Phase 9; Phase 10 có reconciliation read-only
+Hiện tại: Phase 10 — UAT, đối soát dữ liệu thật và rollout theo quyền vận hành
+Tiếp theo: Browser UAT và reconciliation read-only với số liệu TCHC
+Cuối cùng: Chỉ deploy/restart khi người dùng cho phép
 ```
 
 ## Trạng Thái Production
@@ -337,21 +337,19 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Danh sách tháng là quân số cuối tháng, tính từ baseline T6 và movement đã xác nhận theo `effective_date`.
 - Backend thêm projection service; list/detail/items roster và export Excel dùng cùng số liệu sống.
 - UI `/manager/hr/rosters` bỏ nút tạo/chốt/mở lại; tháng hiện tại tự xuất hiện.
-- Chưa deploy/restart production, chưa sửa dữ liệu runtime, chưa browser UAT.
+- Source/automated verification đã hoàn thành; chưa deploy/restart production, chưa sửa dữ liệu runtime, chưa browser UAT.
 
 ### Phase 9 — UX điều chỉnh biến động đã xác nhận
 
-- Tăng/Giảm có preview các tháng bị ảnh hưởng trước khi confirm.
-- Nếu movement đã confirmed bị sai, không xóa cứng; dùng flow điều chỉnh/đảo nghiệp vụ có audit.
+- Source hoàn thành: preview quân số trước/sau trước confirm, điều chỉnh/đảo confirmed movement bằng row mới liên kết row gốc, audit và guard downstream history.
+- Migration V4 chỉ thêm cột liên kết/index; không rewrite dữ liệu HR cũ.
 - Có thể thêm ngày đơn vị báo cáo/lý do báo trễ nếu TCHC cần.
-- Export giữ đúng workbook 3 sheet/tháng và 14 sheet/năm, dùng cùng projection.
-- Responsive desktop, Android và iOS PWA.
 
 ### Phase 10 — Đối soát, UAT và rollout
 
-- Reconciliation baseline/movement/projection.
-- UAT case tăng/giảm cùng tháng, báo trễ, quyền, backward compatibility và Excel.
-- Hardening hiệu năng, audit, backup/restore và rollout theo gate.
+- Source reconciliation baseline/movement/projection đã có API/UI chỉ đọc, hiển thị quân số hiện tại và số movement/điều chỉnh đã tính.
+- UAT case tăng/giảm cùng tháng, báo trễ, quyền, backward compatibility và Excel còn chờ runtime.
+- Hardening hiệu năng, EXPLAIN data thật, backup/restore và rollout theo gate còn chờ quyền vận hành.
 
 Plan chi tiết: [HR Phase 8–10 — Refactor danh sách nhân sự tháng](HR_PHASE_8_10_MONTHLY_ROSTER_REFACTOR.md).
 
@@ -425,9 +423,8 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 
 ## Bước Tiếp Theo Gợi Ý
 
-1. UAT Phase 8: kiểm tra T6/T7 trên runtime sau khi build/deploy có kiểm soát.
-2. Phase 8 còn lại: browser QA desktop/mobile và reconciliation read-only dữ liệu thật nếu được phép.
-3. Phase 9: preview ảnh hưởng trước confirm và flow điều chỉnh movement đã xác nhận.
-4. Phase 10: reconciliation -> UAT -> security/performance -> backup/restore -> rollout có kiểm soát.
-5. Không triển khai kho giấy tờ, báo cáo nâng cao hoặc ngày phép trước khi Phase 8–10 ổn định.
+1. Browser UAT: preview, điều chỉnh T6 sang T7 và export tháng/năm trên hồ sơ test.
+2. Chạy reconciliation read-only dữ liệu thật nếu được phép; đối chiếu với TCHC, không tự sửa số liệu.
+3. Phase 10: security/performance -> backup/restore -> rollout có kiểm soát.
+4. Không triển khai kho giấy tờ, báo cáo nâng cao hoặc ngày phép trước khi Phase 8–10 ổn định.
 6. Không tiếp tục bất kỳ Booking Phase 6–10 nào.

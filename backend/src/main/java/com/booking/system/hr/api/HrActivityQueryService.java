@@ -3,8 +3,11 @@ package com.booking.system.hr.api;
 import com.booking.system.entity.User;
 import com.booking.system.hr.api.dto.HrAuditEventResponse;
 import com.booking.system.hr.api.dto.HrImportBatchResponse;
+import com.booking.system.hr.api.dto.HrMovementImpactPreviewResponse;
 import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrPageResponse;
+import com.booking.system.hr.api.dto.HrRosterReconciliationResponse;
+import com.booking.system.hr.enums.HrMovementStatus;
 import com.booking.system.hr.api.dto.HrRosterItemResponse;
 import com.booking.system.hr.api.dto.HrRosterResponse;
 import com.booking.system.hr.repository.HrAuditEventRepository;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -55,7 +59,29 @@ public class HrActivityQueryService {
                 Sort.by(Sort.Order.desc("effectiveDate"), Sort.Order.desc("createdAt")));
         Page<com.booking.system.hr.entity.HrEmployeeMovement> movements = movementRepository.findActivityPage(pageable);
         Map<String, String> actorNames = resolveUserActorNames(movements);
-        return HrPageResponse.from(movements, movement -> HrMovementResponse.from(movement, actor -> displayActor(actor, actorNames)));
+        Set<String> movementIds = movements.stream()
+                .map(com.booking.system.hr.entity.HrEmployeeMovement::getId)
+                .collect(Collectors.toSet());
+        Set<String> correctionTargetIds = movementIds.isEmpty()
+                ? Set.of()
+                : movementRepository.findCorrectionTargetIds(movementIds, HrMovementStatus.CONFIRMED);
+        Set<String> supersededIds = correctionTargetIds == null ? Set.of() : correctionTargetIds;
+        return HrPageResponse.from(movements, movement -> HrMovementResponse.from(
+                movement,
+                actor -> displayActor(actor, actorNames),
+                supersededIds.contains(movement.getId())
+        ));
+    }
+
+    public HrMovementImpactPreviewResponse movementImpactPreview(String movementId) {
+        var movement = movementRepository.findByIdForProjection(movementId)
+                .orElseThrow(() -> HrApiException.notFound(
+                        "HR_MOVEMENT_NOT_FOUND", "Không tìm thấy biến động nhân sự."));
+        if (movement.getStatus() != HrMovementStatus.DRAFT) {
+            throw HrApiException.conflict("MOVEMENT_PREVIEW_NOT_DRAFT",
+                    "Chỉ biến động nháp mới cần xem trước ảnh hưởng trước khi xác nhận.");
+        }
+        return rosterProjectionService.previewMovement(movement);
     }
 
     public HrPageResponse<HrRosterResponse> rosters(int page, int size) {
@@ -68,6 +94,10 @@ public class HrActivityQueryService {
 
     public HrPageResponse<HrRosterItemResponse> rosterItems(String rosterId, int page, int size) {
         return rosterProjectionService.rosterItems(rosterId, page, size);
+    }
+
+    public HrRosterReconciliationResponse rosterReconciliation() {
+        return rosterProjectionService.reconciliation();
     }
 
     public HrPageResponse<HrAuditEventResponse> auditEvents(int page, int size) {

@@ -2,6 +2,7 @@ package com.booking.system.hr.api;
 
 import com.booking.system.dto.ApiResponse;
 import com.booking.system.entity.User;
+import com.booking.system.hr.api.dto.HrMovementAdjustmentRequest;
 import com.booking.system.hr.api.dto.HrMovementCreateRequest;
 import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrRosterCreateRequest;
@@ -40,6 +41,17 @@ public class HrWorkforceController {
         return ResponseEntity.ok(ApiResponse.success(
                 workforceService.createMovement(request, actorResolver.fromPrincipal(principal)),
                 "Tạo biến động nhân sự nháp thành công"));
+    }
+
+    @PostMapping("/movements/{movementId}/adjustments")
+    public ResponseEntity<ApiResponse<HrMovementResponse>> createMovementAdjustment(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String movementId,
+            @Valid @RequestBody HrMovementAdjustmentRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                workforceService.createAdjustment(movementId, request, actorResolver.fromPrincipal(principal)),
+                "Tạo bản điều chỉnh biến động nháp thành công"));
     }
 
     @PostMapping("/movements/{movementId}/confirm")

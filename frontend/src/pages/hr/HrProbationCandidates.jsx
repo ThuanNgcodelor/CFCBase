@@ -2,12 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  BriefcaseBusiness,
   CheckCircle2,
-  ClipboardCheck,
   Download,
   FileText,
-  IdCard,
   PencilLine,
   PlayCircle,
   Plus,
@@ -18,125 +15,16 @@ import {
 } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrDrawer, HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { normalizePage } from '../../api/hrApiUtils';
 import { hrProbationApi } from '../../api/hrProbationApi';
 import { apiErrorMessage, formatHrDate, formatHrDateTime, nonEmpty, statusLabel } from '../../utils/hr';
 
 const INPUT_CLASS = 'h-11 w-full rounded-lg border border-gray-300 px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:h-10 sm:text-sm';
-const TEXTAREA_CLASS = 'min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
-
-const EMPTY_CANDIDATE_FORM = {
-  candidateCode: '',
-  fullName: '',
-  candidateTitle: '',
-  gender: 'UNKNOWN',
-  dateOfBirth: '',
-  birthPlace: '',
-  nationality: 'Việt Nam',
-  citizenId: '',
-  citizenIdIssuedDate: '',
-  citizenIdIssuedPlace: '',
-  permanentAddress: '',
-  phone: '',
-  email: '',
-  departmentId: '',
-  positionId: '',
-  workingConditionId: '',
-  jobTemplateId: '',
-  probationContractType: 'Xác định thời hạn 02 tháng',
-  probationStartDate: '',
-  probationEndDate: '',
-  baseSalary: '',
-  salaryNote: '',
-  jobDescription: '',
-  departmentRuleNote: '',
-};
-
-function refId(value) {
-  return value?.id || '';
-}
-
-function stringValue(value) {
-  return value === null || value === undefined ? '' : String(value);
-}
-
-function moneyValue(value) {
-  return value === null || value === undefined || value === '' ? '' : String(value);
-}
-
-function nullableText(value) {
-  const normalized = String(value ?? '').trim();
-  return normalized ? normalized : null;
-}
-
-function nullableNumber(value) {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 function todayInput() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function candidatePayload(form) {
-  return {
-    candidateCode: nullableText(form.candidateCode),
-    fullName: form.fullName.trim(),
-    candidateTitle: nullableText(form.candidateTitle),
-    gender: form.gender || 'UNKNOWN',
-    dateOfBirth: form.dateOfBirth || null,
-    birthPlace: nullableText(form.birthPlace),
-    nationality: nullableText(form.nationality),
-    citizenId: nullableText(form.citizenId),
-    citizenIdIssuedDate: form.citizenIdIssuedDate || null,
-    citizenIdIssuedPlace: nullableText(form.citizenIdIssuedPlace),
-    permanentAddress: nullableText(form.permanentAddress),
-    phone: nullableText(form.phone),
-    email: nullableText(form.email),
-    departmentId: form.departmentId || null,
-    positionId: form.positionId || null,
-    workingConditionId: form.workingConditionId || null,
-    jobTemplateId: form.jobTemplateId || null,
-    probationContractType: nullableText(form.probationContractType),
-    probationStartDate: form.probationStartDate || null,
-    probationEndDate: form.probationEndDate || null,
-    baseSalary: nullableNumber(form.baseSalary),
-    salaryNote: nullableText(form.salaryNote),
-    jobDescription: nullableText(form.jobDescription),
-    departmentRuleNote: nullableText(form.departmentRuleNote),
-  };
-}
-
-function formFromCandidate(candidate) {
-  return {
-    candidateCode: stringValue(candidate.candidateCode),
-    fullName: stringValue(candidate.fullName),
-    candidateTitle: stringValue(candidate.candidateTitle),
-    gender: candidate.gender || 'UNKNOWN',
-    dateOfBirth: stringValue(candidate.dateOfBirth),
-    birthPlace: stringValue(candidate.birthPlace),
-    nationality: stringValue(candidate.nationality || 'Việt Nam'),
-    citizenId: stringValue(candidate.citizenId),
-    citizenIdIssuedDate: stringValue(candidate.citizenIdIssuedDate),
-    citizenIdIssuedPlace: stringValue(candidate.citizenIdIssuedPlace),
-    permanentAddress: stringValue(candidate.permanentAddress),
-    phone: stringValue(candidate.phone),
-    email: stringValue(candidate.email),
-    departmentId: refId(candidate.department),
-    positionId: refId(candidate.position),
-    workingConditionId: refId(candidate.workingCondition),
-    jobTemplateId: refId(candidate.jobTemplate),
-    probationContractType: stringValue(candidate.probationContractType || 'Xác định thời hạn 02 tháng'),
-    probationStartDate: stringValue(candidate.probationStartDate),
-    probationEndDate: stringValue(candidate.probationEndDate),
-    baseSalary: moneyValue(candidate.baseSalary),
-    salaryNote: stringValue(candidate.salaryNote),
-    jobDescription: stringValue(candidate.jobDescription),
-    departmentRuleNote: stringValue(candidate.departmentRuleNote),
-  };
 }
 
 function parseFileName(disposition, fallback) {
@@ -162,33 +50,6 @@ function downloadBlob(response, fallbackFileName) {
   link.click();
   link.remove();
   URL.revokeObjectURL(blobUrl);
-}
-
-function Field({ label, wide = false, children }) {
-  return (
-    <label className={`flex flex-col gap-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function FormSection({ icon: Icon, step, title, description, children }) {
-  return (
-    <section className="rounded-xl border border-[var(--cfc-border)] bg-white p-4 sm:p-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-          {Icon ? <Icon className="h-4 w-4" /> : step}
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Mục {step}/3</p>
-          <h2 className="mt-0.5 font-semibold text-[var(--cfc-ink)]">{title}</h2>
-          {description && <p className="mt-1 text-xs leading-5 text-[var(--cfc-muted)]">{description}</p>}
-        </div>
-      </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">{children}</div>
-    </section>
-  );
 }
 
 function CatalogSelect({ value, onChange, items, placeholder = 'Chưa chọn' }) {
@@ -219,16 +80,10 @@ export default function HrProbationCandidates() {
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [catalogs, setCatalogs] = useState({ departments: [], positions: [], conditions: [] });
+  const [catalogs, setCatalogs] = useState({ departments: [] });
   const [jobTemplates, setJobTemplates] = useState([]);
   const [optionsError, setOptionsError] = useState('');
   const [optionsReloadKey, setOptionsReloadKey] = useState(0);
-
-  const [showCandidateForm, setShowCandidateForm] = useState(false);
-  const [candidateEditingId, setCandidateEditingId] = useState(null);
-  const [candidateRowVersion, setCandidateRowVersion] = useState(null);
-  const [candidateForm, setCandidateForm] = useState(EMPTY_CANDIDATE_FORM);
-  const [candidateSaving, setCandidateSaving] = useState(false);
 
   const [busyAction, setBusyAction] = useState('');
 
@@ -241,12 +96,10 @@ export default function HrProbationCandidates() {
     setOptionsError('');
     return Promise.all([
       hrCatalogApi.getAllCatalogItems('departments', { status: 'ACTIVE', sort: 'name,asc' }, { signal }),
-      hrCatalogApi.getAllCatalogItems('positions', { status: 'ACTIVE', sort: 'name,asc' }, { signal }),
-      hrCatalogApi.getAllCatalogItems('working-conditions', { status: 'ACTIVE', sort: 'name,asc' }, { signal }),
       hrProbationApi.getAllJobTemplates({ sort: 'sortOrder,asc' }, { signal }),
     ])
-      .then(([departments, positions, conditions, templates]) => {
-        setCatalogs({ departments, positions, conditions });
+      .then(([departments, templates]) => {
+        setCatalogs({ departments });
         setJobTemplates(templates);
       })
       .catch((requestError) => {
@@ -289,10 +142,6 @@ export default function HrProbationCandidates() {
     return () => controller.abort();
   }, [loadCandidates, reloadKey]);
 
-  const updateCandidateForm = (field, value) => {
-    setCandidateForm((current) => ({ ...current, [field]: value }));
-  };
-
   const selectTab = useCallback((tab) => {
     const next = new URLSearchParams(searchParams);
     if (tab === 'templates') {
@@ -304,80 +153,11 @@ export default function HrProbationCandidates() {
   }, [searchParams, setSearchParams]);
 
   const openCreateCandidate = () => {
-    setCandidateEditingId(null);
-    setCandidateRowVersion(null);
-    setCandidateForm(EMPTY_CANDIDATE_FORM);
-    setShowCandidateForm(true);
-    selectTab('candidates');
+    navigate('/manager/hr/probation/candidates/new');
   };
 
-  const openEditCandidate = async (candidate) => {
-    setBusyAction(`edit-${candidate.id}`);
-    try {
-      const detail = await hrProbationApi.getCandidate(candidate.id);
-      setCandidateEditingId(detail.id);
-      setCandidateRowVersion(detail.rowVersion ?? detail.version);
-      setCandidateForm(formFromCandidate(detail));
-      setShowCandidateForm(true);
-      selectTab('candidates');
-    } catch (requestError) {
-      toast.error(apiErrorMessage(requestError, 'Không thể tải chi tiết ứng viên.'));
-    } finally {
-      setBusyAction('');
-    }
-  };
-
-  const closeCandidateForm = () => {
-    if (candidateSaving) return;
-    setShowCandidateForm(false);
-    setCandidateEditingId(null);
-    setCandidateRowVersion(null);
-    setCandidateForm(EMPTY_CANDIDATE_FORM);
-  };
-
-  const applyJobTemplate = (templateId) => {
-    const template = jobTemplates.find((item) => item.id === templateId);
-    setCandidateForm((current) => ({
-      ...current,
-      jobTemplateId: templateId,
-      ...(template ? {
-        departmentId: refId(template.department),
-        positionId: refId(template.position),
-        workingConditionId: refId(template.workingCondition),
-        probationContractType: template.probationContractType || current.probationContractType,
-        baseSalary: moneyValue(template.baseSalary),
-        salaryNote: stringValue(template.salaryNote),
-        jobDescription: stringValue(template.jobDescription),
-        departmentRuleNote: stringValue(template.departmentRuleNote),
-      } : {}),
-    }));
-  };
-
-  const saveCandidate = async (event) => {
-    event.preventDefault();
-    setCandidateSaving(true);
-    try {
-      if (candidateEditingId) {
-        await hrProbationApi.updateCandidate(candidateEditingId, {
-          rowVersion: candidateRowVersion,
-          candidate: candidatePayload(candidateForm),
-        });
-        toast.success('Đã cập nhật ứng viên thử việc');
-      } else {
-        await hrProbationApi.createCandidate(candidatePayload(candidateForm));
-        toast.success('Đã thêm ứng viên thử việc');
-      }
-      setShowCandidateForm(false);
-      setCandidateEditingId(null);
-      setCandidateRowVersion(null);
-      setCandidateForm(EMPTY_CANDIDATE_FORM);
-      setPage(0);
-      setReloadKey((value) => value + 1);
-    } catch (requestError) {
-      toast.error(apiErrorMessage(requestError, 'Không thể lưu ứng viên thử việc.'));
-    } finally {
-      setCandidateSaving(false);
-    }
+  const openEditCandidate = (candidate) => {
+    navigate(`/manager/hr/probation/candidates/${candidate.id}/edit`);
   };
 
   const openCreateTemplate = () => {
@@ -485,66 +265,6 @@ export default function HrProbationCandidates() {
           Mẫu công việc <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{sortedTemplates.length}</span>
         </button>
       </nav>
-
-      <HrDrawer
-        isOpen={showCandidateForm}
-        onClose={closeCandidateForm}
-        size="wide"
-        title={candidateEditingId ? 'Chỉnh sửa ứng viên thử việc' : 'Thêm ứng viên thử việc'}
-        description="Hoàn thiện 3 nhóm thông tin để tạo hồ sơ và sinh hợp đồng Word chính xác."
-      >
-        <form onSubmit={saveCandidate} className="flex min-h-full flex-col">
-          <div className="flex-1 space-y-5 p-4 sm:p-6">
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
-              <div className="flex items-center justify-between gap-4 text-xs font-medium text-emerald-800">
-                <span>Thông tin ứng viên</span>
-                <span>3 mục</span>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-emerald-100">
-                <div className="h-full w-full rounded-full bg-emerald-600" />
-              </div>
-            </div>
-
-            <FormSection icon={ClipboardCheck} step="1" title="Thông tin ứng viên">
-              <Field label="Mã ứng viên"><input maxLength={32} value={candidateForm.candidateCode} onChange={(event) => updateCandidateForm('candidateCode', event.target.value.toUpperCase())} placeholder="Để trống hệ thống tự tạo" className={INPUT_CLASS} /></Field>
-              <Field label="Họ và tên *"><input required maxLength={255} value={candidateForm.fullName} onChange={(event) => updateCandidateForm('fullName', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Xưng hô"><input maxLength={16} value={candidateForm.candidateTitle} onChange={(event) => updateCandidateForm('candidateTitle', event.target.value)} placeholder="Ông/Bà" className={INPUT_CLASS} /></Field>
-              <Field label="Giới tính"><select value={candidateForm.gender} onChange={(event) => updateCandidateForm('gender', event.target.value)} className={INPUT_CLASS}><option value="UNKNOWN">Chưa xác định</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></Field>
-              <Field label="Ngày sinh"><input type="date" value={candidateForm.dateOfBirth} onChange={(event) => updateCandidateForm('dateOfBirth', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Quốc tịch"><input maxLength={100} value={candidateForm.nationality} onChange={(event) => updateCandidateForm('nationality', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Nơi sinh" wide><input maxLength={500} value={candidateForm.birthPlace} onChange={(event) => updateCandidateForm('birthPlace', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Địa chỉ thường trú" wide><textarea value={candidateForm.permanentAddress} onChange={(event) => updateCandidateForm('permanentAddress', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-              <Field label="Số điện thoại"><input maxLength={32} value={candidateForm.phone} onChange={(event) => updateCandidateForm('phone', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Email"><input type="email" maxLength={320} value={candidateForm.email} onChange={(event) => updateCandidateForm('email', event.target.value)} className={INPUT_CLASS} /></Field>
-            </FormSection>
-
-            <FormSection icon={IdCard} step="2" title="CCCD / định danh" description="Thông tin này được dùng để điền vào hợp đồng thử việc.">
-              <Field label="Số CCCD"><input maxLength={32} value={candidateForm.citizenId} onChange={(event) => updateCandidateForm('citizenId', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Ngày cấp CCCD"><input type="date" value={candidateForm.citizenIdIssuedDate} onChange={(event) => updateCandidateForm('citizenIdIssuedDate', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Nơi cấp CCCD" wide><input maxLength={255} value={candidateForm.citizenIdIssuedPlace} onChange={(event) => updateCandidateForm('citizenIdIssuedPlace', event.target.value)} className={INPUT_CLASS} /></Field>
-            </FormSection>
-
-            <FormSection icon={BriefcaseBusiness} step="3" title="Công việc thử việc" description="Chọn mẫu công việc để tự điền phòng ban, chức vụ, lương và nội dung công việc.">
-              <Field label="Mẫu công việc"><select value={candidateForm.jobTemplateId} onChange={(event) => applyJobTemplate(event.target.value)} className={INPUT_CLASS}><option value="">Không dùng mẫu</option>{sortedTemplates.filter((item) => item.status !== 'INACTIVE').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-              <Field label="Loại hợp đồng thử việc"><input maxLength={100} value={candidateForm.probationContractType} onChange={(event) => updateCandidateForm('probationContractType', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Phòng ban HR"><CatalogSelect value={candidateForm.departmentId} onChange={(value) => updateCandidateForm('departmentId', value)} items={catalogs.departments} /></Field>
-              <Field label="Chức vụ HR"><CatalogSelect value={candidateForm.positionId} onChange={(value) => updateCandidateForm('positionId', value)} items={catalogs.positions} /></Field>
-              <Field label="Điều kiện lao động"><CatalogSelect value={candidateForm.workingConditionId} onChange={(value) => updateCandidateForm('workingConditionId', value)} items={catalogs.conditions} /></Field>
-              <Field label="Lương thử việc"><input type="number" min="0" step="1" value={candidateForm.baseSalary} onChange={(event) => updateCandidateForm('baseSalary', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Ngày bắt đầu"><input type="date" value={candidateForm.probationStartDate} onChange={(event) => updateCandidateForm('probationStartDate', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Ngày kết thúc"><input type="date" value={candidateForm.probationEndDate} onChange={(event) => updateCandidateForm('probationEndDate', event.target.value)} className={INPUT_CLASS} /></Field>
-              <Field label="Ghi chú lương" wide><input maxLength={255} value={candidateForm.salaryNote} onChange={(event) => updateCandidateForm('salaryNote', event.target.value)} placeholder="Ví dụ: /tháng, chưa bao gồm phụ cấp..." className={INPUT_CLASS} /></Field>
-              <Field label="Công việc phải làm" wide><textarea value={candidateForm.jobDescription} onChange={(event) => updateCandidateForm('jobDescription', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-              <Field label="Quy định riêng phòng ban" wide><textarea value={candidateForm.departmentRuleNote} onChange={(event) => updateCandidateForm('departmentRuleNote', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-            </FormSection>
-          </div>
-
-          <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-[var(--cfc-border)] bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:justify-end sm:px-6">
-            <Button type="button" variant="secondary" onClick={closeCandidateForm} disabled={candidateSaving} className="w-full sm:w-auto">Hủy</Button>
-            <Button type="submit" disabled={candidateSaving} className="w-full sm:w-auto"><UserCheck className="mr-1.5 h-4 w-4" />{candidateSaving ? 'Đang lưu...' : candidateEditingId ? 'Lưu ứng viên' : 'Thêm ứng viên'}</Button>
-          </div>
-        </form>
-      </HrDrawer>
 
       {optionsError && (
         <div className="mb-4">

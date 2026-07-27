@@ -31,6 +31,10 @@ public record HrMovementResponse(
         String decisionNumber,
         LocalDate decisionDate,
         HrMovementSourceKind sourceKind,
+        String correctionOfMovementId,
+        HrMovementType correctionOfMovementType,
+        LocalDate correctionOfEffectiveDate,
+        boolean supersededByAdjustment,
         LocalDateTime confirmedAt,
         String confirmedByActor,
         LocalDateTime cancelledAt,
@@ -40,10 +44,19 @@ public record HrMovementResponse(
         long rowVersion
 ) {
     public static HrMovementResponse from(HrEmployeeMovement movement) {
-        return from(movement, Function.identity());
+        return from(movement, Function.identity(), false);
     }
 
     public static HrMovementResponse from(HrEmployeeMovement movement, Function<String, String> actorResolver) {
+        return from(movement, actorResolver, false);
+    }
+
+    public static HrMovementResponse from(
+            HrEmployeeMovement movement,
+            Function<String, String> actorResolver,
+            boolean supersededByAdjustment
+    ) {
+        HrEmployeeMovement correctionOf = movement.getCorrectionOfMovement();
         return new HrMovementResponse(
                 movement.getId(),
                 movement.getEmployee().getId(),
@@ -64,6 +77,10 @@ public record HrMovementResponse(
                 movement.getDecisionNumber(),
                 movement.getDecisionDate(),
                 movement.getSourceKind(),
+                correctionOf == null ? null : correctionOf.getId(),
+                correctionOf == null ? null : correctionOf.getMovementType(),
+                correctionOf == null ? null : correctionOf.getEffectiveDate(),
+                supersededByAdjustment,
                 movement.getConfirmedAt(),
                 actorResolver.apply(movement.getConfirmedByActor()),
                 movement.getCancelledAt(),

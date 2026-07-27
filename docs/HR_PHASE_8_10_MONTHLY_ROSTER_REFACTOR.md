@@ -2,7 +2,7 @@
 
 Cap nhat: 2026-07-27
 
-Trang thai: **Phase 8 dang duoc trien khai o source theo rule moi: danh sach thang la so lieu song theo ngay hieu luc, khong con flow chot/mo thang tren UI. Chua deploy, chua restart production va chua sua du lieu runtime.**
+Trang thai: **Da hoan thanh source Phase 8, 9 va phan doi soat read-only cua Phase 10. Chua deploy, chua restart production, chua sua du lieu runtime va chua co UAT du lieu that cua TCHC.**
 
 ## 1. Quyet dinh nghiep vu moi
 
@@ -38,7 +38,7 @@ Huong chon cho cau hoi "neu nhap sai thi sao":
 
 - Bien dong `DRAFT`: duoc sua/huy/xoa theo guard hien co.
 - Bien dong da `CONFIRMED`: **khong xoa cung**.
-- Neu da xac nhan sai, se xu ly bang nghiep vu dieu chinh/dao chieu co audit o phase tiep theo.
+- Neu da xac nhan sai, dung nghiep vu dieu chinh/dao chieu co audit; khong xoa cung dong goc.
 - Muc tieu la giu duoc lich su ai lam, lam luc nao, ly do gi; khong tao khoang trong du lieu HR.
 
 Ly do: HR la du lieu lich su. Neu xoa thang bien dong da xac nhan, sau nay rat kho giai thich vi sao so T6/T7 thay doi.
@@ -72,24 +72,22 @@ Frontend khong tu cong/tru quan so.
 - Chua deploy/restart production.
 - Chua browser UAT tren runtime that.
 - Chua them field `reported_date` hoac `late_report_reason`.
-- Chua co preview anh huong truoc khi confirm.
-- Chua co flow dieu chinh/dao chieu movement da confirmed.
-- Chua co reconciliation doc lap tren database runtime.
+- Browser UAT tren runtime that va doi soat database runtime van chua duoc phep thuc hien.
 
 ## 4. Phase 9 - Hoan thien UX dieu chinh bien dong
 
 Muc tieu Phase 9 la lam cho Manager thao tac an toan hon khi du lieu da xac nhan bi nhap sai.
 
-Du kien:
+Da trien khai o source:
 
-- Man `Tang/Giam` co preview anh huong truoc khi confirm.
-- Preview hien cac thang se thay doi va quan so moi.
-- Them `Ngay don vi bao cao` neu TCHC can theo doi bao tre.
-- Neu movement da confirmed bi sai, khong xoa cung; dung flow `Dieu chinh bien dong`.
-- Lich su bien dong hien ro movement nao la ban dieu chinh/dao chieu.
-- Danh sach thang co the hien "duoc tinh tu bao nhieu bien dong".
-- Search/filter/sort/page tiep tuc chay tu backend.
-- Giao dien responsive desktop, Android va iOS PWA.
+- Trước khi xac nhan mot `DRAFT`, Manager xem duoc preview thang bi anh huong: quan so truoc, sau va chenh lech.
+- `POST /api/v1/hr/movements/{id}/adjustments` tao ban dieu chinh `DRAFT` lien ket voi movement goc; row goc van `CONFIRMED` va khong bi sua/xoa.
+- Dieu chinh cung loai dung de sua ngay hieu luc/quyet dinh. Dieu chinh nguoc loai dung de dao nghiep vu (`INCREASE -> DECREASE`, `DECREASE -> REHIRE`).
+- Projection bo qua effect cua movement goc khi ban dieu chinh da `CONFIRMED`, sau do ap dung ban dieu chinh theo ngay hieu luc moi. Vi vay sua `DECREASE` T6 sang T7 se khoi phuc T6 va chi giam tu T7.
+- UI phan biet "Ban dieu chinh" va "Da dieu chinh"; chi movement manual da confirmed, chua co downstream history moi co nut Dieu chinh.
+- Migration `V4__add_hr_movement_adjustments.sql` them lien ket self-FK va index, khong rewrite row cu.
+
+Defer: `ngay don vi bao cao` va ly do bao tre co the them sau khi TCHC chot nhu cau bao cao rieng.
 
 ## 5. Phase 10 - Doi soat, UAT va rollout
 
@@ -108,13 +106,19 @@ Case UAT bat buoc:
 9. Confirmed movement khong xoa cung.
 10. Audit co actor/thoi diem/ly do nhung khong log PII nhay cam.
 
-Hardening:
+Da co o source:
 
-- Kiem tra N+1 query projection.
-- Them index neu EXPLAIN tren MySQL runtime can.
-- Backup/restore truoc rollout.
-- Chay reconciliation read-only tren database clone.
-- Chi rollout khi nguoi dung cho phep.
+- `GET /api/v1/hr/rosters/reconciliation` va card "Doi soat quan so" tren man Danh sach thang. API chi doc baseline, movement da confirmed va projection; khong sua du lieu.
+- API tra quan so nen, quan so hien tai, tong movement/bieu chinh da tinh va summary tung thang.
+- Projection lay timeline bang entity graph, va migration them index cho `correction_of_movement_id`.
+- Regression service da khoa case: giam T6, dieu chinh lai T7, giu movement goc va tinh dung T6/T7.
+
+Van can UAT/rollout:
+
+- Kiem tra preview/dieu chinh tren browser desktop, Android va iOS PWA voi ho so test.
+- Chay reconciliation read-only tren database clone/runtime khi duoc phep, doi chieu voi TCHC.
+- EXPLAIN tren MySQL data that truoc khi them index khac; hien tai khong sua database runtime.
+- Backup/restore truoc rollout; chi deploy/restart khi nguoi dung cho phep.
 
 ## 6. Ngoai pham vi hien tai
 

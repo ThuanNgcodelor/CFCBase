@@ -52,6 +52,16 @@ export const hrActivityApi = {
     return unwrapApiData(response);
   },
 
+  createMovementAdjustment: async (id, payload) => {
+    const response = await baseApi.post(`/hr/movements/${id}/adjustments`, payload);
+    return unwrapApiData(response);
+  },
+
+  previewMovementImpact: async (id) => {
+    const response = await baseApi.get(`/hr/movements/${id}/impact-preview`);
+    return unwrapApiData(response);
+  },
+
   confirmMovement: async (id, rowVersion) => {
     const response = await baseApi.post(`/hr/movements/${id}/confirm`, { rowVersion });
     return unwrapApiData(response);
@@ -69,6 +79,11 @@ export const hrActivityApi = {
 
   getRosters: async (params, options = {}) => {
     return fetchRosters(params, options);
+  },
+
+  getRosterReconciliation: async (options = {}) => {
+    const response = await baseApi.get('/hr/rosters/reconciliation', { signal: options.signal });
+    return unwrapApiData(response);
   },
 
   getRosterById: async (id, options = {}) => {

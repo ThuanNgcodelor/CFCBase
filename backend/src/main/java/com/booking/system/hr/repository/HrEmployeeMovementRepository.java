@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface HrEmployeeMovementRepository extends HrRepository<HrEmployeeMovement, String> {
     @EntityGraph(attributePaths = {
@@ -31,7 +32,8 @@ public interface HrEmployeeMovementRepository extends HrRepository<HrEmployeeMov
             "fromPosition",
             "toPosition",
             "fromWorkingCondition",
-            "toWorkingCondition"
+            "toWorkingCondition",
+            "correctionOfMovement"
     })
     @Query("select movement from HrEmployeeMovement movement")
     Page<HrEmployeeMovement> findActivityPage(Pageable pageable);
@@ -61,10 +63,19 @@ public interface HrEmployeeMovementRepository extends HrRepository<HrEmployeeMov
             "employee.employment.position", "employee.employment.workingCondition",
             "employee.identity", "employee.insurance", "employee.contact",
             "fromDepartment", "toDepartment", "fromPosition", "toPosition",
-            "fromWorkingCondition", "toWorkingCondition"
+            "fromWorkingCondition", "toWorkingCondition", "correctionOfMovement"
     })
     @Query("select movement from HrEmployeeMovement movement where movement.id = :id")
     Optional<HrEmployeeMovement> findByIdForUpdate(@Param("id") String id);
+
+    @EntityGraph(attributePaths = {
+            "employee", "employee.employment", "employee.employment.department",
+            "employee.employment.position", "employee.employment.workingCondition",
+            "fromDepartment", "toDepartment", "fromPosition", "toPosition",
+            "fromWorkingCondition", "toWorkingCondition", "correctionOfMovement"
+    })
+    @Query("select movement from HrEmployeeMovement movement where movement.id = :id")
+    Optional<HrEmployeeMovement> findByIdForProjection(@Param("id") String id);
 
     @EntityGraph(attributePaths = {
             "employee", "employee.employment", "employee.employment.department",
@@ -83,6 +94,51 @@ public interface HrEmployeeMovementRepository extends HrRepository<HrEmployeeMov
             @Param("status") HrMovementStatus status,
             @Param("types") Collection<HrMovementType> types,
             @Param("periodEnd") LocalDate periodEnd
+    );
+
+    @EntityGraph(attributePaths = {
+            "employee", "employee.employment", "employee.employment.department",
+            "employee.employment.position", "employee.employment.workingCondition",
+            "fromDepartment", "toDepartment", "fromPosition", "toPosition",
+            "fromWorkingCondition", "toWorkingCondition", "correctionOfMovement"
+    })
+    @Query("""
+            select movement from HrEmployeeMovement movement
+            where movement.status = :status
+              and movement.movementType in :types
+            order by movement.effectiveDate asc, movement.createdAt asc, movement.id asc
+            """)
+    List<HrEmployeeMovement> findConfirmedForProjection(
+            @Param("status") HrMovementStatus status,
+            @Param("types") Collection<HrMovementType> types
+    );
+
+    boolean existsByCorrectionOfMovement_IdAndStatus(String correctionOfMovementId, HrMovementStatus status);
+
+    @Query("""
+            select movement.correctionOfMovement.id from HrEmployeeMovement movement
+            where movement.status = :status
+              and movement.correctionOfMovement.id in :movementIds
+            """)
+    Set<String> findCorrectionTargetIds(
+            @Param("movementIds") Collection<String> movementIds,
+            @Param("status") HrMovementStatus status
+    );
+
+    @Query("""
+            select (count(movement) > 0) from HrEmployeeMovement movement
+            where movement.employee.id = :employeeId
+              and movement.status = :status
+              and movement.sourceKind = :sourceKind
+              and movement.id <> :excludedMovementId
+              and movement.effectiveDate >= :effectiveDate
+            """)
+    boolean existsConfirmedManualMovementAtOrAfter(
+            @Param("employeeId") String employeeId,
+            @Param("status") HrMovementStatus status,
+            @Param("sourceKind") com.booking.system.hr.enums.HrMovementSourceKind sourceKind,
+            @Param("excludedMovementId") String excludedMovementId,
+            @Param("effectiveDate") LocalDate effectiveDate
     );
 
     @EntityGraph(attributePaths = {

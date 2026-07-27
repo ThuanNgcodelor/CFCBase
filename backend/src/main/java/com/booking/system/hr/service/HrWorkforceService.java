@@ -1,6 +1,7 @@
 package com.booking.system.hr.service;
 
 import com.booking.system.hr.api.HrApiException;
+import com.booking.system.hr.api.dto.HrMovementAdjustmentRequest;
 import com.booking.system.hr.api.dto.HrMovementCreateRequest;
 import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrRosterResponse;
@@ -142,6 +143,84 @@ public class HrWorkforceService {
         return HrMovementResponse.from(movement);
     }
 
+    /**
+     * A correction is a new draft linked to one confirmed manual movement. The
+     * original movement remains immutable and is retained for audit.
+     */
+    @Transactional
+    public HrMovementResponse createAdjustment(
+            String targetMovementId,
+            HrMovementAdjustmentRequest request,
+            HrImportActor actor
+    ) {
+        HrEmployeeMovement target = lockedMovement(targetMovementId);
+        requireVersion(target.getRowVersion(), request.rowVersion(),
+                "Biến động gốc đã được cập nhật ở nơi khác.");
+        if (target.getStatus() != HrMovementStatus.CONFIRMED || target.getSourceKind() != HrMovementSourceKind.MANUAL) {
+            throw HrApiException.conflict("MOVEMENT_ADJUSTMENT_NOT_ALLOWED",
+                    "Chỉ biến động nhập tay đã xác nhận mới có thể được điều chỉnh.");
+        }
+        if (target.getCorrectionOfMovement() != null
+                || movementRepository.existsByCorrectionOfMovement_IdAndStatus(target.getId(), HrMovementStatus.CONFIRMED)) {
+            throw HrApiException.conflict("MOVEMENT_ALREADY_ADJUSTED",
+                    "Biến động này đã có bản điều chỉnh xác nhận. Hãy tạo biến động mới nếu phát sinh nghiệp vụ tiếp theo.");
+        }
+        requireValidAdjustmentType(target.getMovementType(), request.replacementMovementType());
+        if (request.decisionDate() != null && request.decisionDate().isAfter(today())) {
+            throw HrApiException.badRequest("DECISION_DATE_IN_FUTURE",
+                    "Ngày ký quyết định không được nằm trong tương lai.");
+        }
+        String idempotencyKey = requiredText(request.idempotencyKey(), "Khóa chống trùng là bắt buộc.");
+        HrEmployeeMovement existing = movementRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
+        if (existing != null) {
+            if (existing.getCorrectionOfMovement() != null
+                    && Objects.equals(existing.getCorrectionOfMovement().getId(), target.getId())
+                    && existing.getMovementType() == request.replacementMovementType()
+                    && Objects.equals(existing.getEffectiveDate(), request.effectiveDate())) {
+                return HrMovementResponse.from(existing);
+            }
+            throw HrApiException.conflict("MOVEMENT_IDEMPOTENCY_CONFLICT",
+                    "Khóa chống trùng đã được dùng cho một biến động khác.");
+        }
+
+        HrEmployee employee = lockedEmployee(target.getEmployee().getId());
+        if (movementRepository.existsByEmployee_IdAndStatus(employee.getId(), HrMovementStatus.DRAFT)) {
+            throw HrApiException.conflict("EMPLOYEE_HAS_DRAFT_MOVEMENT",
+                    "Nhân sự đang có một biến động nháp chưa được xử lý.");
+        }
+        if (movementRepository.existsConfirmedManualMovementAtOrAfter(
+                employee.getId(), HrMovementStatus.CONFIRMED, HrMovementSourceKind.MANUAL,
+                target.getId(), target.getEffectiveDate())) {
+            throw HrApiException.conflict("MOVEMENT_ADJUSTMENT_HAS_DOWNSTREAM_HISTORY",
+                    "Không thể điều chỉnh vì nhân sự đã có biến động xác nhận cùng hoặc sau ngày hiệu lực. Hãy tạo biến động mới.");
+        }
+
+        HrEmployeeMovement adjustment = new HrEmployeeMovement();
+        adjustment.setEmployee(employee);
+        adjustment.setMovementType(request.replacementMovementType());
+        adjustment.setStatus(HrMovementStatus.DRAFT);
+        adjustment.setEffectiveDate(request.effectiveDate());
+        adjustment.setReason(requiredText(request.reason(), "Vui lòng nhập lý do điều chỉnh."));
+        adjustment.setDecisionNumber(trimToNull(request.decisionNumber()));
+        adjustment.setDecisionDate(request.decisionDate());
+        adjustment.setSourceKind(HrMovementSourceKind.MANUAL);
+        adjustment.setCorrectionOfMovement(target);
+        adjustment.setIdempotencyKey(idempotencyKey);
+        setAdjustmentRoute(adjustment, target, employee.getEmployment());
+        setCreatedAudit(adjustment, actor);
+        adjustment = movementRepository.save(adjustment);
+        audit(actor, "HR_MOVEMENT_ADJUSTMENT_CREATED", "HR_EMPLOYEE_MOVEMENT", adjustment.getId(),
+                List.of("correctionOfMovementId", "movementType", "effectiveDate", "reason"),
+                Map.of(
+                        "employeeId", employee.getId(),
+                        "correctionOfMovementId", target.getId(),
+                        "originalMovementType", target.getMovementType().name(),
+                        "replacementMovementType", adjustment.getMovementType().name()
+                ));
+        entityManager.flush();
+        return HrMovementResponse.from(adjustment);
+    }
+
     @Transactional
     public HrMovementResponse confirmMovement(String movementId, long rowVersion, HrImportActor actor) {
         HrEmployeeMovement movement = lockedMovement(movementId);
@@ -158,6 +237,13 @@ public class HrWorkforceService {
                     "Chưa thể xác nhận biến động trước ngày hiệu lực.");
         }
 
+        if (movement.getCorrectionOfMovement() != null) {
+            return confirmAdjustmentMovement(movement, actor);
+        }
+        return confirmStandardMovement(movement, actor);
+    }
+
+    private HrMovementResponse confirmStandardMovement(HrEmployeeMovement movement, HrImportActor actor) {
         HrEmployee employee = lockedEmployee(movement.getEmployee().getId());
         HrEmployeeEmployment employment = employee.getEmployment();
         if (employee.getStatusEffectiveDate() != null
@@ -199,6 +285,77 @@ public class HrWorkforceService {
                     "Phase 5 chỉ hỗ trợ xác nhận Tăng và Giảm nhân sự.");
         }
 
+        confirmMovementAudit(movement, employee, actor, "HR_MOVEMENT_CONFIRMED", Map.of(
+                "movementType", movement.getMovementType().name(), "employeeId", employee.getId()));
+        return HrMovementResponse.from(movement);
+    }
+
+    private HrMovementResponse confirmAdjustmentMovement(HrEmployeeMovement movement, HrImportActor actor) {
+        HrEmployeeMovement target = lockedMovement(movement.getCorrectionOfMovement().getId());
+        if (target.getStatus() != HrMovementStatus.CONFIRMED || target.getSourceKind() != HrMovementSourceKind.MANUAL) {
+            throw HrApiException.conflict("MOVEMENT_ADJUSTMENT_TARGET_INVALID",
+                    "Biến động gốc không còn phù hợp để điều chỉnh.");
+        }
+        requireValidAdjustmentType(target.getMovementType(), movement.getMovementType());
+        if (movementRepository.existsByCorrectionOfMovement_IdAndStatus(target.getId(), HrMovementStatus.CONFIRMED)) {
+            throw HrApiException.conflict("MOVEMENT_ALREADY_ADJUSTED",
+                    "Biến động gốc đã có bản điều chỉnh xác nhận.");
+        }
+        HrEmployee employee = lockedEmployee(movement.getEmployee().getId());
+        if (movementRepository.existsConfirmedManualMovementAtOrAfter(
+                employee.getId(), HrMovementStatus.CONFIRMED, HrMovementSourceKind.MANUAL,
+                target.getId(), target.getEffectiveDate())) {
+            throw HrApiException.conflict("MOVEMENT_ADJUSTMENT_HAS_DOWNSTREAM_HISTORY",
+                    "Không thể xác nhận điều chỉnh vì nhân sự đã có biến động xác nhận tiếp theo.");
+        }
+        applyAdjustedEmploymentStatus(employee, movement, actor);
+        confirmMovementAudit(movement, employee, actor, "HR_MOVEMENT_ADJUSTMENT_CONFIRMED", Map.of(
+                "employeeId", employee.getId(),
+                "correctionOfMovementId", target.getId(),
+                "originalMovementType", target.getMovementType().name(),
+                "replacementMovementType", movement.getMovementType().name()
+        ));
+        return HrMovementResponse.from(movement);
+    }
+
+    private void applyAdjustedEmploymentStatus(HrEmployee employee, HrEmployeeMovement movement, HrImportActor actor) {
+        HrEmployeeEmployment employment = employee.getEmployment();
+        if (movement.getMovementType() == HrMovementType.INCREASE || movement.getMovementType() == HrMovementType.REHIRE) {
+            employee.setEmploymentStatus(HrEmploymentStatus.ACTIVE);
+            employee.setStatusEffectiveDate(movement.getEffectiveDate());
+            if (employment != null) {
+                if (employment.getHireDate() == null) {
+                    employment.setHireDate(movement.getEffectiveDate());
+                }
+                employment.setTerminationDate(null);
+                touch(employment, actor);
+            }
+            return;
+        }
+        if (movement.getMovementType() == HrMovementType.DECREASE) {
+            employee.setEmploymentStatus(HrEmploymentStatus.INACTIVE);
+            employee.setStatusEffectiveDate(movement.getEffectiveDate());
+            if (employment != null) {
+                if (employment.getHireDate() != null && movement.getEffectiveDate().isBefore(employment.getHireDate())) {
+                    throw HrApiException.badRequest("DECREASE_BEFORE_HIRE_DATE",
+                            "Ngày giảm không được trước ngày vào làm.");
+                }
+                employment.setTerminationDate(movement.getEffectiveDate());
+                touch(employment, actor);
+            }
+            return;
+        }
+        throw HrApiException.badRequest("MOVEMENT_TYPE_NOT_SUPPORTED",
+                "Loại điều chỉnh không được hỗ trợ.");
+    }
+
+    private void confirmMovementAudit(
+            HrEmployeeMovement movement,
+            HrEmployee employee,
+            HrImportActor actor,
+            String action,
+            Map<String, ?> metadata
+    ) {
         LocalDateTime now = nowUtc();
         touch(employee, actor);
         movement.setStatus(HrMovementStatus.CONFIRMED);
@@ -206,11 +363,10 @@ public class HrWorkforceService {
         movement.setConfirmedByActor(displayActor(actor));
         touch(movement, actor);
         movementRepository.save(movement);
-        audit(actor, "HR_MOVEMENT_CONFIRMED", "HR_EMPLOYEE_MOVEMENT", movement.getId(),
+        audit(actor, action, "HR_EMPLOYEE_MOVEMENT", movement.getId(),
                 List.of("status", "confirmedAt", "employeeStatus"),
-                Map.of("movementType", movement.getMovementType().name(), "employeeId", employee.getId()));
+                metadata);
         entityManager.flush();
-        return HrMovementResponse.from(movement);
     }
 
     @Transactional
@@ -431,12 +587,20 @@ public class HrWorkforceService {
         }
 
         LocalDate periodEnd = roster.getPeriodStart().with(TemporalAdjusters.lastDayOfMonth());
-        List<HrEmployeeMovement> movements = movementRepository.findConfirmedForSnapshot(
+        List<HrEmployeeMovement> movements = movementRepository.findConfirmedForProjection(
                 HrMovementStatus.CONFIRMED,
-                SNAPSHOT_MOVEMENT_TYPES,
-                periodEnd
+                SNAPSHOT_MOVEMENT_TYPES
         );
+        java.util.Set<String> supersededMovementIds = new java.util.HashSet<>();
         for (HrEmployeeMovement movement : movements) {
+            if (movement.getCorrectionOfMovement() != null) {
+                supersededMovementIds.add(movement.getCorrectionOfMovement().getId());
+            }
+        }
+        for (HrEmployeeMovement movement : movements) {
+            if (supersededMovementIds.contains(movement.getId()) || movement.getEffectiveDate().isAfter(periodEnd)) {
+                continue;
+            }
             String employeeId = movement.getEmployee().getId();
             if (movement.getMovementType() == HrMovementType.DECREASE) {
                 snapshots.remove(employeeId);
@@ -514,6 +678,50 @@ public class HrWorkforceService {
             throw HrApiException.badRequest("MOVEMENT_TYPE_NOT_SUPPORTED",
                     "Phase 5 chỉ hỗ trợ Tăng và Giảm nhân sự.");
         }
+    }
+
+    private static void requireValidAdjustmentType(HrMovementType originalType, HrMovementType replacementType) {
+        boolean valid = (originalType == HrMovementType.INCREASE
+                && (replacementType == HrMovementType.INCREASE || replacementType == HrMovementType.DECREASE))
+                || (originalType == HrMovementType.DECREASE
+                && (replacementType == HrMovementType.DECREASE || replacementType == HrMovementType.REHIRE))
+                || (originalType == HrMovementType.REHIRE
+                && (replacementType == HrMovementType.REHIRE || replacementType == HrMovementType.DECREASE));
+        if (!valid) {
+            throw HrApiException.badRequest("MOVEMENT_ADJUSTMENT_TYPE_INVALID",
+                    "Bản điều chỉnh chỉ được đổi ngày hiệu lực hoặc tạo nghiệp vụ bù phù hợp với biến động gốc.");
+        }
+    }
+
+    private static void setAdjustmentRoute(
+            HrEmployeeMovement adjustment,
+            HrEmployeeMovement target,
+            HrEmployeeEmployment employment
+    ) {
+        if (adjustment.getMovementType() == target.getMovementType()) {
+            adjustment.setFromDepartment(target.getFromDepartment());
+            adjustment.setToDepartment(target.getToDepartment());
+            adjustment.setFromPosition(target.getFromPosition());
+            adjustment.setToPosition(target.getToPosition());
+            adjustment.setFromWorkingCondition(target.getFromWorkingCondition());
+            adjustment.setToWorkingCondition(target.getToWorkingCondition());
+            adjustment.setFromEmployeeStatus(target.getFromEmployeeStatus());
+            adjustment.setToEmployeeStatus(target.getToEmployeeStatus());
+            return;
+        }
+        if (adjustment.getMovementType() == HrMovementType.REHIRE) {
+            adjustment.setFromEmployeeStatus(HrEmploymentStatus.INACTIVE);
+            adjustment.setToEmployeeStatus(HrEmploymentStatus.ACTIVE);
+            adjustment.setToDepartment(employment == null ? null : employment.getDepartment());
+            adjustment.setToPosition(employment == null ? null : employment.getPosition());
+            adjustment.setToWorkingCondition(employment == null ? null : employment.getWorkingCondition());
+            return;
+        }
+        adjustment.setFromEmployeeStatus(HrEmploymentStatus.ACTIVE);
+        adjustment.setToEmployeeStatus(HrEmploymentStatus.INACTIVE);
+        adjustment.setFromDepartment(employment == null ? null : employment.getDepartment());
+        adjustment.setFromPosition(employment == null ? null : employment.getPosition());
+        adjustment.setFromWorkingCondition(employment == null ? null : employment.getWorkingCondition());
     }
 
     private static LocalDate requirePeriodStart(LocalDate value) {
