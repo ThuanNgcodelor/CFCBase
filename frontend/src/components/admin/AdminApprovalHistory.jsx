@@ -1,34 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Car, ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react';
+import {
+  Building2,
+  Car,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  Filter,
+  Search,
+} from 'lucide-react';
 import { approvalApi } from '../../api/approvalApi';
-import { formatViDateTime } from '../../utils/dateTime';
+import { formatViDate, formatViDateTime, formatViTime } from '../../utils/dateTime';
+import { BookingEmptyState } from '../booking/BookingEmptyState';
+import { BookingStatusBadge } from '../booking/BookingStatusBadge';
+import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
+import { Surface } from '../ui/Surface';
 
-const initialFilters = { keyword: '', type: 'ALL', status: 'ALL', from: '', to: '', direction: 'desc' };
-
-function statusClasses(status) {
-  if (status === 'CANCELLED') return 'bg-gray-100 text-gray-700 border-gray-300';
-  return status === 'APPROVED'
-    ? 'bg-green-50 text-green-700 border-green-200'
-    : 'bg-red-50 text-red-700 border-red-200';
-}
-
-function statusLabel(status) {
-  if (status === 'CANCELLED') return 'Đã hủy';
-  return status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối';
-}
-
-function Avatar({ user }) {
-  if (user?.avatarUrl) {
-    return <img src={user.avatarUrl} alt="" className="h-9 w-9 rounded-full border border-gray-200 object-cover" referrerPolicy="no-referrer" />;
-  }
-  return (
-    <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold border border-blue-200">
-      {user?.fullName?.charAt(0) || 'U'}
-    </div>
-  );
-}
+const initialFilters = {
+  keyword: '',
+  type: 'ALL',
+  status: 'ALL',
+  from: '',
+  to: '',
+  direction: 'desc',
+};
 
 export default function AdminApprovalHistory() {
   const navigate = useNavigate();
@@ -40,7 +36,7 @@ export default function AdminApprovalHistory() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const controller = new AbortController();
+    let active = true;
     const fetchHistory = async () => {
       setLoading(true);
       setError('');
@@ -52,20 +48,22 @@ export default function AdminApprovalHistory() {
         if (filters.from) params.from = filters.from;
         if (filters.to) params.to = filters.to;
         const data = await approvalApi.getHistory(params);
-        if (!controller.signal.aborted) setResult(data);
+        if (active) setResult(data);
       } catch (requestError) {
-        if (!controller.signal.aborted) {
-          setError(requestError.response?.data?.message || 'Không tải được lịch sử xử lý.');
-        }
+        if (active) setError(requestError.response?.data?.message || 'Không tải được lịch sử xử lý.');
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchHistory();
-    return () => controller.abort();
+    return () => {
+      active = false;
+    };
   }, [filters, page]);
 
-  const updateDraft = (field, value) => setDraftFilters(current => ({ ...current, [field]: value }));
+  const updateDraft = (field, value) => {
+    setDraftFilters((current) => ({ ...current, [field]: value }));
+  };
 
   const applyFilters = (event) => {
     event.preventDefault();
@@ -81,95 +79,156 @@ export default function AdminApprovalHistory() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={applyFilters} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <label className="relative xl:col-span-2">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+      <Surface as="form" onSubmit={applyFilters} className="p-3 sm:p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1.4fr)_160px_180px_160px_160px]">
+          <label className="relative">
+            <span className="sr-only">Tìm lịch sử</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--cfc-muted)]" />
             <input
               value={draftFilters.keyword}
-              onChange={event => updateDraft('keyword', event.target.value)}
+              onChange={(event) => updateDraft('keyword', event.target.value)}
               placeholder="Tên, email, phòng, xe, người xử lý..."
-              className="h-10 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
+              className="h-11 w-full rounded-lg border border-[var(--cfc-border)] pl-10 pr-3 text-sm outline-none focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100"
             />
           </label>
-          <select value={draftFilters.type} onChange={event => updateDraft('type', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm">
+          <select value={draftFilters.type} onChange={(event) => updateDraft('type', event.target.value)} className="h-11 rounded-lg border border-[var(--cfc-border)] px-3 text-sm outline-none focus:border-[var(--cfc-cobalt)]">
             <option value="ALL">Tất cả loại</option>
             <option value="ROOM">Phòng họp</option>
-            <option value="CAR">Xe</option>
+            <option value="CAR">Xe công tác</option>
           </select>
-          <select value={draftFilters.status} onChange={event => updateDraft('status', event.target.value)} className="h-10 rounded-lg border border-gray-200 px-3 text-sm">
+          <select value={draftFilters.status} onChange={(event) => updateDraft('status', event.target.value)} className="h-11 rounded-lg border border-[var(--cfc-border)] px-3 text-sm outline-none focus:border-[var(--cfc-cobalt)]">
             <option value="ALL">Tất cả trạng thái</option>
             <option value="APPROVED">Đã duyệt</option>
             <option value="REJECTED">Đã từ chối</option>
             <option value="CANCELLED">Đã hủy</option>
           </select>
-          <label className="relative">
-            <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-gray-500">Từ ngày xử lý</span>
-            <input type="date" aria-label="Từ ngày xử lý" value={draftFilters.from} onChange={event => updateDraft('from', event.target.value)} className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm" />
+          <label>
+            <span className="sr-only">Từ ngày xử lý</span>
+            <input type="date" aria-label="Từ ngày xử lý" value={draftFilters.from} onChange={(event) => updateDraft('from', event.target.value)} className="h-11 w-full rounded-lg border border-[var(--cfc-border)] px-3 text-sm" />
           </label>
-          <label className="relative">
-            <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-gray-500">Đến ngày xử lý</span>
-            <input type="date" aria-label="Đến ngày xử lý" value={draftFilters.to} onChange={event => updateDraft('to', event.target.value)} className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm" />
+          <label>
+            <span className="sr-only">Đến ngày xử lý</span>
+            <input type="date" aria-label="Đến ngày xử lý" value={draftFilters.to} onChange={(event) => updateDraft('to', event.target.value)} className="h-11 w-full rounded-lg border border-[var(--cfc-border)] px-3 text-sm" />
           </label>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <select value={draftFilters.direction} onChange={event => updateDraft('direction', event.target.value)} className="h-9 rounded-lg border border-gray-200 px-3 text-sm">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <select value={draftFilters.direction} onChange={(event) => updateDraft('direction', event.target.value)} className="h-10 rounded-lg border border-[var(--cfc-border)] px-3 text-sm">
             <option value="desc">Xử lý mới nhất</option>
             <option value="asc">Xử lý cũ nhất</option>
           </select>
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={clearFilters}>Xóa lọc</Button>
-            <Button type="submit"><Filter className="mr-1.5 h-4 w-4" />Áp dụng</Button>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <Button type="button" variant="ghost" onClick={clearFilters}>Xóa lọc</Button>
+            <Button type="submit"><Filter className="h-4 w-4" />Áp dụng</Button>
           </div>
         </div>
-      </form>
+      </Surface>
 
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-            <tr><th className="px-5 py-4">Người đặt</th><th className="px-5 py-4">Tài nguyên</th><th className="px-5 py-4">Thời gian</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4">Người xử lý</th><th className="px-5 py-4"></th></tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading ? (
-              <tr><td colSpan="6" className="px-5 py-12 text-center text-gray-500">Đang tải...</td></tr>
-            ) : result.content.map(item => (
-              <tr key={item.id} className="hover:bg-gray-50/70">
-                <td className="px-5 py-4"><div className="flex items-center gap-3"><Avatar user={item.requester} /><div><div className="text-sm font-medium text-gray-900">{item.requester?.fullName}</div><div className="text-xs text-gray-500">{item.requester?.departmentName || item.requester?.email}</div></div></div></td>
-                <td className="px-5 py-4"><div className="flex items-center gap-2 text-sm font-medium text-gray-900">{item.type === 'ROOM' ? <Building2 className="h-4 w-4 text-blue-500" /> : <Car className="h-4 w-4 text-green-500" />}{item.resourceName}</div><div className="mt-1 max-w-[240px] truncate text-xs text-gray-500">{item.purpose}</div></td>
-                <td className="whitespace-nowrap px-5 py-4 text-xs text-gray-600"><div>{formatViDateTime(item.startTime)}</div><div className="mt-1 text-gray-400">Xử lý: {formatViDateTime(item.actedAt)}</div></td>
-                <td className="px-5 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(item.status)}`}>{statusLabel(item.status)}</span>{item.reason && <div className="mt-1 max-w-[180px] truncate text-xs text-gray-500" title={item.reason}>{item.reason}</div>}</td>
-                <td className="px-5 py-4 text-sm text-gray-700">{item.approver?.fullName || 'Không rõ'}</td>
-                <td className="px-5 py-4 text-right"><Button size="sm" variant="secondary" onClick={() => navigate(`/admin/approvals/${item.bookingId}`)}>Chi tiết</Button></td>
-              </tr>
-            ))}
-            {!loading && result.content.length === 0 && <tr><td colSpan="6" className="px-5 py-12 text-center text-gray-500">Không có lịch sử phù hợp.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="space-y-3 md:hidden">
-        {loading ? <div className="rounded-xl border bg-white px-4 py-10 text-center text-gray-500">Đang tải...</div> : result.content.map(item => (
-          <button key={item.id} type="button" onClick={() => navigate(`/admin/approvals/${item.bookingId}`)} className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm">
-            <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><Avatar user={item.requester} /><div className="min-w-0"><div className="truncate text-sm font-medium text-gray-900">{item.requester?.fullName}</div><div className="truncate text-xs text-gray-500">{item.requester?.departmentName || item.requester?.email}</div></div></div><span className={`shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium ${statusClasses(item.status)}`}>{statusLabel(item.status)}</span></div>
-            <div className="mt-3 rounded-lg bg-gray-50 p-3"><div className="flex items-center gap-2 text-sm font-medium">{item.type === 'ROOM' ? <Building2 className="h-4 w-4 text-blue-500" /> : <Car className="h-4 w-4 text-green-500" />}{item.resourceName}</div><div className="mt-1 text-xs text-gray-500">{item.purpose}</div></div>
-            <div className="mt-3 text-xs text-gray-500">{formatViDateTime(item.startTime)} · xử lý bởi {item.approver?.fullName || 'Không rõ'}</div>
-            {item.reason && <div className="mt-2 text-xs text-gray-600">Lý do: {item.reason}</div>}
-          </button>
-        ))}
-        {!loading && result.content.length === 0 && <div className="rounded-xl border bg-white px-4 py-10 text-center text-gray-500">Không có lịch sử phù hợp.</div>}
-      </div>
+      <Surface className="overflow-hidden">
+        <HistoryDesktop loading={loading} rows={result.content} onOpen={(id) => navigate(`/admin/approvals/${id}`)} />
+        <HistoryMobile loading={loading} rows={result.content} onOpen={(id) => navigate(`/admin/approvals/${id}`)} />
+        {!loading && result.content.length === 0 && (
+          <BookingEmptyState icon={ClipboardCheck} title="Không có lịch sử phù hợp" description="Hãy thử thay đổi bộ lọc hoặc khoảng ngày xử lý." />
+        )}
+      </Surface>
 
       {result.totalPages > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
-          <span className="text-gray-500">{result.totalElements} kết quả · Trang {page + 1}/{result.totalPages}</span>
+        <Surface className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+          <span className="text-[var(--cfc-muted)]">{result.totalElements} kết quả · Trang {page + 1}/{result.totalPages}</span>
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" disabled={page === 0 || loading} onClick={() => setPage(current => current - 1)}><ChevronLeft className="h-4 w-4" />Trước</Button>
-            <Button size="sm" variant="secondary" disabled={page + 1 >= result.totalPages || loading} onClick={() => setPage(current => current + 1)}>Sau<ChevronRight className="h-4 w-4" /></Button>
+            <Button size="sm" variant="secondary" disabled={page === 0 || loading} onClick={() => setPage((current) => current - 1)}>
+              <ChevronLeft className="h-4 w-4" />Trước
+            </Button>
+            <Button size="sm" variant="secondary" disabled={page + 1 >= result.totalPages || loading} onClick={() => setPage((current) => current + 1)}>
+              Sau<ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-        </div>
+        </Surface>
       )}
+    </div>
+  );
+}
+
+function HistoryDesktop({ loading, rows, onOpen }) {
+  return (
+    <div className="hidden overflow-x-auto md:block">
+      <table className="min-w-full">
+        <thead className="bg-[var(--cfc-surface-muted)] text-left">
+          <tr className="cfc-data-label">
+            <th className="px-5 py-3">Người đặt</th>
+            <th className="px-5 py-3">Tài nguyên</th>
+            <th className="px-5 py-3">Thời gian</th>
+            <th className="px-5 py-3">Trạng thái</th>
+            <th className="px-5 py-3">Người xử lý</th>
+            <th className="px-5 py-3"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--cfc-border)]">
+          {loading && <tr><td colSpan="6" className="px-5 py-14 text-center text-sm text-[var(--cfc-muted)]">Đang tải lịch sử...</td></tr>}
+          {!loading && rows.map((item) => (
+            <tr key={item.id} className="transition-colors hover:bg-slate-50">
+              <td className="px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <Avatar src={item.requester?.avatarUrl} name={item.requester?.fullName} size="sm" />
+                  <div>
+                    <p className="text-sm font-medium text-[var(--cfc-ink)]">{item.requester?.fullName}</p>
+                    <p className="mt-1 text-xs text-[var(--cfc-muted)]">{item.requester?.departmentName || item.requester?.email}</p>
+                  </div>
+                </div>
+              </td>
+              <td className="px-5 py-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-[var(--cfc-ink)]">
+                  {item.type === 'ROOM' ? <Building2 className="h-4 w-4 text-[var(--cfc-room)]" /> : <Car className="h-4 w-4 text-[var(--cfc-vehicle)]" />}
+                  {item.resourceName}
+                </div>
+                <p className="mt-1 max-w-60 truncate text-xs text-[var(--cfc-muted)]">{item.purpose}</p>
+              </td>
+              <td className="whitespace-nowrap px-5 py-4">
+                <p className="text-sm font-medium text-[var(--cfc-ink)]">{formatViDate(item.startTime)}</p>
+                <p className="mt-1 text-xs text-[var(--cfc-muted)]">{formatViTime(item.startTime)} · xử lý {formatViDateTime(item.actedAt)}</p>
+              </td>
+              <td className="px-5 py-4">
+                <BookingStatusBadge status={item.status} />
+                {item.reason && <p className="mt-1 max-w-44 truncate text-xs text-[var(--cfc-muted)]" title={item.reason}>{item.reason}</p>}
+              </td>
+              <td className="px-5 py-4 text-sm text-[var(--cfc-ink)]">{item.approver?.fullName || 'Không rõ'}</td>
+              <td className="px-5 py-4 text-right"><Button size="sm" variant="secondary" onClick={() => onOpen(item.bookingId)}>Chi tiết</Button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HistoryMobile({ loading, rows, onOpen }) {
+  if (loading || rows.length === 0) return null;
+  return (
+    <div className="divide-y divide-[var(--cfc-border)] md:hidden">
+      {rows.map((item) => (
+        <button key={item.id} type="button" onClick={() => onOpen(item.bookingId)} className="w-full px-4 py-4 text-left hover:bg-slate-50">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar src={item.requester?.avatarUrl} name={item.requester?.fullName} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-[var(--cfc-ink)]">{item.requester?.fullName}</p>
+                <p className="truncate text-xs text-[var(--cfc-muted)]">{item.requester?.departmentName || item.requester?.email}</p>
+              </div>
+            </div>
+            <BookingStatusBadge status={item.status} />
+          </div>
+          <div className="mt-3 rounded-lg bg-[var(--cfc-surface-muted)] p-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-[var(--cfc-ink)]">
+              {item.type === 'ROOM' ? <Building2 className="h-4 w-4 text-[var(--cfc-room)]" /> : <Car className="h-4 w-4 text-[var(--cfc-vehicle)]" />}
+              {item.resourceName}
+            </p>
+            <p className="mt-1 text-xs text-[var(--cfc-muted)]">{item.purpose}</p>
+          </div>
+          <p className="mt-3 text-xs text-[var(--cfc-muted)]">{formatViDateTime(item.startTime)} · xử lý bởi {item.approver?.fullName || 'Không rõ'}</p>
+          {item.reason && <p className="mt-2 text-xs text-[var(--cfc-ink)]">Lý do: {item.reason}</p>}
+        </button>
+      ))}
     </div>
   );
 }

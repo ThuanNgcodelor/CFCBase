@@ -1,13 +1,16 @@
 import React from 'react';
 import { format } from 'date-fns';
+import { vi } from 'date-fns/locale/vi';
 
-const CustomDateHeader = ({ date, label }) => {
+const CustomDateHeader = ({ date }) => {
   const isToday = new Date().toDateString() === date.toDateString();
   return (
-    <div className="flex flex-col items-center justify-center py-1.5 pb-2">
-      <span className="text-[11px] font-semibold text-[#1e293b] mb-0.5">{format(date, 'EEE')}</span>
-      <span className={`text-lg font-medium flex items-center justify-center w-7 h-7 rounded-full ${isToday ? 'bg-[#1a56d6] text-white' : 'text-[#334155]'}`}>
-        {format(date, 'd')}
+    <div className={`flex h-full min-h-14 flex-col items-center justify-center px-2 py-2 ${isToday ? 'bg-emerald-50/70' : ''}`}>
+      <span className={`text-xs font-bold capitalize ${isToday ? 'text-[var(--cfc-emerald-dark)]' : 'text-[var(--cfc-ink)]'}`}>
+        {format(date, 'EEEE', { locale: vi })}
+      </span>
+      <span className="mt-0.5 text-xs font-medium text-[var(--cfc-muted)]">
+        {format(date, 'dd/MM')}
       </span>
     </div>
   );

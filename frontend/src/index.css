@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/cfc-design-system.css";
+@import "./styles/hr-responsive.css";
 
 @theme {
   --color-primary: #2563eb; /* blue-600 */

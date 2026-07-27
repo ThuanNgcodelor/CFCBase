@@ -2,7 +2,7 @@
 
 Cập nhật: 2026-07-24
 
-Trạng thái: **đã triển khai source schema/API/template/UI; chưa deploy/UAT runtime**
+Trạng thái: **đã triển khai source schema/API/template/UI; UI đã xuất hiện trên runtime theo ảnh người dùng, formal end-to-end UAT chưa đóng**
 
 ## 1. Mục tiêu
 

@@ -1,4 +1,5 @@
-import { AlertCircle, ChevronLeft, ChevronRight, Inbox, LoaderCircle } from 'lucide-react';
+import { useEffect } from 'react';
+import { AlertCircle, ChevronLeft, ChevronRight, Inbox, LoaderCircle, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { statusLabel, statusTone } from '../../utils/hr';
 
@@ -17,7 +18,7 @@ export function HrPageShell({ children, size = 'wide', className = '' }) {
     readable: 'max-w-6xl',
   };
   return (
-    <div className={`mx-auto w-full ${sizes[size] || sizes.wide} ${className}`}>
+    <div className={`hr-page-shell mx-auto min-w-0 w-full max-w-full ${sizes[size] || sizes.wide} ${className}`}>
       {children}
     </div>
   );
@@ -32,6 +33,64 @@ export function HrPageHeader({ eyebrow = 'Quản lý nhân sự', title, descrip
         {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-500">{description}</p>}
       </div>
       {actions && <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">{actions}</div>}
+    </div>
+  );
+}
+
+export function HrDrawer({ isOpen, onClose, title, description, children, size = 'standard' }) {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const widthClass = size === 'wide' ? 'max-w-3xl' : 'max-w-xl';
+
+  return (
+    <div className="fixed inset-0 z-[70]" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 h-full w-full cursor-default bg-[var(--cfc-navy)]/40 backdrop-blur-[1px]"
+        onClick={onClose}
+        aria-label="Đóng bảng thao tác"
+      />
+      <section
+        className={`cfc-safe-top cfc-safe-bottom absolute inset-y-0 right-0 flex w-full ${widthClass} flex-col border-l border-[var(--cfc-border)] bg-white shadow-[var(--cfc-shadow-panel)]`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hr-drawer-title"
+        aria-describedby={description ? 'hr-drawer-description' : undefined}
+      >
+        <header className="flex min-h-[76px] shrink-0 items-start justify-between gap-4 border-b border-[var(--cfc-border)] px-5 py-5 sm:px-7">
+          <div className="min-w-0">
+            <h2 id="hr-drawer-title" className="text-xl font-semibold tracking-tight text-[var(--cfc-ink)]">{title}</h2>
+            {description && <p id="hr-drawer-description" className="mt-1.5 text-sm leading-5 text-[var(--cfc-muted)]">{description}</p>}
+          </div>
+          <button
+            type="button"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--cfc-muted)] transition hover:bg-slate-100 hover:text-[var(--cfc-ink)]"
+            onClick={onClose}
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="cfc-scrollbar min-h-0 flex-1 overflow-y-auto">
+          {children}
+        </div>
+      </section>
     </div>
   );
 }

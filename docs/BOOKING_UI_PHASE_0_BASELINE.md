@@ -1,5 +1,7 @@
 # BookingBase UI Redesign — Phase 0 Baseline
 
+> **LƯU TRỮ:** Booking đã dừng phát triển ngày `2026-07-27`. File này chỉ giữ lịch sử Phase 0; không có Booking Phase 6–10.
+
 Cập nhật: 2026-07-27
 
 Trạng thái: **Hoàn thành khảo sát source, chưa thay đổi giao diện runtime**
@@ -166,4 +168,3 @@ Mobile/PWA:
 - Không horizontal overflow ngoài khu vực calendar có chủ đích.
 - Text, form, table, calendar và action phải được dựng bằng React; không dùng ảnh concept làm UI.
 - Chỉ bắt đầu refactor sau khi người dùng duyệt Phase 1.
-

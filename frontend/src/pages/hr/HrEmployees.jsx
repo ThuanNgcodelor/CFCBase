@@ -237,7 +237,7 @@ export default function HrEmployees() {
 
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
 
-      <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
+      <div className="hr-responsive-table hr-responsive-table--standard cfc-scrollbar overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full min-w-[1040px] divide-y divide-gray-200">
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
             <tr>
@@ -289,7 +289,7 @@ export default function HrEmployees() {
         </table>
       </div>
 
-      <div className="space-y-3 md:hidden">
+      <div className="hr-responsive-cards hr-responsive-cards--standard space-y-3">
         {loading ? (
           <div className="rounded-xl border border-gray-200 bg-white py-10 text-center text-sm text-gray-500">Đang tải danh sách...</div>
         ) : result.content.map((employee) => (

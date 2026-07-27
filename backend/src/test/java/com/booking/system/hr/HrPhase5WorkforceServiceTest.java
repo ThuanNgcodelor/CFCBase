@@ -18,6 +18,7 @@ import com.booking.system.hr.repository.HrEmployeeRepository;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterRepository;
+import com.booking.system.hr.service.HrRosterProjectionService;
 import com.booking.system.hr.service.HrWorkforceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +61,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         HrImportJsonCodec.class,
         HrBaselineImportPersistence.class,
         HrBaselineImportService.class,
+        HrRosterProjectionService.class,
         HrWorkforceService.class
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -88,6 +90,7 @@ class HrPhase5WorkforceServiceTest {
     }
 
     @jakarta.annotation.Resource private HrBaselineImportService importService;
+    @jakarta.annotation.Resource private HrRosterProjectionService rosterProjectionService;
     @jakarta.annotation.Resource private HrWorkforceService workforceService;
     @jakarta.annotation.Resource private HrEmployeeRepository employeeRepository;
     @jakarta.annotation.Resource private HrEmployeeMovementRepository movementRepository;
@@ -106,6 +109,33 @@ class HrPhase5WorkforceServiceTest {
         }) {
             jdbcTemplate.execute("DELETE FROM " + table);
         }
+    }
+
+    @Test
+    void liveMonthlyProjectionRecalculatesBaselineMonthAndFollowingMonthsByEffectiveDate() {
+        var uploaded = importService.uploadAndParse("baseline-values-2026.xlsx", WORKBOOK, MANAGER);
+        importService.validate(uploaded.batchId(), MANAGER);
+        importService.confirm(uploaded.batchId(), "phase5-live-projection-baseline", true, MANAGER);
+
+        var baseline = rosterRepository.findByPeriodStart(LocalDate.of(2026, 6, 1)).orElseThrow();
+        assertThat(baseline.getStatus()).isEqualTo(HrRosterStatus.CLOSED);
+        assertThat(baseline.getItemCount()).isEqualTo(329);
+
+        HrEmployee employee = employeeRepository.findByEmploymentStatus(
+                HrEmploymentStatus.ACTIVE, PageRequest.of(0, 1)).getContent().getFirst();
+        var decrease = workforceService.createMovement(new HrMovementCreateRequest(
+                employee.getId(), HrMovementType.DECREASE, LocalDate.of(2026, 6, 20),
+                "Nghỉ việc trong tháng 6", "P5-LIVE-DEC",
+                LocalDate.of(2026, 6, 20), "phase5-live-decrease"
+        ), MANAGER);
+        workforceService.confirmMovement(decrease.id(), decrease.rowVersion(), MANAGER);
+
+        assertThat(rosterProjectionService.roster(baseline.getId()).itemCount()).isEqualTo(328);
+        assertThat(rosterProjectionService.roster("period-2026-07-01").itemCount()).isEqualTo(328);
+
+        var unchangedBaseline = rosterRepository.findById(baseline.getId()).orElseThrow();
+        assertThat(unchangedBaseline.getItemCount()).isEqualTo(329);
+        assertThat(rosterItemRepository.countByRoster_Id(baseline.getId())).isEqualTo(329);
     }
 
     @Test

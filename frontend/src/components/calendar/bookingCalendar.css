@@ -1,13 +1,15 @@
 .booking-calendar {
-  --calendar-border: #e5e7eb;
-  --calendar-soft-border: #f1f5f9;
-  --calendar-muted: #64748b;
+  --calendar-border: var(--cfc-border);
+  --calendar-soft-border: #e9eef2;
+  --calendar-muted: var(--cfc-muted);
+  min-height: 620px;
 }
 
 .booking-calendar .rbc-time-view,
 .booking-calendar .rbc-month-view {
   border: none;
   background: #ffffff;
+  min-height: 620px;
 }
 
 .booking-calendar .rbc-time-header {
@@ -17,6 +19,7 @@
 .booking-calendar .rbc-time-content {
   border-top: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .booking-calendar .rbc-time-content > * {
@@ -25,7 +28,7 @@
 
 .booking-calendar .rbc-time-slot {
   min-height: 24px;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid #f6f8fa;
 }
 
 .booking-calendar .rbc-timeslot-group {
@@ -39,7 +42,7 @@
 
 .booking-calendar .rbc-event {
   min-height: 18px;
-  padding: 0 4px 0 0 !important;
+  padding: 0 3px 0 0 !important;
   border: none !important;
   border-radius: 4px !important;
   background-color: transparent !important;
@@ -55,6 +58,7 @@
 }
 
 .booking-calendar .rbc-header {
+  min-height: 58px;
   padding: 0;
   border-bottom: none;
   border-left: 1px solid var(--calendar-soft-border);
@@ -66,7 +70,7 @@
 }
 
 .booking-calendar .rbc-today {
-  background-color: #f8fafc;
+  background-color: #f6fbf8;
 }
 
 .booking-calendar .rbc-time-gutter .rbc-timeslot-group {
@@ -74,7 +78,7 @@
 }
 
 .booking-calendar .rbc-label {
-  padding: 0 8px;
+  padding: 0 10px;
   color: var(--calendar-muted);
   font-size: 0.75rem;
   font-weight: 500;
@@ -134,13 +138,24 @@
 }
 
 @media (max-width: 768px) {
+  .booking-calendar,
+  .booking-calendar .rbc-time-view,
+  .booking-calendar .rbc-month-view {
+    min-height: 610px;
+  }
+
   .booking-calendar .rbc-time-view {
     overflow-x: auto;
   }
 
-  .booking-calendar .rbc-time-header,
-  .booking-calendar .rbc-time-content {
-    min-width: 620px;
+  .booking-calendar--week .rbc-time-header,
+  .booking-calendar--week .rbc-time-content {
+    min-width: 760px;
+  }
+
+  .booking-calendar--day .rbc-time-header,
+  .booking-calendar--day .rbc-time-content {
+    min-width: 100%;
   }
 
   .booking-calendar .rbc-time-gutter {
@@ -173,5 +188,9 @@
 
   .booking-calendar .rbc-row-segment {
     padding: 1px;
+  }
+
+  .booking-calendar .rbc-header {
+    min-height: 52px;
   }
 }

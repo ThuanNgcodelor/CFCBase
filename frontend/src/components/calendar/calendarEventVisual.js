@@ -5,6 +5,7 @@ export function getCalendarEventVisual(event, now = new Date()) {
   const isPast = end < now;
   const isInProgress = start <= now && end >= now;
   const isOverduePending = status === 'PENDING' && isPast;
+  const isCar = event?.resourceType === 'car';
 
   if (isOverduePending) {
     return {
@@ -22,11 +23,14 @@ export function getCalendarEventVisual(event, now = new Date()) {
     return {
       state: 'active',
       label: 'Đang diễn ra',
-      containerClass: 'border-blue-300 bg-blue-100 text-blue-900 ring-1 ring-blue-200',
-      avatarClass: 'bg-blue-50 text-blue-700 border-blue-200',
-      dotClass: 'bg-blue-600',
-      monthClass: 'border border-blue-300 bg-blue-100 text-blue-900',
-      badgeClass: 'bg-blue-200 text-blue-800',
+      containerClass: isCar
+        ? 'border-teal-300 bg-teal-50 text-teal-950 ring-1 ring-teal-100'
+        : 'border-blue-300 bg-blue-50 text-blue-950 ring-1 ring-blue-100',
+      dotClass: isCar ? 'bg-teal-600' : 'bg-blue-600',
+      monthClass: isCar
+        ? 'border border-teal-300 bg-teal-50 text-teal-950'
+        : 'border border-blue-300 bg-blue-50 text-blue-950',
+      badgeClass: isCar ? 'bg-teal-100 text-teal-800' : 'bg-blue-100 text-blue-800',
     };
   }
 
@@ -46,21 +50,23 @@ export function getCalendarEventVisual(event, now = new Date()) {
     return {
       state: 'pending',
       label: 'Chờ duyệt',
-      containerClass: 'border-amber-300 bg-amber-500 text-white',
-      avatarClass: 'bg-amber-100 text-amber-700 border-white/40',
-      dotClass: 'bg-amber-200',
-      monthClass: 'bg-amber-500 text-white',
-      badgeClass: 'bg-white/20 text-white',
+      containerClass: 'border-amber-300 bg-amber-50 text-amber-950',
+      dotClass: 'bg-amber-500',
+      monthClass: 'border border-amber-300 bg-amber-50 text-amber-950',
+      badgeClass: 'bg-amber-100 text-amber-800',
     };
   }
 
   return {
     state: 'approved',
     label: '',
-    containerClass: 'border-blue-700/10 bg-blue-600 text-white',
-    avatarClass: 'bg-emerald-100 text-teal-700 border-white/40',
-    dotClass: 'bg-emerald-300',
-    monthClass: 'bg-blue-600 text-white',
-    badgeClass: 'bg-white/20 text-white',
+    containerClass: isCar
+      ? 'border-teal-300 bg-teal-50 text-teal-950'
+      : 'border-blue-300 bg-blue-50 text-blue-950',
+    dotClass: isCar ? 'bg-teal-600' : 'bg-blue-600',
+    monthClass: isCar
+      ? 'border border-teal-300 bg-teal-50 text-teal-950'
+      : 'border border-blue-300 bg-blue-50 text-blue-950',
+    badgeClass: isCar ? 'bg-teal-100 text-teal-800' : 'bg-blue-100 text-blue-800',
   };
 }

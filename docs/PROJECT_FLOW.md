@@ -1,4 +1,8 @@
-# Luồng Dự Án BookingBase
+# Luồng Dự Án — HR Active, Booking Legacy
+
+Cập nhật phạm vi: `2026-07-27`.
+
+> Chỉ phân hệ Quản lý nhân sự còn được phát triển. Các mục Booking bên dưới được giữ để mô tả mã legacy hiện có, không phải roadmap active và không có Phase 6–10 tiếp theo.
 
 Cập nhật: 2026-07-24
 

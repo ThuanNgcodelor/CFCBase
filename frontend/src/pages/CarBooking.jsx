@@ -14,6 +14,9 @@ import '../components/calendar/bookingCalendar.css';
 import { useResponsiveCalendarView } from '../hooks/useResponsiveCalendarView';
 import { parseApiDateTime } from '../utils/dateTime';
 import toast from 'react-hot-toast';
+import { Plus } from 'lucide-react';
+import { BookingPageHeader } from '../components/booking/BookingPageHeader';
+import { Button } from '../components/ui/Button';
 
 const locales = { 'vi': vi };
 const localizer = dateFnsLocalizer({
@@ -73,6 +76,9 @@ function CarBooking() {
   const [bookings, setBookings] = useState([]);
   const [selectedCar, setSelectedCar] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [searchValue, setSearchValue] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const { view, setView, layoutRevision } = useResponsiveCalendarView();
   const [date, setDate] = useState(new Date());
   const bookingRequestSeq = useRef(0);
@@ -90,6 +96,7 @@ function CarBooking() {
       } catch (err) {
         if (isRequestCanceled(err)) return;
         console.error("Lỗi tải danh sách xe:", err);
+        setError('Không tải được danh sách xe công tác.');
       }
     };
 
@@ -105,6 +112,8 @@ function CarBooking() {
 
     const fetchBookings = async () => {
       const range = getCalendarRange(date, view);
+      setLoading(true);
+      setError('');
 
       try {
         const bookingsData = await bookingApi.getCarBookings({
@@ -119,6 +128,11 @@ function CarBooking() {
       } catch (err) {
         if (isRequestCanceled(err) || requestSeq !== bookingRequestSeq.current) return;
         console.error("Lỗi tải dữ liệu lịch xe:", err);
+        setError('Không tải được dữ liệu lịch xe.');
+      } finally {
+        if (!controller.signal.aborted && requestSeq === bookingRequestSeq.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -135,13 +149,19 @@ function CarBooking() {
     user: b.requester?.fullName || 'User',
     avatarUrl: b.requester?.avatarUrl,
     status: b.status,
-    vehicleId: b.vehicle?.id
+    vehicleId: b.vehicle?.id,
+    resourceType: 'car'
   })), [bookings]);
 
-  const filteredEvents = useMemo(() => events.filter(e =>
-    e.status !== 'REJECTED' && e.status !== 'CANCELLED' &&
-    (selectedCar ? e.vehicleId === selectedCar : true)
-  ), [events, selectedCar]);
+  const filteredEvents = useMemo(() => {
+    const keyword = searchValue.trim().toLocaleLowerCase('vi');
+    return events.filter((event) => (
+      event.status !== 'REJECTED'
+      && event.status !== 'CANCELLED'
+      && (selectedCar ? event.vehicleId === selectedCar : true)
+      && (!keyword || `${event.title || ''} ${event.user || ''}`.toLocaleLowerCase('vi').includes(keyword))
+    ));
+  }, [events, searchValue, selectedCar]);
 
   const calendarComponents = useMemo(() => ({
     event: CustomEvent,
@@ -170,10 +190,27 @@ function CarBooking() {
   }, [navigate]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-white">
-      {/* Calendar Grid */}
-      <div className="flex-1 bg-white p-4 sm:px-6 overflow-y-auto overflow-x-hidden flex flex-col">
-        <CustomToolbar 
+    <div className="flex min-h-full w-full flex-col bg-[var(--cfc-canvas)] px-3 py-4 sm:px-5 sm:py-5 xl:px-6">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col">
+        <BookingPageHeader
+          title="Lịch xe công tác"
+          description="Theo dõi lịch xe, hành trình và tạo yêu cầu công tác theo khung thời gian."
+          actions={(
+            <Button onClick={handleCreateClick}>
+              <Plus className="h-4 w-4" />
+              Đặt xe
+            </Button>
+          )}
+          className="mb-4"
+        />
+
+        {error && (
+          <div role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <CustomToolbar
           date={date}
           view={view}
           onNavigate={setDate}
@@ -183,39 +220,43 @@ function CarBooking() {
           onResourceChange={setSelectedCar}
           selectedStatus={selectedStatus}
           onStatusChange={setSelectedStatus}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
           resourceType="car"
-          onCreateClick={handleCreateClick}
+          loading={loading}
         />
 
-        <Calendar
-          key={`car-calendar-${layoutRevision}`}
-          localizer={localizer}
-          events={filteredEvents}
-          messages={messages}
-          defaultView="week"
-          views={['month', 'week', 'day']}
-          view={view}
-          onView={setView}
-          date={date}
-          onNavigate={setDate}
-          step={30}
-          timeslots={2}
-          min={new Date(1970, 0, 1, 0, 0)}
-          max={new Date(1970, 0, 1, 23, 59)}
-          showMultiDayTimes={true}
-          selectable
-          popup
-          showAllEvents={false}
-          allDayMaxRows={1}
-          dayLayoutAlgorithm="no-overlap"
-          onSelectSlot={handleSelectSlot}
-          onSelectEvent={handleSelectEvent}
-          scrollToTime={new Date(1970, 1, 1, 6)}
-          formats={calendarFormats}
-          toolbar={false}
-          components={calendarComponents}
-          className="booking-calendar h-full font-sans text-sm"
-        />
+        <section className="min-h-[620px] flex-1 overflow-hidden rounded-xl border border-[var(--cfc-border)] bg-white shadow-[var(--cfc-shadow-sm)] sm:min-h-[680px]">
+          <Calendar
+            key={`car-calendar-${layoutRevision}`}
+            localizer={localizer}
+            events={filteredEvents}
+            messages={messages}
+            defaultView="week"
+            views={['month', 'week', 'day']}
+            view={view}
+            onView={setView}
+            date={date}
+            onNavigate={setDate}
+            step={30}
+            timeslots={2}
+            min={new Date(1970, 0, 1, 0, 0)}
+            max={new Date(1970, 0, 1, 23, 59)}
+            showMultiDayTimes={true}
+            selectable
+            popup
+            showAllEvents={false}
+            allDayMaxRows={1}
+            dayLayoutAlgorithm="no-overlap"
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            scrollToTime={new Date(1970, 1, 1, 6)}
+            formats={calendarFormats}
+            toolbar={false}
+            components={calendarComponents}
+            className={`booking-calendar booking-calendar--${view} h-full font-sans text-sm`}
+          />
+        </section>
       </div>
     </div>
   );

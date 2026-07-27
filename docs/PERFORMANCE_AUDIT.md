@@ -2,6 +2,8 @@
 
 Cập nhật: 2026-07-20
 
+> Trạng thái từ `2026-07-27`: đây là baseline lịch sử của mã legacy Booking. Không dùng các đề xuất Booking trong file này làm roadmap mới. Phạm vi active chỉ còn HR và hạ tầng dùng chung phục vụ HR.
+
 File này là audit tiếng Việt, dùng để định hướng tối ưu. Giữ nguyên thuật ngữ: `P0`, `P1`, `JWT`, `DTO`, `WebSocket`, `PWA`, `Service Worker`, `runtime cache`, `EXPLAIN`, `React Profiler`.
 
 ## 1. Tóm Tắt Điều Hành

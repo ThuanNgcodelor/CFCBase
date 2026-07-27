@@ -2,7 +2,9 @@
 
 Cập nhật: 2026-07-27
 
-Trạng thái: **Hoàn thành Phase 0–3 — baseline, concept, design system và app shell**
+Trạng thái: **ĐÃ DỪNG PHÁT TRIỂN từ 2026-07-27. Phase 0–5 được giữ làm lịch sử; Booking Phase 6–10 bị hủy và không triển khai.**
+
+> Quyết định sản phẩm: dự án hiện chỉ tiếp tục phân hệ Quản lý nhân sự. Không tiếp tục redesign, mở rộng hoặc tối ưu nghiệp vụ Booking. Mã Booking cũ chưa bị xóa để tránh ảnh hưởng thành phần dùng chung và dữ liệu lịch sử.
 
 Visual reference được người dùng chọn:
 
@@ -156,10 +158,28 @@ Dữ liệu trong ảnh chỉ là dữ liệu minh họa. Khi triển khai, copy
 - ADMIN, MANAGER và EMPLOYEE tiếp tục dùng đúng route/guard cũ.
 - Chi tiết kiểm thử và danh sách file: `docs/BOOKING_UI_PHASE_2_3_IMPLEMENTATION.md`.
 
+### Phase 4 — Dashboard và calendar
+
+- Dashboard Admin/Employee đã dùng cùng ngôn ngữ `CFC Operations Desk`, có chỉ số vận hành, quick action và activity/upcoming ledger.
+- Calendar phòng/xe đã có command rail thống nhất: tài nguyên, trạng thái, tìm kiếm, chế độ ngày/tuần/tháng và điều hướng kỳ.
+- Giữ nguyên range-based fetch, stale-request guard, memoized event mapping và kiểm tra chọn khung giờ quá khứ.
+- Mobile/PWA ưu tiên chế độ ngày, không ép calendar tuần thành giao diện thu nhỏ khó đọc.
+
+### Phase 5 — Form, chi tiết và khu duyệt
+
+- Form phòng/xe đã chuyển thành document form + summary, một cột trên mobile và sticky action phía trên safe area.
+- Request tạo booking không còn gửi `requesterId`; backend tiếp tục lấy requester từ authenticated principal.
+- Chi tiết booking đã thành dossier có thông tin, timeline, người xử lý và action panel theo đúng role hiện có.
+- Trang duyệt có filter ledger, card mobile, lịch sử xử lý và drawer xem nhanh; drawer chuyển thành full-screen sheet trên mobile.
+- Dashboard client dùng authenticated principal; dashboard Admin bị khóa `ADMIN` ở SecurityConfig.
+- Chi tiết triển khai và kiểm thử: `docs/BOOKING_UI_PHASE_4_5_IMPLEMENTATION.md`.
+
 ## 8. Phạm vi chưa triển khai
 
-- Chưa redesign nội dung riêng của Dashboard, calendar, form booking, booking detail và admin ledgers; đây là các phase tiếp theo.
-- Không thay đổi backend/API.
+Các mục dưới đây được lưu để tham chiếu lịch sử và **không còn là backlog active**:
+
+- Chưa redesign sâu nội dung Notifications, Profile, Admin Users và Admin Profile Approvals.
+- Chưa tách bundle Booking lớn thành các route chunk riêng; build hiện vẫn cảnh báo main chunk lớn.
 - Không đổi route, role, redirect, deep link hoặc nghiệp vụ.
-- Không đổi logic calendar, create, approve, reject hoặc cancel.
+- Không đổi semantics create, approve, reject hoặc cancel.
 - Chưa deploy/restart server production.

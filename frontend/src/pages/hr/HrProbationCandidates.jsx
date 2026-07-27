@@ -2,28 +2,30 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
+  BriefcaseBusiness,
   CheckCircle2,
+  ClipboardCheck,
   Download,
   FileText,
+  IdCard,
   PencilLine,
   PlayCircle,
   Plus,
   Search,
   UserCheck,
   UserPlus,
-  X,
   XCircle,
 } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrDrawer, HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { normalizePage } from '../../api/hrApiUtils';
 import { hrProbationApi } from '../../api/hrProbationApi';
 import { apiErrorMessage, formatHrDate, formatHrDateTime, nonEmpty, statusLabel } from '../../utils/hr';
 
-const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
-const TEXTAREA_CLASS = 'min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
+const INPUT_CLASS = 'h-11 w-full rounded-lg border border-gray-300 px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:h-10 sm:text-sm';
+const TEXTAREA_CLASS = 'min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
 
 const EMPTY_CANDIDATE_FORM = {
   candidateCode: '',
@@ -171,11 +173,19 @@ function Field({ label, wide = false, children }) {
   );
 }
 
-function FormSection({ title, description, children }) {
+function FormSection({ icon: Icon, step, title, description, children }) {
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="font-semibold text-gray-900">{title}</h2>
-      {description && <p className="mt-1 text-xs leading-5 text-gray-500">{description}</p>}
+    <section className="rounded-xl border border-[var(--cfc-border)] bg-white p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+          {Icon ? <Icon className="h-4 w-4" /> : step}
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Mục {step}/3</p>
+          <h2 className="mt-0.5 font-semibold text-[var(--cfc-ink)]">{title}</h2>
+          {description && <p className="mt-1 text-xs leading-5 text-[var(--cfc-muted)]">{description}</p>}
+        </div>
+      </div>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">{children}</div>
     </section>
   );
@@ -310,7 +320,6 @@ export default function HrProbationCandidates() {
       setCandidateForm(formFromCandidate(detail));
       setShowCandidateForm(true);
       selectTab('candidates');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (requestError) {
       toast.error(apiErrorMessage(requestError, 'Không thể tải chi tiết ứng viên.'));
     } finally {
@@ -455,7 +464,7 @@ export default function HrProbationCandidates() {
       <SEOHead title="CFC Base | Ứng viên thử việc" url="https://cfcbooking.io.vn/manager/hr/probation" />
       <HrPageHeader
         title="Ứng viên thử việc"
-        description="Tạo hồ sơ ứng viên, sinh hợp đồng thử việc từ file Word mẫu, theo dõi kết quả thử việc rồi chuyển thành hồ sơ nhân sự nháp khi đạt."
+        description="Quản lý ứng viên từ lúc tiếp nhận, tạo hợp đồng Word đến khi chuyển thành hồ sơ nhân sự nháp."
         actions={(
           <>
             <Button type="button" variant="secondary" onClick={() => selectTab('templates')}>
@@ -468,14 +477,74 @@ export default function HrProbationCandidates() {
         )}
       />
 
-      <div className="mb-4 flex max-w-full flex-wrap gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-        <button type="button" onClick={() => selectTab('candidates')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'candidates' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-          Ứng viên
+      <nav className="mb-5 flex max-w-full gap-6 overflow-x-auto border-b border-[var(--cfc-border)]" aria-label="Khu vực thử việc">
+        <button type="button" onClick={() => selectTab('candidates')} className={`relative whitespace-nowrap px-1 pb-3 text-sm font-semibold transition ${activeTab === 'candidates' ? 'text-emerald-700 after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-emerald-600' : 'text-[var(--cfc-muted)] hover:text-[var(--cfc-ink)]'}`}>
+          Ứng viên <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{result.totalElements}</span>
         </button>
-        <button type="button" onClick={() => selectTab('templates')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === 'templates' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-          Mẫu công việc thử việc
+        <button type="button" onClick={() => selectTab('templates')} className={`relative whitespace-nowrap px-1 pb-3 text-sm font-semibold transition ${activeTab === 'templates' ? 'text-emerald-700 after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-emerald-600' : 'text-[var(--cfc-muted)] hover:text-[var(--cfc-ink)]'}`}>
+          Mẫu công việc <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{sortedTemplates.length}</span>
         </button>
-      </div>
+      </nav>
+
+      <HrDrawer
+        isOpen={showCandidateForm}
+        onClose={closeCandidateForm}
+        size="wide"
+        title={candidateEditingId ? 'Chỉnh sửa ứng viên thử việc' : 'Thêm ứng viên thử việc'}
+        description="Hoàn thiện 3 nhóm thông tin để tạo hồ sơ và sinh hợp đồng Word chính xác."
+      >
+        <form onSubmit={saveCandidate} className="flex min-h-full flex-col">
+          <div className="flex-1 space-y-5 p-4 sm:p-6">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-4 text-xs font-medium text-emerald-800">
+                <span>Thông tin ứng viên</span>
+                <span>3 mục</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-emerald-100">
+                <div className="h-full w-full rounded-full bg-emerald-600" />
+              </div>
+            </div>
+
+            <FormSection icon={ClipboardCheck} step="1" title="Thông tin ứng viên">
+              <Field label="Mã ứng viên"><input maxLength={32} value={candidateForm.candidateCode} onChange={(event) => updateCandidateForm('candidateCode', event.target.value.toUpperCase())} placeholder="Để trống hệ thống tự tạo" className={INPUT_CLASS} /></Field>
+              <Field label="Họ và tên *"><input required maxLength={255} value={candidateForm.fullName} onChange={(event) => updateCandidateForm('fullName', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Xưng hô"><input maxLength={16} value={candidateForm.candidateTitle} onChange={(event) => updateCandidateForm('candidateTitle', event.target.value)} placeholder="Ông/Bà" className={INPUT_CLASS} /></Field>
+              <Field label="Giới tính"><select value={candidateForm.gender} onChange={(event) => updateCandidateForm('gender', event.target.value)} className={INPUT_CLASS}><option value="UNKNOWN">Chưa xác định</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></Field>
+              <Field label="Ngày sinh"><input type="date" value={candidateForm.dateOfBirth} onChange={(event) => updateCandidateForm('dateOfBirth', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Quốc tịch"><input maxLength={100} value={candidateForm.nationality} onChange={(event) => updateCandidateForm('nationality', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Nơi sinh" wide><input maxLength={500} value={candidateForm.birthPlace} onChange={(event) => updateCandidateForm('birthPlace', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Địa chỉ thường trú" wide><textarea value={candidateForm.permanentAddress} onChange={(event) => updateCandidateForm('permanentAddress', event.target.value)} className={TEXTAREA_CLASS} /></Field>
+              <Field label="Số điện thoại"><input maxLength={32} value={candidateForm.phone} onChange={(event) => updateCandidateForm('phone', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Email"><input type="email" maxLength={320} value={candidateForm.email} onChange={(event) => updateCandidateForm('email', event.target.value)} className={INPUT_CLASS} /></Field>
+            </FormSection>
+
+            <FormSection icon={IdCard} step="2" title="CCCD / định danh" description="Thông tin này được dùng để điền vào hợp đồng thử việc.">
+              <Field label="Số CCCD"><input maxLength={32} value={candidateForm.citizenId} onChange={(event) => updateCandidateForm('citizenId', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Ngày cấp CCCD"><input type="date" value={candidateForm.citizenIdIssuedDate} onChange={(event) => updateCandidateForm('citizenIdIssuedDate', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Nơi cấp CCCD" wide><input maxLength={255} value={candidateForm.citizenIdIssuedPlace} onChange={(event) => updateCandidateForm('citizenIdIssuedPlace', event.target.value)} className={INPUT_CLASS} /></Field>
+            </FormSection>
+
+            <FormSection icon={BriefcaseBusiness} step="3" title="Công việc thử việc" description="Chọn mẫu công việc để tự điền phòng ban, chức vụ, lương và nội dung công việc.">
+              <Field label="Mẫu công việc"><select value={candidateForm.jobTemplateId} onChange={(event) => applyJobTemplate(event.target.value)} className={INPUT_CLASS}><option value="">Không dùng mẫu</option>{sortedTemplates.filter((item) => item.status !== 'INACTIVE').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+              <Field label="Loại hợp đồng thử việc"><input maxLength={100} value={candidateForm.probationContractType} onChange={(event) => updateCandidateForm('probationContractType', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Phòng ban HR"><CatalogSelect value={candidateForm.departmentId} onChange={(value) => updateCandidateForm('departmentId', value)} items={catalogs.departments} /></Field>
+              <Field label="Chức vụ HR"><CatalogSelect value={candidateForm.positionId} onChange={(value) => updateCandidateForm('positionId', value)} items={catalogs.positions} /></Field>
+              <Field label="Điều kiện lao động"><CatalogSelect value={candidateForm.workingConditionId} onChange={(value) => updateCandidateForm('workingConditionId', value)} items={catalogs.conditions} /></Field>
+              <Field label="Lương thử việc"><input type="number" min="0" step="1" value={candidateForm.baseSalary} onChange={(event) => updateCandidateForm('baseSalary', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Ngày bắt đầu"><input type="date" value={candidateForm.probationStartDate} onChange={(event) => updateCandidateForm('probationStartDate', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Ngày kết thúc"><input type="date" value={candidateForm.probationEndDate} onChange={(event) => updateCandidateForm('probationEndDate', event.target.value)} className={INPUT_CLASS} /></Field>
+              <Field label="Ghi chú lương" wide><input maxLength={255} value={candidateForm.salaryNote} onChange={(event) => updateCandidateForm('salaryNote', event.target.value)} placeholder="Ví dụ: /tháng, chưa bao gồm phụ cấp..." className={INPUT_CLASS} /></Field>
+              <Field label="Công việc phải làm" wide><textarea value={candidateForm.jobDescription} onChange={(event) => updateCandidateForm('jobDescription', event.target.value)} className={TEXTAREA_CLASS} /></Field>
+              <Field label="Quy định riêng phòng ban" wide><textarea value={candidateForm.departmentRuleNote} onChange={(event) => updateCandidateForm('departmentRuleNote', event.target.value)} className={TEXTAREA_CLASS} /></Field>
+            </FormSection>
+          </div>
+
+          <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-[var(--cfc-border)] bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:justify-end sm:px-6">
+            <Button type="button" variant="secondary" onClick={closeCandidateForm} disabled={candidateSaving} className="w-full sm:w-auto">Hủy</Button>
+            <Button type="submit" disabled={candidateSaving} className="w-full sm:w-auto"><UserCheck className="mr-1.5 h-4 w-4" />{candidateSaving ? 'Đang lưu...' : candidateEditingId ? 'Lưu ứng viên' : 'Thêm ứng viên'}</Button>
+          </div>
+        </form>
+      </HrDrawer>
 
       {optionsError && (
         <div className="mb-4">
@@ -485,62 +554,10 @@ export default function HrProbationCandidates() {
 
       {activeTab === 'candidates' && (
         <>
-          {showCandidateForm && (
-            <form onSubmit={saveCandidate} className="mb-5 space-y-5 rounded-xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold text-gray-900">{candidateEditingId ? 'Chỉnh sửa ứng viên thử việc' : 'Thêm ứng viên thử việc'}</h2>
-                  <p className="mt-1 text-sm text-gray-500">Điền đủ thông tin CCCD, địa chỉ, ngày thử việc và công việc để có thể sinh hợp đồng Word.</p>
-                </div>
-                <button type="button" className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100" onClick={closeCandidateForm}>
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <FormSection title="Thông tin ứng viên">
-                <Field label="Mã ứng viên"><input maxLength={32} value={candidateForm.candidateCode} onChange={(event) => updateCandidateForm('candidateCode', event.target.value.toUpperCase())} placeholder="Để trống hệ thống tự tạo" className={INPUT_CLASS} /></Field>
-                <Field label="Họ và tên *"><input required maxLength={255} value={candidateForm.fullName} onChange={(event) => updateCandidateForm('fullName', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Xưng hô"><input maxLength={16} value={candidateForm.candidateTitle} onChange={(event) => updateCandidateForm('candidateTitle', event.target.value)} placeholder="Ông/Bà" className={INPUT_CLASS} /></Field>
-                <Field label="Giới tính"><select value={candidateForm.gender} onChange={(event) => updateCandidateForm('gender', event.target.value)} className={INPUT_CLASS}><option value="UNKNOWN">Chưa xác định</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></Field>
-                <Field label="Ngày sinh"><input type="date" value={candidateForm.dateOfBirth} onChange={(event) => updateCandidateForm('dateOfBirth', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Quốc tịch"><input maxLength={100} value={candidateForm.nationality} onChange={(event) => updateCandidateForm('nationality', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Nơi sinh" wide><input maxLength={500} value={candidateForm.birthPlace} onChange={(event) => updateCandidateForm('birthPlace', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Địa chỉ thường trú" wide><textarea value={candidateForm.permanentAddress} onChange={(event) => updateCandidateForm('permanentAddress', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-                <Field label="Số điện thoại"><input maxLength={32} value={candidateForm.phone} onChange={(event) => updateCandidateForm('phone', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Email"><input type="email" maxLength={320} value={candidateForm.email} onChange={(event) => updateCandidateForm('email', event.target.value)} className={INPUT_CLASS} /></Field>
-              </FormSection>
-
-              <FormSection title="CCCD / định danh">
-                <Field label="Số CCCD"><input maxLength={32} value={candidateForm.citizenId} onChange={(event) => updateCandidateForm('citizenId', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Ngày cấp CCCD"><input type="date" value={candidateForm.citizenIdIssuedDate} onChange={(event) => updateCandidateForm('citizenIdIssuedDate', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Nơi cấp CCCD" wide><input maxLength={255} value={candidateForm.citizenIdIssuedPlace} onChange={(event) => updateCandidateForm('citizenIdIssuedPlace', event.target.value)} className={INPUT_CLASS} /></Field>
-              </FormSection>
-
-              <FormSection title="Công việc thử việc" description="Có thể chọn mẫu công việc để tự điền phòng ban, chức vụ, lương và nội dung công việc.">
-                <Field label="Mẫu công việc"><select value={candidateForm.jobTemplateId} onChange={(event) => applyJobTemplate(event.target.value)} className={INPUT_CLASS}><option value="">Không dùng mẫu</option>{sortedTemplates.filter((item) => item.status !== 'INACTIVE').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-                <Field label="Loại hợp đồng thử việc"><input maxLength={100} value={candidateForm.probationContractType} onChange={(event) => updateCandidateForm('probationContractType', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Phòng ban HR"><CatalogSelect value={candidateForm.departmentId} onChange={(value) => updateCandidateForm('departmentId', value)} items={catalogs.departments} /></Field>
-                <Field label="Chức vụ HR"><CatalogSelect value={candidateForm.positionId} onChange={(value) => updateCandidateForm('positionId', value)} items={catalogs.positions} /></Field>
-                <Field label="Điều kiện lao động"><CatalogSelect value={candidateForm.workingConditionId} onChange={(value) => updateCandidateForm('workingConditionId', value)} items={catalogs.conditions} /></Field>
-                <Field label="Lương thử việc"><input type="number" min="0" step="1" value={candidateForm.baseSalary} onChange={(event) => updateCandidateForm('baseSalary', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Ngày bắt đầu"><input type="date" value={candidateForm.probationStartDate} onChange={(event) => updateCandidateForm('probationStartDate', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Ngày kết thúc"><input type="date" value={candidateForm.probationEndDate} onChange={(event) => updateCandidateForm('probationEndDate', event.target.value)} className={INPUT_CLASS} /></Field>
-                <Field label="Ghi chú lương" wide><input maxLength={255} value={candidateForm.salaryNote} onChange={(event) => updateCandidateForm('salaryNote', event.target.value)} placeholder="Ví dụ: /tháng, chưa bao gồm phụ cấp..." className={INPUT_CLASS} /></Field>
-                <Field label="Công việc phải làm" wide><textarea value={candidateForm.jobDescription} onChange={(event) => updateCandidateForm('jobDescription', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-                <Field label="Quy định riêng phòng ban" wide><textarea value={candidateForm.departmentRuleNote} onChange={(event) => updateCandidateForm('departmentRuleNote', event.target.value)} className={TEXTAREA_CLASS} /></Field>
-              </FormSection>
-
-              <div className="sticky bottom-0 z-10 flex flex-col justify-end gap-2 rounded-xl border border-gray-200 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg backdrop-blur sm:flex-row">
-                <Button type="button" variant="secondary" onClick={closeCandidateForm} disabled={candidateSaving} className="w-full sm:w-auto">Đóng</Button>
-                <Button type="submit" disabled={candidateSaving} className="w-full sm:w-auto"><UserCheck className="mr-1.5 h-4 w-4" />{candidateSaving ? 'Đang lưu...' : candidateEditingId ? 'Lưu ứng viên' : 'Thêm ứng viên'}</Button>
-              </div>
-            </form>
-          )}
-
-          <form onSubmit={applyFilters} className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-[minmax(260px,1fr)_180px_220px_180px_auto_auto]">
+          <form onSubmit={applyFilters} className="hr-filter-grid hr-filter-grid--probation mb-4 grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <label className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="Tìm mã hoặc tên ứng viên" className="h-10 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-sm outline-none focus:border-emerald-500" />
+              <input value={filters.keyword} onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))} placeholder="Tìm mã hoặc tên ứng viên" className="h-11 w-full rounded-lg border border-gray-200 pl-9 pr-3 text-base outline-none focus:border-emerald-500 sm:h-10 sm:text-sm" />
             </label>
             <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))} className={INPUT_CLASS}>
               <option value="">Tất cả trạng thái</option>
@@ -564,7 +581,7 @@ export default function HrProbationCandidates() {
 
           {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
 
-          <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
+          <div className="hr-responsive-table hr-responsive-table--extra-wide cfc-scrollbar overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
             <table className="w-full min-w-[1180px] divide-y divide-gray-200">
               <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 <tr>
@@ -594,7 +611,7 @@ export default function HrProbationCandidates() {
             </table>
           </div>
 
-          <div className="space-y-3 md:hidden">
+          <div className="hr-responsive-cards hr-responsive-cards--extra-wide space-y-3">
             {loading ? (
               <div className="rounded-xl border border-gray-200 bg-white py-10 text-center text-sm text-gray-500">Đang tải ứng viên thử việc...</div>
             ) : result.content.map((candidate) => (
@@ -620,7 +637,7 @@ export default function HrProbationCandidates() {
             <Button type="button" onClick={openCreateTemplate}><Plus className="mr-1.5 h-4 w-4" />Thêm mẫu công việc</Button>
           </div>
 
-          <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm md:block">
+          <div className="hr-responsive-table hr-responsive-table--compact cfc-scrollbar overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
             <table className="w-full min-w-[980px] divide-y divide-gray-200">
               <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 <tr>
@@ -658,7 +675,7 @@ export default function HrProbationCandidates() {
             </table>
           </div>
 
-          <div className="space-y-3 md:hidden">
+          <div className="hr-responsive-cards hr-responsive-cards--compact space-y-3">
             {sortedTemplates.map((template) => (
               <div key={template.id} className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm">
                 <div className="flex items-start justify-between gap-3">

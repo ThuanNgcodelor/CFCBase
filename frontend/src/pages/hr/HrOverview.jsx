@@ -3,19 +3,16 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   ArrowUpDown,
-  Building2,
   CircleDashed,
   ContactRound,
-  FileCheck2,
   TableProperties,
   UserCheck,
   UserMinus,
   UserPlus,
 } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
-import { HrError, HrLoading, HrPageHeader, HrPageShell, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrError, HrLoading, HrPageHeader, HrPageShell } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
-import { formatHrDateTime, formatPeriod, nonEmpty } from '../../utils/hr';
 
 function overviewValue(data, ...paths) {
   for (const path of paths) {
@@ -80,9 +77,6 @@ export default function HrOverview() {
       });
     return () => controller.abort();
   }, [reloadKey]);
-
-  const latestImport = data?.latestImport || data?.latestImportBatch;
-  const currentRoster = data?.currentRoster || data?.latestRoster;
 
   return (
     <HrPageShell>

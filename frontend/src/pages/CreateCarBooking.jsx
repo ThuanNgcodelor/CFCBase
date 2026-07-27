@@ -1,12 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Clock, MapPin, Truck, AlignLeft } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  AlignLeft,
+  CalendarDays,
+  Clock,
+  Info,
+  MapPin,
+  Navigation,
+  Timer,
+  Truck,
+  Users,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '../components/ui/Button';
+import { BookingFormShell, BookingSummaryItem } from '../components/booking/BookingFormShell';
 import { resourceApi } from '../api/resourceApi';
 import { bookingApi } from '../api/bookingApi';
-import { authApi } from '../api/authApi';
-import { parseApiDateTime, toApiLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime';
-import toast from 'react-hot-toast';
+import {
+  formatViDate,
+  formatViTime,
+  parseApiDateTime,
+  toApiLocalDateTime,
+  toDateTimeLocalValue,
+} from '../utils/dateTime';
+
+const INPUT_CLASS = 'min-h-11 w-full rounded-lg border border-[var(--cfc-border)] bg-white px-3 py-2 text-sm text-[var(--cfc-ink)] shadow-sm outline-none transition-[border-color,box-shadow] placeholder:text-slate-400 focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100';
+const ICON_INPUT_CLASS = `${INPUT_CLASS} pl-10`;
 
 export default function CreateCarBooking() {
   const navigate = useNavigate();
@@ -19,7 +38,6 @@ export default function CreateCarBooking() {
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
   const [formData, setFormData] = useState({
     title: '',
     vehicleId: '',
@@ -27,226 +45,219 @@ export default function CreateCarBooking() {
     destination: '',
     startTime: toDateTimeLocalValue(preSelectedStart),
     endTime: toDateTimeLocalValue(preSelectedEnd),
-    note: ''
+    note: '',
   });
 
   useEffect(() => {
-    const fetchCars = async () => {
-      try {
-        const data = await resourceApi.getCars();
+    let active = true;
+    resourceApi.getCars()
+      .then((data) => {
+        if (!active) return;
         setCars(data || []);
-        if (data && data.length > 0) {
-          setFormData(prev => ({ ...prev, vehicleId: data[0].id }));
+        if (data?.length > 0) {
+          setFormData((current) => ({ ...current, vehicleId: current.vehicleId || data[0].id }));
         }
-      } catch (err) {
-        console.error("Lỗi tải danh sách xe:", err);
-      }
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.response?.data?.message || 'Không tải được danh sách xe công tác.');
+      });
+    return () => {
+      active = false;
     };
-    fetchCars();
   }, []);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const selectedCar = useMemo(
+    () => cars.find((car) => String(car.id) === String(formData.vehicleId)),
+    [cars, formData.vehicleId],
+  );
+  const start = parseApiDateTime(formData.startTime);
+  const end = parseApiDateTime(formData.endTime);
+  const durationMinutes = Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
+    ? 0
+    : Math.max(0, Math.round((end - start) / 60000));
+
+  const handleChange = (event) => {
+    setFormData((current) => ({ ...current, [event.target.name]: event.target.value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
-      const user = authApi.getUser();
       const startTime = toApiLocalDateTime(formData.startTime);
       const endTime = toApiLocalDateTime(formData.endTime);
       if (parseApiDateTime(startTime) >= parseApiDateTime(endTime)) {
         throw new Error('Thời gian bắt đầu phải trước thời gian kết thúc.');
       }
 
-      const payload = {
-        requesterId: user?.id,
+      await bookingApi.createCarBooking({
         vehicleId: formData.vehicleId,
-        title: formData.title,
-        departure: formData.departure,
-        destination: formData.destination,
+        title: formData.title.trim(),
+        departure: formData.departure.trim(),
+        destination: formData.destination.trim(),
         startTime,
         endTime,
-        note: formData.note
-      };
-      
-      await bookingApi.createCarBooking(payload);
+        note: formData.note.trim(),
+      });
       toast.success('Đăng ký xe thành công!');
       navigate('/cars');
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Có lỗi xảy ra. Vui lòng kiểm tra lại!');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message || 'Có lỗi xảy ra. Vui lòng kiểm tra lại!');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto p-4 sm:p-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <button 
-          onClick={() => navigate(-1)} 
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Đăng kí Xe công tác</h1>
-          <p className="text-sm text-gray-500 mt-1">Vui lòng cung cấp chi tiết hành trình chuyến đi.</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
-        {error && (
-          <div className="mb-6 p-3 rounded bg-red-50 text-red-600 border border-red-100 text-sm">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Tên chuyến đi */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tiêu đề (Mục đích chuyến đi) <span className="text-red-500">*</span></label>
-            <input 
-              type="text"
-              name="title" 
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="VD: Đi tiếp khách tại Đồng Tháp..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Chọn Xe */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Đề xuất Xe <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Truck className="w-5 h-5 text-gray-400" />
-              </div>
-              <select 
-                name="vehicleId"
-                value={formData.vehicleId}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none bg-white"
-                required
-              >
-                {cars.map(car => (
-                  <option key={car.id} value={car.id}>
-                    {car.vehicleType?.name || 'Xe'} - {car.licensePlate} ({car.seatCount} chỗ)
-                  </option>
-                ))}
-                {cars.length === 0 && <option value="">Đang tải hoặc không có xe...</option>}
-              </select>
-            </div>
-          </div>
-
-          {/* Hành trình */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Điểm đón <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MapPin className="w-5 h-5 text-green-500" />
-                </div>
-                <input 
-                  type="text" 
-                  name="departure"
-                  value={formData.departure}
-                  onChange={handleChange}
-                  placeholder="VD: Trụ sở công ty"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Điểm đến <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MapPin className="w-5 h-5 text-red-500" />
-                </div>
-                <input 
-                  type="text" 
-                  name="destination"
-                  value={formData.destination}
-                  onChange={handleChange}
-                  placeholder="VD: UBND Tỉnh Đồng Tháp"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Thời gian */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Thời gian xuất phát <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                </div>
-                <input 
-                  type="datetime-local" 
-                  name="startTime"
-                  value={formData.startTime}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Dự kiến kết thúc <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                </div>
-                <input 
-                  type="datetime-local" 
-                  name="endTime"
-                  value={formData.endTime}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Ghi chú */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả chi tiết chuyến đi</label>
-            <div className="relative">
-              <div className="absolute top-3 left-3 pointer-events-none">
-                <AlignLeft className="w-5 h-5 text-gray-400" />
-              </div>
-              <textarea 
-                name="note"
-                value={formData.note}
-                onChange={handleChange}
-                rows="4"
-                placeholder="VD: Gồm 3 người đi, dự kiến ở lại qua đêm..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              ></textarea>
-            </div>
-          </div>
-
-          <hr className="border-gray-100" />
-
-          {/* Submit */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" type="button" onClick={() => navigate(-1)} disabled={loading}>Hủy bỏ</Button>
-            <Button type="submit" disabled={loading}>{loading ? 'Đang gửi...' : 'Gửi đăng kí'}</Button>
-          </div>
-        </form>
-      </div>
-    </div>
+  const renderActions = () => (
+    <>
+      <Button variant="secondary" type="button" onClick={() => navigate(-1)} disabled={loading} className="flex-1 lg:flex-none">
+        Hủy bỏ
+      </Button>
+      <Button type="submit" disabled={loading || cars.length === 0} className="flex-1 lg:flex-none">
+        {loading ? 'Đang gửi...' : 'Gửi đăng ký'}
+      </Button>
+    </>
   );
+
+  return (
+    <BookingFormShell
+      title="Đặt xe công tác"
+      description="Cung cấp hành trình và thời gian; hệ thống sẽ kiểm tra lịch xe khi gửi."
+      onBack={() => navigate(-1)}
+      onSubmit={handleSubmit}
+      error={error}
+      renderActions={renderActions}
+      summary={(
+        <>
+          <BookingSummaryItem
+            icon={Truck}
+            label="Xe đề xuất"
+            value={selectedCar ? `${selectedCar.vehicleType?.name || 'Xe'} · ${selectedCar.licensePlate}` : 'Chưa chọn xe'}
+            accent="vehicle"
+          />
+          <BookingSummaryItem
+            icon={Users}
+            label="Số chỗ"
+            value={selectedCar?.seatCount ? `${selectedCar.seatCount} chỗ` : 'Chưa có thông tin'}
+            accent="vehicle"
+          />
+          <BookingSummaryItem
+            icon={Navigation}
+            label="Hành trình"
+            value={formData.departure || formData.destination ? `${formData.departure || 'Điểm đón'} → ${formData.destination || 'Điểm đến'}` : 'Chưa nhập hành trình'}
+            accent="vehicle"
+          />
+          <BookingSummaryItem
+            icon={CalendarDays}
+            label="Ngày xuất phát"
+            value={formData.startTime ? formatViDate(formData.startTime) : 'Chưa chọn ngày'}
+          />
+          <BookingSummaryItem
+            icon={Clock}
+            label="Thời gian"
+            value={formData.startTime && formData.endTime ? `${formatViTime(formData.startTime)} – ${formatViTime(formData.endTime)}` : 'Chưa chọn thời gian'}
+          />
+          <BookingSummaryItem icon={Timer} label="Thời lượng" value={formatDuration(durationMinutes)} accent="neutral" />
+          <div className="mt-3 flex gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <p className="leading-5">Lịch xe và xung đột thời gian sẽ được backend kiểm tra chính xác khi gửi đăng ký.</p>
+          </div>
+        </>
+      )}
+    >
+      <Field label="Mục đích chuyến đi *">
+        <input
+          required
+          maxLength={255}
+          name="title"
+          value={formData.title}
+          onChange={handleChange}
+          placeholder="Ví dụ: Công tác khách hàng Đồng Tháp"
+          className={INPUT_CLASS}
+        />
+      </Field>
+
+      <Field label="Đề xuất xe *" icon={Truck}>
+        <select required name="vehicleId" value={formData.vehicleId} onChange={handleChange} className={ICON_INPUT_CLASS}>
+          {cars.map((car) => (
+            <option key={car.id} value={car.id}>
+              {car.vehicleType?.name || 'Xe'} · {car.licensePlate} · {car.seatCount} chỗ
+            </option>
+          ))}
+          {cars.length === 0 && <option value="">Không có xe khả dụng</option>}
+        </select>
+      </Field>
+
+      <div className="relative grid gap-5 sm:grid-cols-2">
+        <span className="pointer-events-none absolute bottom-5 left-[calc(50%-1px)] top-5 hidden border-l border-dashed border-emerald-300 sm:block" />
+        <Field label="Điểm đón *" icon={MapPin}>
+          <input
+            required
+            maxLength={255}
+            name="departure"
+            value={formData.departure}
+            onChange={handleChange}
+            placeholder="Ví dụ: Trụ sở công ty"
+            className={ICON_INPUT_CLASS}
+          />
+        </Field>
+        <Field label="Điểm đến *" icon={Navigation}>
+          <input
+            required
+            maxLength={255}
+            name="destination"
+            value={formData.destination}
+            onChange={handleChange}
+            placeholder="Nhập địa điểm đến"
+            className={ICON_INPUT_CLASS}
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Thời gian xuất phát *" icon={Clock}>
+          <input required type="datetime-local" name="startTime" value={formData.startTime} onChange={handleChange} className={ICON_INPUT_CLASS} />
+        </Field>
+        <Field label="Dự kiến kết thúc *" icon={Clock}>
+          <input required type="datetime-local" name="endTime" value={formData.endTime} onChange={handleChange} className={ICON_INPUT_CLASS} />
+        </Field>
+      </div>
+
+      <Field label="Mô tả chi tiết chuyến đi" icon={AlignLeft}>
+        <textarea
+          name="note"
+          value={formData.note}
+          onChange={handleChange}
+          rows="5"
+          maxLength={500}
+          placeholder="Số người đi, yêu cầu hành lý hoặc thông tin cần lưu ý..."
+          className={`${ICON_INPUT_CLASS} min-h-32 resize-y py-3`}
+        />
+        <span className="mt-1 block text-right text-xs text-[var(--cfc-muted)]">{formData.note.length}/500</span>
+      </Field>
+    </BookingFormShell>
+  );
+}
+
+function Field({ label, icon: Icon, children }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-[var(--cfc-ink)]">{label}</span>
+      <span className="relative block">
+        {Icon && <Icon className="pointer-events-none absolute left-3 top-3.5 z-10 h-4 w-4 text-[var(--cfc-muted)]" />}
+        {children}
+      </span>
+    </label>
+  );
+}
+
+function formatDuration(minutes) {
+  if (!minutes) return 'Chưa xác định';
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  if (!hours) return `${remaining} phút`;
+  if (!remaining) return `${hours} giờ`;
+  return `${hours} giờ ${remaining} phút`;
 }

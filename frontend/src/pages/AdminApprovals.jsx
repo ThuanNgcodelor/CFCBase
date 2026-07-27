@@ -1,235 +1,359 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
-import { Building2, Car, Clock } from 'lucide-react';
+import { Building2, Car, ClipboardCheck, Eye, Search } from 'lucide-react';
 import { bookingApi } from '../api/bookingApi';
-import { formatViDateTime } from '../utils/dateTime';
+import { formatViDate, formatViTime, parseApiDateTime } from '../utils/dateTime';
+import { BookingEmptyState } from '../components/booking/BookingEmptyState';
+import { BookingPageHeader } from '../components/booking/BookingPageHeader';
+import { BookingStatusBadge } from '../components/booking/BookingStatusBadge';
+import { ApprovalPreviewDrawer } from '../components/admin/ApprovalPreviewDrawer';
 import AdminApprovalHistory from '../components/admin/AdminApprovalHistory';
+import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
+import { Surface } from '../components/ui/Surface';
 
 function buildCarPurpose(booking) {
   if (booking.title) return booking.title;
-  const route = [booking.departure, booking.destination].filter(Boolean).join(' - ');
+  const route = [booking.departure, booking.destination].filter(Boolean).join(' → ');
   return route || 'Đặt xe công tác';
+}
+
+function getDepartment(user) {
+  if (!user) return 'Nhân viên';
+  if (typeof user.department === 'string') return user.department;
+  return user.department?.name || user.departmentName || user.jobPosition || 'Nhân viên';
 }
 
 export default function AdminApprovals() {
   const navigate = useNavigate();
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('PENDING');
+  const [keyword, setKeyword] = useState('');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   useEffect(() => {
+    let active = true;
     const fetchPending = async () => {
+      setLoading(true);
+      setError('');
       try {
         const [rooms, cars] = await Promise.all([
           bookingApi.getRoomBookings(),
-          bookingApi.getCarBookings()
+          bookingApi.getCarBookings(),
         ]);
+        if (!active) return;
 
-        const mappedRooms = (rooms || []).filter(r => r.status === 'PENDING').map(r => ({
-          id: r.id,
-          type: 'ROOM',
-          resourceName: r.room?.name,
-          purpose: r.title,
-          timeInfo: `${formatViDateTime(r.startTime)} - ${formatViDateTime(r.endTime)}`,
-          booker: {
-            fullName: r.requester?.fullName,
-            department: r.requester?.department || 'Nhân viên',
-            avatar: r.requester?.avatarUrl,
-          },
-          raw: r
-        }));
+        const mappedRooms = (rooms || [])
+          .filter((room) => room.status === 'PENDING')
+          .map((room) => ({
+            id: room.id,
+            type: 'ROOM',
+            resourceName: room.room?.name || 'Chưa xác định phòng',
+            purpose: room.title || 'Đặt phòng họp',
+            startTime: room.startTime,
+            endTime: room.endTime,
+            booker: {
+              fullName: room.requester?.fullName || 'Không rõ người đặt',
+              department: getDepartment(room.requester),
+              avatar: room.requester?.avatarUrl,
+            },
+            raw: room,
+          }));
 
-        const mappedCars = (cars || []).filter(c => c.status === 'PENDING').map(c => ({
-          id: c.id,
-          type: 'CAR',
-          resourceName: c.vehicle ? `${c.vehicle.vehicleType?.name} - ${c.vehicle.licensePlate}` : 'Chưa xếp xe',
-          purpose: buildCarPurpose(c),
-          timeInfo: `${formatViDateTime(c.startTime)} - ${formatViDateTime(c.endTime)}`,
-          booker: {
-            fullName: c.requester?.fullName,
-            department: c.requester?.department || 'Nhân viên',
-            avatar: c.requester?.avatarUrl,
-          },
-          raw: c
-        }));
+        const mappedCars = (cars || [])
+          .filter((car) => car.status === 'PENDING')
+          .map((car) => ({
+            id: car.id,
+            type: 'CAR',
+            resourceName: car.vehicle
+              ? `${car.vehicle.vehicleType?.name || 'Xe'} · ${car.vehicle.licensePlate}`
+              : 'Chưa xếp xe',
+            purpose: buildCarPurpose(car),
+            startTime: car.startTime,
+            endTime: car.endTime,
+            booker: {
+              fullName: car.requester?.fullName || 'Không rõ người đặt',
+              department: getDepartment(car.requester),
+              avatar: car.requester?.avatarUrl,
+            },
+            raw: car,
+          }));
 
-        setPendingRequests([...mappedRooms, ...mappedCars]);
-      } catch (e) {
-        console.error("Lỗi lấy danh sách pending:", e);
+        setPendingRequests(
+          [...mappedRooms, ...mappedCars].sort(
+            (left, right) => parseApiDateTime(left.startTime) - parseApiDateTime(right.startTime),
+          ),
+        );
+      } catch (requestError) {
+        if (active) setError(requestError.response?.data?.message || 'Không tải được danh sách yêu cầu chờ duyệt.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchPending();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  return (
-    <div className="w-full flex-1 flex flex-col h-full">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Duyệt yêu cầu</h1>
-        <p className="text-gray-500 mt-1">Quản lý và xét duyệt các yêu cầu sử dụng tài nguyên đang chờ xử lý.</p>
-      </div>
+  const filteredRequests = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLocaleLowerCase('vi');
+    return pendingRequests.filter((request) => {
+      const matchesType = typeFilter === 'ALL' || request.type === typeFilter;
+      const haystack = `${request.purpose} ${request.resourceName} ${request.booker.fullName} ${request.booker.department}`
+        .toLocaleLowerCase('vi');
+      return matchesType && (!normalizedKeyword || haystack.includes(normalizedKeyword));
+    });
+  }, [keyword, pendingRequests, typeFilter]);
 
-      <div className="mb-5 flex w-fit rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-        <button type="button" onClick={() => setActiveTab('PENDING')} className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'PENDING' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-          Chờ xử lý{!loading ? ` (${pendingRequests.length})` : ''}
-        </button>
-        <button type="button" onClick={() => setActiveTab('HISTORY')} className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'HISTORY' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+  const openDetail = useCallback((request) => {
+    navigate(`/admin/approvals/${request.id}`);
+  }, [navigate]);
+  const closePreview = useCallback(() => setSelectedRequest(null), []);
+
+  return (
+    <div className="mx-auto flex w-full max-w-[1380px] flex-1 flex-col">
+      <BookingPageHeader
+        eyebrow="Quản trị hệ thống"
+        title="Duyệt đặt chỗ"
+        description="Kiểm tra yêu cầu phòng họp và xe công tác đang chờ xử lý."
+        className="mb-5"
+      />
+
+      <div className="mb-4 flex border-b border-[var(--cfc-border)]">
+        <TabButton active={activeTab === 'PENDING'} onClick={() => setActiveTab('PENDING')}>
+          Chờ duyệt {!loading && <span className="ml-1 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white">{pendingRequests.length}</span>}
+        </TabButton>
+        <TabButton active={activeTab === 'HISTORY'} onClick={() => setActiveTab('HISTORY')}>
           Lịch sử xử lý
-        </button>
+        </TabButton>
       </div>
 
       {activeTab === 'PENDING' ? (
         <>
-
-      <div className="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Người yêu cầu</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tài nguyên</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Thời gian</th>
-              <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Hành động</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
-            {loading ? (
-              <tr>
-                <td colSpan="5" className="px-6 py-12 text-center text-gray-500">Đang tải...</td>
-              </tr>
-            ) : pendingRequests.map(req => (
-              <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    {req.booker.avatar ? (
-                      <img 
-                        className="h-8 w-8 rounded-full border border-gray-200 object-cover shrink-0" 
-                        src={req.booker.avatar} 
-                        alt=""
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.booker.fullName || 'U')}&background=dbeafe&color=1d4ed8`;
-                        }}
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold border border-gray-200 shrink-0">
-                        {req.booker.fullName?.charAt(0) || 'U'}
-                      </div>
-                    )}
-                    <div className="ml-3">
-                      <div className="text-sm font-medium text-gray-900">{req.booker.fullName}</div>
-                      <div className="text-xs text-gray-500">{req.booker.department}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm text-gray-900 font-medium flex items-center gap-2">
-                    {req.type === 'ROOM' ? <Building2 className="w-4 h-4 text-blue-500" /> : <Car className="w-4 h-4 text-green-500" />}
-                    {req.resourceName}
-                  </div>
-                  <div className="text-sm text-gray-500 truncate max-w-[250px] mt-0.5">{req.purpose}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200/50">
-                    <Clock className="w-3.5 h-3.5 mr-1" />
-                    {req.timeInfo}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                  <Button size="sm" variant="secondary" onClick={() => navigate(`/admin/approvals/${req.id}`)}>
-                    Xem chi tiết
-                  </Button>
-                </td>
-              </tr>
-            ))}
-
-            {!loading && pendingRequests.length === 0 && (
-              <tr>
-                <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
-                  Không có yêu cầu nào đang chờ duyệt.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="md:hidden space-y-3">
-        {loading ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-10 text-center text-gray-500">
-            Đang tải...
-          </div>
-        ) : pendingRequests.map((req) => (
-          <div key={req.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-            <div className="flex items-start gap-3">
-              {req.booker.avatar ? (
-                <img
-                  className="h-10 w-10 rounded-full border border-gray-200 object-cover shrink-0"
-                  src={req.booker.avatar}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.booker.fullName || 'U')}&background=dbeafe&color=1d4ed8`;
-                  }}
+          <Surface className="mb-4 p-3 sm:p-4">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_210px_auto]">
+              <label className="relative">
+                <span className="sr-only">Tìm yêu cầu</span>
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--cfc-muted)]" />
+                <input
+                  type="search"
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  placeholder="Tìm tiêu đề, tài nguyên hoặc người đặt..."
+                  className="h-11 w-full rounded-lg border border-[var(--cfc-border)] bg-white pl-10 pr-3 text-sm outline-none focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100"
                 />
-              ) : (
-                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold border border-gray-200 shrink-0">
-                  {req.booker.fullName?.charAt(0) || 'U'}
-                </div>
-              )}
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">{req.booker.fullName}</div>
-                    <div className="text-xs text-gray-500">{req.booker.department}</div>
-                  </div>
-                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${req.type === 'ROOM' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
-                    {req.type === 'ROOM' ? <Building2 className="h-3.5 w-3.5" /> : <Car className="h-3.5 w-3.5" />}
-                    {req.type === 'ROOM' ? 'Phòng' : 'Xe'}
-                  </span>
-                </div>
-
-                <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
-                  <div className="text-sm font-medium text-gray-900 break-words">{req.resourceName}</div>
-                  <div className="mt-1 text-sm text-gray-500 break-words">{req.purpose}</div>
-                </div>
-
-                <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 border border-amber-200/60">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span className="break-words">{req.timeInfo}</span>
-                </div>
-
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => navigate(`/admin/approvals/${req.id}`)}
-                  >
-                    Xem chi tiết
-                  </Button>
-                </div>
-              </div>
+              </label>
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+                className="h-11 rounded-lg border border-[var(--cfc-border)] bg-white px-3 text-sm text-[var(--cfc-ink)] outline-none focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="ALL">Tất cả loại</option>
+                <option value="ROOM">Phòng họp</option>
+                <option value="CAR">Xe công tác</option>
+              </select>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={!keyword && typeFilter === 'ALL'}
+                onClick={() => {
+                  setKeyword('');
+                  setTypeFilter('ALL');
+                }}
+              >
+                Xóa lọc
+              </Button>
             </div>
-          </div>
-        ))}
+          </Surface>
 
-        {!loading && pendingRequests.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-10 text-center text-gray-500">
-            Không có yêu cầu nào đang chờ duyệt.
-          </div>
-        )}
-      </div>
+          {error && (
+            <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
+          <Surface className="overflow-hidden">
+            <PendingDesktop
+              loading={loading}
+              requests={filteredRequests}
+              onPreview={setSelectedRequest}
+              onDetail={openDetail}
+            />
+            <PendingMobile
+              loading={loading}
+              requests={filteredRequests}
+              onPreview={setSelectedRequest}
+            />
+            {!loading && filteredRequests.length === 0 && (
+              <BookingEmptyState
+                icon={ClipboardCheck}
+                title={pendingRequests.length === 0 ? 'Không có yêu cầu chờ duyệt' : 'Không có yêu cầu phù hợp'}
+                description={pendingRequests.length === 0 ? 'Các yêu cầu mới sẽ xuất hiện tại đây.' : 'Hãy thử đổi từ khóa hoặc loại tài nguyên.'}
+              />
+            )}
+          </Surface>
         </>
       ) : (
         <AdminApprovalHistory />
       )}
 
+      <ApprovalPreviewDrawer
+        request={selectedRequest}
+        onClose={closePreview}
+        onOpenDetail={openDetail}
+      />
     </div>
+  );
+}
+
+function TabButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative min-h-12 px-4 text-sm font-semibold transition-colors ${
+        active
+          ? 'text-[var(--cfc-emerald-dark)] after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-[var(--cfc-emerald)]'
+          : 'text-[var(--cfc-muted)] hover:text-[var(--cfc-ink)]'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PendingDesktop({ loading, requests, onPreview, onDetail }) {
+  return (
+    <div className="hidden overflow-x-auto md:block">
+      <table className="min-w-full">
+        <thead className="bg-[var(--cfc-surface-muted)] text-left">
+          <tr className="cfc-data-label">
+            <th className="px-5 py-3">Yêu cầu</th>
+            <th className="px-5 py-3">Loại / Tài nguyên</th>
+            <th className="px-5 py-3">Người đặt</th>
+            <th className="px-5 py-3">Thời gian</th>
+            <th className="px-5 py-3">Trạng thái</th>
+            <th className="px-5 py-3 text-right">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--cfc-border)]">
+          {loading && (
+            <tr><td colSpan="6" className="px-5 py-14 text-center text-sm text-[var(--cfc-muted)]">Đang tải yêu cầu...</td></tr>
+          )}
+          {!loading && requests.map((request) => (
+            <tr
+              key={`${request.type}-${request.id}`}
+              onClick={() => onPreview(request)}
+              className="cursor-pointer transition-colors hover:bg-emerald-50/35"
+            >
+              <td className="max-w-[280px] px-5 py-4">
+                <p className="truncate text-sm font-semibold text-[var(--cfc-ink)]">{request.purpose}</p>
+                <p className="mt-1 text-xs text-[var(--cfc-muted)]">Mã: {request.id}</p>
+              </td>
+              <td className="px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <ResourceIcon type={request.type} />
+                  <div>
+                    <p className="text-sm font-medium text-[var(--cfc-ink)]">{request.type === 'ROOM' ? 'Phòng họp' : 'Xe công tác'}</p>
+                    <p className="mt-1 text-xs text-[var(--cfc-muted)]">{request.resourceName}</p>
+                  </div>
+                </div>
+              </td>
+              <td className="px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <Avatar src={request.booker.avatar} name={request.booker.fullName} size="sm" />
+                  <div>
+                    <p className="text-sm font-medium text-[var(--cfc-ink)]">{request.booker.fullName}</p>
+                    <p className="mt-1 text-xs text-[var(--cfc-muted)]">{request.booker.department}</p>
+                  </div>
+                </div>
+              </td>
+              <td className="whitespace-nowrap px-5 py-4">
+                <p className="text-sm font-medium text-[var(--cfc-ink)]">{formatViDate(request.startTime)}</p>
+                <p className="mt-1 text-xs text-[var(--cfc-muted)]">{formatViTime(request.startTime)} – {formatViTime(request.endTime)}</p>
+              </td>
+              <td className="px-5 py-4"><BookingStatusBadge status="PENDING" /></td>
+              <td className="px-5 py-4 text-right">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Xem nhanh ${request.purpose}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onPreview(request);
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="ml-1"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDetail(request);
+                  }}
+                >
+                  Xử lý
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PendingMobile({ loading, requests, onPreview }) {
+  if (loading || requests.length === 0) return null;
+  return (
+    <div className="divide-y divide-[var(--cfc-border)] md:hidden">
+      {requests.map((request) => (
+        <button
+          key={`${request.type}-${request.id}`}
+          type="button"
+          onClick={() => onPreview(request)}
+          className="w-full px-4 py-4 text-left hover:bg-slate-50"
+        >
+          <div className="flex items-start gap-3">
+            <ResourceIcon type={request.type} large />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="line-clamp-2 text-sm font-semibold text-[var(--cfc-ink)]">{request.purpose}</p>
+                <BookingStatusBadge status="PENDING" />
+              </div>
+              <p className="mt-1 text-xs text-[var(--cfc-muted)]">{request.resourceName}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <Avatar src={request.booker.avatar} name={request.booker.fullName} size="sm" />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-[var(--cfc-ink)]">{request.booker.fullName}</p>
+                  <p className="truncate text-[11px] text-[var(--cfc-muted)]">{request.booker.department}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs font-medium text-[var(--cfc-ink)]">
+                {formatViDate(request.startTime)} · {formatViTime(request.startTime)} – {formatViTime(request.endTime)}
+              </p>
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ResourceIcon({ type, large = false }) {
+  const isRoom = type === 'ROOM';
+  const Icon = isRoom ? Building2 : Car;
+  return (
+    <span className={`flex shrink-0 items-center justify-center rounded-lg ${
+      large ? 'h-11 w-11' : 'h-9 w-9'
+    } ${isRoom ? 'bg-blue-50 text-[var(--cfc-room)]' : 'bg-teal-50 text-[var(--cfc-vehicle)]'}`}>
+      <Icon className={large ? 'h-5 w-5' : 'h-4 w-4'} />
+    </span>
   );
 }

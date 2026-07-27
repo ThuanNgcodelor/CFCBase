@@ -8,6 +8,7 @@ export function AppFooter() {
         <div className="min-w-0">
           <p className="truncate text-xs font-bold text-[var(--cfc-ink)]">CÔNG TY CỔ PHẦN PHÂN BÓN & HÓA CHẤT CẦN THƠ</p>
           <p className="mt-0.5 truncate text-[10px] text-[var(--cfc-muted)]">© CFC · Hệ thống vận hành nội bộ</p>
+          <p className="mt-0.5 truncate text-[10px] text-[var(--cfc-muted)]">Phát triển bởi Nguyễn Trung Thuận</p>
         </div>
       </div>
       <div className="hidden text-right text-[10px] leading-4 text-[var(--cfc-muted)] xl:block">

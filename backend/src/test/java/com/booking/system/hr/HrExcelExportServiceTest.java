@@ -1,16 +1,14 @@
 package com.booking.system.hr;
 
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterRepository;
 import com.booking.system.hr.service.HrExcelExportService;
+import com.booking.system.hr.service.HrRosterProjectionService;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -20,24 +18,22 @@ import static org.mockito.Mockito.when;
 
 class HrExcelExportServiceTest {
 
-    private final HrMonthlyRosterRepository rosterRepository = mock(HrMonthlyRosterRepository.class);
-    private final HrMonthlyRosterItemRepository rosterItemRepository = mock(HrMonthlyRosterItemRepository.class);
     private final HrEmployeeMovementRepository movementRepository = mock(HrEmployeeMovementRepository.class);
+    private final HrRosterProjectionService rosterProjectionService = mock(HrRosterProjectionService.class);
     private final HrExcelExportService service = new HrExcelExportService(
-            rosterRepository,
-            rosterItemRepository,
-            movementRepository
+            movementRepository,
+            rosterProjectionService
     );
 
     @Test
     void exportMonthCreatesThreeSheets() throws Exception {
-        when(rosterRepository.findByPeriodStart(LocalDate.of(2026, 6, 1))).thenReturn(Optional.empty());
         when(movementRepository.findConfirmedForExport(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 6, 1)),
                 org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 6, 30))
         )).thenReturn(List.of());
+        when(rosterProjectionService.projectedItems(LocalDate.of(2026, 6, 1))).thenReturn(List.of());
 
         HrExcelExportService.ExportFile file = service.exportMonth(2026, 6);
 
@@ -48,16 +44,15 @@ class HrExcelExportServiceTest {
 
     @Test
     void exportYearCreatesIncreaseDecreaseAndTwelveMonthSheets() throws Exception {
-        when(rosterRepository.findAllByPeriodStartBetweenOrderByPeriodStartAsc(
-                LocalDate.of(2026, 1, 1),
-                LocalDate.of(2026, 12, 31)
-        )).thenReturn(List.of());
         when(movementRepository.findConfirmedForExport(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 1, 1)),
                 org.mockito.ArgumentMatchers.eq(LocalDate.of(2026, 12, 31))
         )).thenReturn(List.of());
+        for (int month = 1; month <= 12; month++) {
+            when(rosterProjectionService.projectedItems(LocalDate.of(2026, month, 1))).thenReturn(List.of());
+        }
 
         HrExcelExportService.ExportFile file = service.exportYear(2026);
 

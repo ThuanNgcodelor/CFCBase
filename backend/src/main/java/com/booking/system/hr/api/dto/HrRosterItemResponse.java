@@ -3,6 +3,7 @@ package com.booking.system.hr.api.dto;
 import com.booking.system.hr.entity.HrMonthlyRosterItem;
 import com.booking.system.hr.enums.HrEmploymentStatus;
 import com.booking.system.hr.enums.HrRosterInclusionReason;
+import com.booking.system.hr.service.HrRosterProjectionService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -52,6 +53,31 @@ public record HrRosterItemResponse(
                 item.getSourceMovement() == null ? null : item.getSourceMovement().getId(),
                 item.getCreatedAt(),
                 item.getCreatedByActor()
+        );
+    }
+
+    public static HrRosterItemResponse fromProjection(HrRosterProjectionService.ProjectedRosterItem item) {
+        return new HrRosterItemResponse(
+                item.id(),
+                item.employee().getId(),
+                item.displayOrder(),
+                item.departmentDisplayOrder(),
+                item.employeeCode(),
+                item.fullName(),
+                item.departmentCode(),
+                item.departmentName(),
+                item.positionCode(),
+                item.positionName(),
+                item.workingConditionCode(),
+                item.workingConditionName(),
+                item.employmentStatus(),
+                item.hireDate(),
+                item.terminationDate(),
+                item.leaveDays(),
+                item.inclusionReason(),
+                item.sourceMovement() == null ? null : item.sourceMovement().getId(),
+                item.createdAt(),
+                item.createdByActor()
         );
     }
 }

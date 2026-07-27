@@ -1,6 +1,25 @@
 import React, { memo } from 'react';
-import { ChevronLeft, ChevronRight, Search, Filter, Truck, Building2 } from 'lucide-react';
-import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
+import {
+  Building2,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Search,
+  Truck,
+} from 'lucide-react';
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  endOfWeek,
+  format,
+  startOfWeek,
+  subDays,
+  subMonths,
+  subWeeks,
+} from 'date-fns';
+import { vi } from 'date-fns/locale/vi';
 import { Button } from '../ui/Button';
 
 const CustomToolbar = ({
@@ -13,9 +32,14 @@ const CustomToolbar = ({
   onResourceChange,
   selectedStatus,
   onStatusChange,
+  searchValue,
+  onSearchChange,
   resourceType,
-  onCreateClick
+  loading,
 }) => {
+  const isCar = resourceType === 'car';
+  const ResourceIcon = isCar ? Truck : Building2;
+
   const goToBack = () => {
     if (view === 'month') onNavigate(subMonths(date, 1));
     else if (view === 'week') onNavigate(subWeeks(date, 1));
@@ -28,118 +52,132 @@ const CustomToolbar = ({
     else onNavigate(addDays(date, 1));
   };
 
-  const goToCurrent = () => {
-    onNavigate(new Date());
-  };
-
   const label = () => {
-    if (view === 'month') {
-      return format(date, 'MM/yyyy');
-    }
-    return format(date, 'dd/MM/yyyy');
+    if (view === 'month') return format(date, 'MM/yyyy', { locale: vi });
+    if (view === 'day') return format(date, 'EEEE, dd/MM', { locale: vi });
+    const start = startOfWeek(date, { weekStartsOn: 1 });
+    const end = endOfWeek(date, { weekStartsOn: 1 });
+    return `${format(start, 'dd/MM')} – ${format(end, 'dd/MM/yyyy')}`;
   };
 
   return (
-    <div className="flex flex-col items-stretch pb-4 border-b border-gray-200 mb-4 bg-white gap-4">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-          <div className="relative w-full sm:w-auto">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              {resourceType === 'car' ? (
-                <Truck className="w-4 h-4 text-gray-400" />
-              ) : (
-                <Building2 className="w-4 h-4 text-gray-400" />
-              )}
-            </div>
-            <select
-              value={selectedResource}
-              onChange={(e) => onResourceChange(e.target.value)}
-              className="w-full sm:w-auto pl-9 pr-8 py-1.5 border border-gray-200 rounded text-sm text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none min-w-[200px]"
-            >
-              <option value="">-- Tất cả {resourceType === 'car' ? 'các xe' : 'các phòng'} --</option>
-              {resources?.map(res => (
-                <option key={res.id} value={res.id}>
-                  {resourceType === 'car' ? `${res.vehicleType?.name || 'Xe'} - ${res.licensePlate}` : res.name}
-                </option>
-              ))}
-            </select>
-          </div>
+    <section className="mb-4 overflow-hidden rounded-xl border border-[var(--cfc-border)] bg-white shadow-[var(--cfc-shadow-sm)]">
+      <div className="grid gap-3 p-3 sm:p-4 xl:grid-cols-[minmax(180px,1fr)_190px_minmax(220px,1.15fr)_auto] xl:items-center">
+        <label className="relative min-w-0">
+          <span className="sr-only">{isCar ? 'Chọn xe' : 'Chọn phòng họp'}</span>
+          <ResourceIcon className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${isCar ? 'text-[var(--cfc-vehicle)]' : 'text-[var(--cfc-room)]'}`} />
+          <select
+            value={selectedResource}
+            onChange={(event) => onResourceChange(event.target.value)}
+            className="h-11 w-full appearance-none rounded-lg border border-[var(--cfc-border)] bg-white pl-10 pr-8 text-sm font-medium text-[var(--cfc-ink)] outline-none focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">Tất cả {isCar ? 'xe' : 'phòng họp'}</option>
+            {resources?.map((resource) => (
+              <option key={resource.id} value={resource.id}>
+                {isCar
+                  ? `${resource.vehicleType?.name || 'Xe'} · ${resource.licensePlate}`
+                  : `${resource.name}${resource.location ? ` · ${resource.location}` : ''}`}
+              </option>
+            ))}
+          </select>
+        </label>
 
-          <div className="relative w-full sm:w-auto">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Filter className="w-4 h-4 text-gray-400" />
-            </div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => onStatusChange(e.target.value)}
-              className="w-full sm:w-auto pl-9 pr-8 py-1.5 border border-gray-200 rounded text-sm text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none"
-            >
-              <option value="">Trạng thái: Tất cả</option>
-              <option value="APPROVED">Đã duyệt</option>
-              <option value="PENDING">Chờ duyệt</option>
-            </select>
-          </div>
+        <label className="relative">
+          <span className="sr-only">Lọc trạng thái</span>
+          <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--cfc-muted)]" />
+          <select
+            value={selectedStatus}
+            onChange={(event) => onStatusChange(event.target.value)}
+            className="h-11 w-full appearance-none rounded-lg border border-[var(--cfc-border)] bg-white pl-10 pr-8 text-sm text-[var(--cfc-ink)] outline-none focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="APPROVED">Đã duyệt</option>
+            <option value="PENDING">Chờ duyệt</option>
+          </select>
+        </label>
 
-          <div className="relative hidden lg:block">
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Tìm kiếm..."
-              className="pl-3 pr-9 py-1.5 border border-gray-200 rounded text-sm text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 w-48"
-            />
-          </div>
-        </div>
+        <label className="relative">
+          <span className="sr-only">Tìm trong lịch</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--cfc-muted)]" />
+          <input
+            type="search"
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={isCar ? 'Tìm hành trình hoặc người đặt...' : 'Tìm cuộc họp hoặc người đặt...'}
+            className="h-11 w-full rounded-lg border border-[var(--cfc-border)] bg-white pl-10 pr-3 text-sm text-[var(--cfc-ink)] outline-none placeholder:text-slate-400 focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100"
+          />
+        </label>
 
-        {/* Create Button (Desktop moves to right, Mobile stays top or bottom) */}
-        <Button onClick={onCreateClick} className="w-full sm:w-auto shrink-0 mt-2 sm:mt-0 hidden lg:flex">Tạo lệnh đặt</Button>
+        <ViewSwitcher view={view} onView={onView} />
       </div>
 
-      {/* Khối Dưới (Mobile) / Phải (Desktop): Date Nav, Views & Create Button */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
-        {/* Date Nav */}
-        <div className="flex items-center justify-between bg-white border border-gray-200 rounded overflow-hidden flex-1 sm:flex-none">
-          <button onClick={goToBack} className="p-1.5 hover:bg-gray-50 border-r border-gray-200 text-gray-600 px-3">
-            <ChevronLeft className="w-4 h-4" />
+      <div className="flex flex-col gap-3 border-t border-[var(--cfc-border)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button type="button" variant="secondary" size="icon" onClick={goToBack} aria-label="Kỳ trước">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => onNavigate(new Date())}
+            className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--cfc-border)] bg-white px-3 text-sm font-semibold text-[var(--cfc-ink)] hover:bg-[var(--cfc-surface-muted)] sm:min-w-52 sm:flex-none"
+          >
+            <CalendarDays className="h-4 w-4 shrink-0 text-[var(--cfc-emerald-dark)]" />
+            <span className="truncate capitalize">{label()}</span>
           </button>
-          <div className="px-4 py-1.5 text-sm font-medium text-gray-700 flex-1 sm:min-w-[100px] text-center cursor-pointer hover:bg-gray-50" onClick={goToCurrent}>
-            {label()}
-          </div>
-          <button onClick={goToNext} className="p-1.5 hover:bg-gray-50 border-l border-gray-200 text-gray-600 px-3">
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <Button type="button" variant="secondary" size="icon" onClick={goToNext} aria-label="Kỳ tiếp theo">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <span className="hidden sm:inline-flex">
+            <Button type="button" variant="ghost" size="sm" onClick={() => onNavigate(new Date())}>
+              Hôm nay
+            </Button>
+          </span>
         </div>
 
-        {/* Views */}
-        <div className="flex items-center justify-between bg-white border border-gray-200 rounded overflow-hidden text-sm font-medium flex-1 sm:flex-none">
-          <button
-            onClick={() => onView('day')}
-            className={`flex-1 sm:px-4 py-1.5 ${view === 'day' ? 'bg-[#f0f4ff] text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            Ngày
-          </button>
-          <div className="w-px h-5 bg-gray-200 hidden sm:block"></div>
-          <button
-            onClick={() => onView('week')}
-            className={`flex-1 sm:px-4 py-1.5 border-x border-gray-200 sm:border-0 ${view === 'week' ? 'bg-[#f0f4ff] text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            Tuần
-          </button>
-          <div className="w-px h-5 bg-gray-200 hidden sm:block"></div>
-          <button
-            onClick={() => onView('month')}
-            className={`flex-1 sm:px-4 py-1.5 ${view === 'month' ? 'bg-[#f0f4ff] text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            Tháng
-          </button>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-xs text-[var(--cfc-muted)]">
+          {loading && <span className="font-medium text-[var(--cfc-cobalt)]">Đang đồng bộ lịch...</span>}
+          <Legend color={isCar ? 'bg-[var(--cfc-vehicle)]' : 'bg-[var(--cfc-room)]'} label="Đã duyệt" />
+          <Legend color="bg-amber-500" label="Chờ duyệt" />
+          <Legend color="bg-slate-400" label="Lịch sử" />
         </div>
-
-        {/* Create Button (Mobile shows here) */}
-        <Button onClick={onCreateClick} className="w-full sm:w-auto shrink-0 lg:hidden">Tạo lệnh đặt</Button>
       </div>
-    </div>
+    </section>
   );
 };
+
+function ViewSwitcher({ view, onView }) {
+  return (
+    <div className="grid h-11 grid-cols-3 overflow-hidden rounded-lg border border-[var(--cfc-border)] bg-white">
+      {[
+        ['day', 'Ngày'],
+        ['week', 'Tuần'],
+        ['month', 'Tháng'],
+      ].map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={view === value}
+          onClick={() => onView(value)}
+          className={`min-w-16 border-r border-[var(--cfc-border)] px-3 text-sm font-semibold last:border-r-0 ${
+            view === value
+              ? 'bg-emerald-50 text-[var(--cfc-emerald-dark)] shadow-[inset_0_-2px_var(--cfc-emerald)]'
+              : 'text-[var(--cfc-muted)] hover:bg-slate-50 hover:text-[var(--cfc-ink)]'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Legend({ color, label }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`h-2 w-2 rounded-full ${color}`} />
+      {label}
+    </span>
+  );
+}
 
 export default memo(CustomToolbar);

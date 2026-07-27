@@ -1,13 +1,12 @@
 package com.booking.system.hr.api;
 
 import com.booking.system.hr.entity.HrAuditEvent;
-import com.booking.system.hr.entity.HrMonthlyRoster;
+import com.booking.system.hr.api.dto.HrRosterResponse;
 import com.booking.system.hr.enums.HrRosterStatus;
 import com.booking.system.hr.repository.HrAuditEventRepository;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrExcelImportBatchRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterRepository;
+import com.booking.system.hr.service.HrRosterProjectionService;
 import com.booking.system.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +20,6 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,15 +33,13 @@ class HrActivityQueryServiceTest {
     @Mock
     private HrEmployeeMovementRepository movementRepository;
     @Mock
-    private HrMonthlyRosterRepository rosterRepository;
-    @Mock
-    private HrMonthlyRosterItemRepository rosterItemRepository;
-    @Mock
     private HrAuditEventRepository auditRepository;
     @Mock
     private HrExcelImportBatchRepository importBatchRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private HrRosterProjectionService rosterProjectionService;
 
     private HrActivityQueryService service;
 
@@ -51,11 +47,10 @@ class HrActivityQueryServiceTest {
     void setUp() {
         service = new HrActivityQueryService(
                 movementRepository,
-                rosterRepository,
-                rosterItemRepository,
                 auditRepository,
                 importBatchRepository,
-                userRepository
+                userRepository,
+                rosterProjectionService
         );
     }
 
@@ -85,21 +80,36 @@ class HrActivityQueryServiceTest {
 
     @Test
     void rosterDetailReturnsStableDtoAndMissingRosterReturns404() {
-        HrMonthlyRoster roster = new HrMonthlyRoster();
-        roster.setId("roster-2026-06");
-        roster.setPeriodStart(LocalDate.of(2026, 6, 1));
-        roster.setStatus(HrRosterStatus.CLOSED);
-        roster.setItemCount(329);
-        when(rosterRepository.findById(roster.getId())).thenReturn(Optional.of(roster));
+        var roster = new HrRosterResponse(
+                "roster-2026-06",
+                LocalDate.of(2026, 6, 1),
+                HrRosterStatus.OPEN,
+                329,
+                null,
+                null,
+                true,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                0
+        );
+        when(rosterProjectionService.roster(roster.id())).thenReturn(roster);
 
-        var response = service.roster(roster.getId());
+        var response = service.roster(roster.id());
 
         assertThat(response.id()).isEqualTo("roster-2026-06");
         assertThat(response.periodStart()).isEqualTo(LocalDate.of(2026, 6, 1));
-        assertThat(response.status()).isEqualTo(HrRosterStatus.CLOSED);
+        assertThat(response.status()).isEqualTo(HrRosterStatus.OPEN);
         assertThat(response.itemCount()).isEqualTo(329);
 
-        when(rosterRepository.findById("missing")).thenReturn(Optional.empty());
+        when(rosterProjectionService.roster("missing")).thenThrow(HrApiException.notFound(
+                "HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng."));
         assertThatThrownBy(() -> service.roster("missing"))
                 .isInstanceOf(HrApiException.class)
                 .satisfies(exception -> {
@@ -111,7 +121,8 @@ class HrActivityQueryServiceTest {
 
     @Test
     void rosterItemsReturn404ContractWhenRosterDoesNotExist() {
-        when(rosterRepository.existsById("missing")).thenReturn(false);
+        when(rosterProjectionService.rosterItems("missing", 0, 20)).thenThrow(HrApiException.notFound(
+                "HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng."));
 
         assertThatThrownBy(() -> service.rosterItems("missing", 0, 20))
                 .isInstanceOf(HrApiException.class)

@@ -34,6 +34,9 @@ public interface HrMonthlyRosterRepository extends HrRepository<HrMonthlyRoster,
     @EntityGraph(attributePaths = {"sourceRoster", "sourceImportBatch"})
     Optional<HrMonthlyRoster> findFirstByOrderByPeriodStartDesc();
 
+    @EntityGraph(attributePaths = {"sourceRoster", "sourceImportBatch"})
+    Optional<HrMonthlyRoster> findFirstByOrderByPeriodStartAsc();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"sourceRoster", "sourceImportBatch"})
     Optional<HrMonthlyRoster> findTopByOrderByPeriodStartDesc();

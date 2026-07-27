@@ -96,6 +96,8 @@ function DashboardLayoutContent() {
   const pageTitle = getPageTitle(location.pathname, allNavigationItems);
   const isCalendarRoute = location.pathname.startsWith('/cars')
     || location.pathname.startsWith('/rooms');
+  const isBookingDetailRoute = /^\/admin\/approvals\/[^/]+$/.test(location.pathname);
+  const isBookingFullBleedRoute = isCalendarRoute || isBookingDetailRoute;
   const isHrRoute = location.pathname.startsWith('/manager/hr');
   const hideMobileNavigation = shouldHideMobileBottomNavigation(location.pathname);
   const moreActive = mobileNavigation.moreSections
@@ -115,7 +117,7 @@ function DashboardLayoutContent() {
     navigate('/login');
   };
 
-  const contentPadding = isCalendarRoute
+  const contentPadding = isBookingFullBleedRoute
     ? 'p-0'
     : isHrRoute
       ? 'px-4 py-5 sm:px-6 sm:py-6 xl:px-8 xl:py-7 2xl:px-10'
@@ -150,7 +152,7 @@ function DashboardLayoutContent() {
           <div className={`flex flex-1 flex-col ${contentPadding} ${hideMobileNavigation ? '' : 'pb-[calc(var(--cfc-mobile-nav-height)+env(safe-area-inset-bottom,0px)+1rem)] md:pb-7'}`}>
             <Outlet />
           </div>
-          {!isCalendarRoute && <AppFooter />}
+          {!isBookingFullBleedRoute && <AppFooter />}
         </main>
       </div>
 

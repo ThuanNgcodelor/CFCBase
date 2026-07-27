@@ -1,5 +1,7 @@
 # BookingBase UI — Phase 2 và Phase 3
 
+> **LƯU TRỮ:** Booking đã dừng phát triển ngày `2026-07-27`. Không dùng file này để mở phase Booking mới.
+
 Cập nhật: 2026-07-27  
 Trạng thái: **Hoàn thành source code, chưa deploy production**
 

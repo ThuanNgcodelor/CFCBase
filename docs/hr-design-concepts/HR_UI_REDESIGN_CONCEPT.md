@@ -1,6 +1,6 @@
 # Concept redesign giao diện HR
 
-Trạng thái: **Chờ duyệt concept, chưa triển khai vào source code**
+Trạng thái: **Concept đã được áp dụng; đã bổ sung hardening responsive cho toàn bộ bảng dữ liệu HR ngày 27/07/2026**
 
 Phạm vi áp dụng: chỉ các route `/manager/hr/**`.
 
@@ -112,3 +112,10 @@ Viewport bắt buộc kiểm tra khi triển khai:
 - Khi triển khai, toàn bộ text, bảng, form và control phải là code React thật.
 - Dữ liệu thật và copy hiện tại trong source/API là nguồn chính xác.
 
+## 6. Responsive hardening đã áp dụng
+
+- Phạm vi vẫn chỉ là `/manager/hr/**`; không tác động giao diện Booking.
+- Breakpoint của bảng HR được tính theo chiều rộng content còn lại sau sidebar, không dùng chiều rộng viewport.
+- Màn hình đủ rộng hiển thị table; màn hình thiếu chỗ tự chuyển sang ledger card hiện có.
+- Toolbar lọc Thử việc chuyển theo 1/2/3/6 cột, tránh ép nút và select thành cột chữ dọc.
+- Các bảng Nhân sự, Thử việc, Tăng/Giảm, Danh mục, Chi tiết tháng và Nhật ký dùng cùng cơ chế responsive.

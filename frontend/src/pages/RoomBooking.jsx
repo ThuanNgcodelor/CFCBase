@@ -14,6 +14,9 @@ import '../components/calendar/bookingCalendar.css';
 import { useResponsiveCalendarView } from '../hooks/useResponsiveCalendarView';
 import { parseApiDateTime } from '../utils/dateTime';
 import toast from 'react-hot-toast';
+import { Plus } from 'lucide-react';
+import { BookingPageHeader } from '../components/booking/BookingPageHeader';
+import { Button } from '../components/ui/Button';
 
 const locales = { 'vi': vi };
 const localizer = dateFnsLocalizer({
@@ -67,6 +70,9 @@ function RoomBooking() {
   const [bookings, setBookings] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [searchValue, setSearchValue] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const { view, setView, layoutRevision } = useResponsiveCalendarView();
   const [date, setDate] = useState(new Date());
   const bookingRequestSeq = useRef(0);
@@ -84,6 +90,7 @@ function RoomBooking() {
       } catch (err) {
         if (isRequestCanceled(err)) return;
         console.error("Lỗi tải danh sách phòng:", err);
+        setError('Không tải được danh sách phòng họp.');
       }
     };
 
@@ -99,6 +106,8 @@ function RoomBooking() {
 
     const fetchBookings = async () => {
       const range = getCalendarRange(date, view);
+      setLoading(true);
+      setError('');
 
       try {
         const bookingsData = await bookingApi.getRoomBookings({
@@ -113,6 +122,11 @@ function RoomBooking() {
       } catch (err) {
         if (isRequestCanceled(err) || requestSeq !== bookingRequestSeq.current) return;
         console.error("Lỗi tải dữ liệu lịch:", err);
+        setError('Không tải được dữ liệu lịch phòng họp.');
+      } finally {
+        if (!controller.signal.aborted && requestSeq === bookingRequestSeq.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -129,13 +143,19 @@ function RoomBooking() {
     user: b.requester?.fullName || 'User',
     avatarUrl: b.requester?.avatarUrl,
     status: b.status,
-    roomId: b.room?.id
+    roomId: b.room?.id,
+    resourceType: 'room'
   })), [bookings]);
 
-  const filteredEvents = useMemo(() => events.filter(e =>
-    e.status !== 'REJECTED' && e.status !== 'CANCELLED' &&
-    (selectedRoom ? e.roomId === selectedRoom : true)
-  ), [events, selectedRoom]);
+  const filteredEvents = useMemo(() => {
+    const keyword = searchValue.trim().toLocaleLowerCase('vi');
+    return events.filter((event) => (
+      event.status !== 'REJECTED'
+      && event.status !== 'CANCELLED'
+      && (selectedRoom ? event.roomId === selectedRoom : true)
+      && (!keyword || `${event.title || ''} ${event.user || ''}`.toLocaleLowerCase('vi').includes(keyword))
+    ));
+  }, [events, searchValue, selectedRoom]);
 
   const calendarComponents = useMemo(() => ({
     event: CustomEvent,
@@ -164,10 +184,27 @@ function RoomBooking() {
   }, [navigate]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-white">
-      {/* Calendar Grid */}
-      <div className="flex-1 bg-white p-4 sm:px-6 overflow-y-auto overflow-x-hidden flex flex-col">
-        <CustomToolbar 
+    <div className="flex min-h-full w-full flex-col bg-[var(--cfc-canvas)] px-3 py-4 sm:px-5 sm:py-5 xl:px-6">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col">
+        <BookingPageHeader
+          title="Lịch phòng họp"
+          description="Chọn phòng, theo dõi lịch trống và tạo yêu cầu ngay trên khung thời gian."
+          actions={(
+            <Button onClick={handleCreateClick}>
+              <Plus className="h-4 w-4" />
+              Đặt phòng
+            </Button>
+          )}
+          className="mb-4"
+        />
+
+        {error && (
+          <div role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <CustomToolbar
           date={date}
           view={view}
           onNavigate={setDate}
@@ -177,41 +214,45 @@ function RoomBooking() {
           onResourceChange={setSelectedRoom}
           selectedStatus={selectedStatus}
           onStatusChange={setSelectedStatus}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
           resourceType="room"
-          onCreateClick={handleCreateClick}
+          loading={loading}
         />
 
-        <Calendar
-          key={`room-calendar-${layoutRevision}`}
-          localizer={localizer}
-          events={filteredEvents}
-          messages={messages}
-          defaultView="week"
-          views={['month', 'week', 'day']}
-          view={view}
-          onView={setView}
-          date={date}
-          onNavigate={setDate}
-          step={30}
-          timeslots={2}
-          min={new Date(1970, 0, 1, 0, 0)}
-          max={new Date(1970, 0, 1, 23, 59)}
-          showMultiDayTimes={true}
-          selectable
-          popup
-          showAllEvents={false}
-          allDayMaxRows={1}
-          dayLayoutAlgorithm="no-overlap"
-          onSelectSlot={handleSelectSlot}
-          onSelectEvent={handleSelectEvent}
-          scrollToTime={new Date(1970, 1, 1, 7)}
-          formats={calendarFormats}
-          toolbar={false}
-          components={calendarComponents}
-          className="booking-calendar h-full font-sans text-sm"
-        />
+        <section className="min-h-[620px] flex-1 overflow-hidden rounded-xl border border-[var(--cfc-border)] bg-white shadow-[var(--cfc-shadow-sm)] sm:min-h-[680px]">
+          <Calendar
+            key={`room-calendar-${layoutRevision}`}
+            localizer={localizer}
+            events={filteredEvents}
+            messages={messages}
+            defaultView="week"
+            views={['month', 'week', 'day']}
+            view={view}
+            onView={setView}
+            date={date}
+            onNavigate={setDate}
+            step={30}
+            timeslots={2}
+            min={new Date(1970, 0, 1, 0, 0)}
+            max={new Date(1970, 0, 1, 23, 59)}
+            showMultiDayTimes={true}
+            selectable
+            popup
+            showAllEvents={false}
+            allDayMaxRows={1}
+            dayLayoutAlgorithm="no-overlap"
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            scrollToTime={new Date(1970, 1, 1, 7)}
+            formats={calendarFormats}
+            toolbar={false}
+            components={calendarComponents}
+            className={`booking-calendar booking-calendar--${view} h-full font-sans text-sm`}
+          />
+        </section>
       </div>
-    </div >
+    </div>
   );
 }
 

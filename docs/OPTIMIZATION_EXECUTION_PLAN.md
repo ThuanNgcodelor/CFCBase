@@ -2,6 +2,8 @@
 
 Cập nhật: 2026-07-20
 
+> Trạng thái từ `2026-07-27`: tài liệu này là lịch sử kỹ thuật. Chỉ các hạng mục bảo mật/hạ tầng dùng chung có ảnh hưởng tới HR còn được xem xét. Mọi tối ưu hoặc phase mới dành riêng cho Booking đã dừng; roadmap active nằm tại `HR_MANAGEMENT_IMPLEMENTATION_PLAN.md`.
+
 File này là kế hoạch tối ưu bằng tiếng Việt. Giữ nguyên thuật ngữ kỹ thuật: `JWT`, `DTO`, `PWA`, `WebSocket`, `Service Worker`, `runtime cache`, `React Profiler`, `EXPLAIN`, `rollback`.
 
 ## Giai Đoạn 0 - Baseline Và Context

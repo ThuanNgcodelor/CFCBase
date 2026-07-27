@@ -1,12 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Clock, Users, Building2, AlignLeft } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  AlignLeft,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Timer,
+  Users,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '../components/ui/Button';
+import { BookingFormShell, BookingSummaryItem } from '../components/booking/BookingFormShell';
 import { resourceApi } from '../api/resourceApi';
 import { bookingApi } from '../api/bookingApi';
-import { authApi } from '../api/authApi';
-import { parseApiDateTime, toApiLocalDateTime, toDateTimeLocalValue } from '../utils/dateTime';
-import toast from 'react-hot-toast';
+import {
+  formatViDate,
+  formatViTime,
+  parseApiDateTime,
+  toApiLocalDateTime,
+  toDateTimeLocalValue,
+} from '../utils/dateTime';
+
+const INPUT_CLASS = 'min-h-11 w-full rounded-lg border border-[var(--cfc-border)] bg-white px-3 py-2 text-sm text-[var(--cfc-ink)] shadow-sm outline-none transition-[border-color,box-shadow] placeholder:text-slate-400 focus:border-[var(--cfc-cobalt)] focus:ring-2 focus:ring-blue-100';
+const ICON_INPUT_CLASS = `${INPUT_CLASS} pl-10`;
 
 export default function CreateRoomBooking() {
   const navigate = useNavigate();
@@ -19,213 +36,225 @@ export default function CreateRoomBooking() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
   const [formData, setFormData] = useState({
     title: '',
     roomId: '',
     startTime: toDateTimeLocalValue(preSelectedStart),
     endTime: toDateTimeLocalValue(preSelectedEnd),
     attendeeCount: '',
-    note: ''
+    note: '',
   });
 
   useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const data = await resourceApi.getRooms();
+    let active = true;
+    resourceApi.getRooms()
+      .then((data) => {
+        if (!active) return;
         setRooms(data || []);
-        if (data && data.length > 0) {
-          setFormData(prev => ({ ...prev, roomId: data[0].id }));
+        if (data?.length > 0) {
+          setFormData((current) => ({ ...current, roomId: current.roomId || data[0].id }));
         }
-      } catch (err) {
-        console.error("Lỗi tải danh sách phòng:", err);
-      }
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.response?.data?.message || 'Không tải được danh sách phòng họp.');
+      });
+    return () => {
+      active = false;
     };
-    fetchRooms();
   }, []);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const selectedRoom = useMemo(
+    () => rooms.find((room) => String(room.id) === String(formData.roomId)),
+    [formData.roomId, rooms],
+  );
+  const start = parseApiDateTime(formData.startTime);
+  const end = parseApiDateTime(formData.endTime);
+  const durationMinutes = Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
+    ? 0
+    : Math.max(0, Math.round((end - start) / 60000));
+  const attendeeCount = Number(formData.attendeeCount || 0);
+  const exceedsCapacity = Boolean(selectedRoom?.capacity && attendeeCount > selectedRoom.capacity);
+
+  const handleChange = (event) => {
+    setFormData((current) => ({ ...current, [event.target.name]: event.target.value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
-      const user = authApi.getUser();
       const startTime = toApiLocalDateTime(formData.startTime);
       const endTime = toApiLocalDateTime(formData.endTime);
       if (parseApiDateTime(startTime) >= parseApiDateTime(endTime)) {
         throw new Error('Thời gian bắt đầu phải trước thời gian kết thúc.');
       }
+      if (exceedsCapacity) {
+        throw new Error(`Số người tham gia vượt sức chứa ${selectedRoom.capacity} người của phòng.`);
+      }
 
-      const payload = {
-        requesterId: user?.id,
+      await bookingApi.createRoomBooking({
         roomId: formData.roomId,
-        title: formData.title,
+        title: formData.title.trim(),
         startTime,
         endTime,
-        attendeeCount: formData.attendeeCount ? parseInt(formData.attendeeCount) : 0,
-        note: formData.note
-      };
-      
-      await bookingApi.createRoomBooking(payload);
+        attendeeCount,
+        note: formData.note.trim(),
+      });
       toast.success('Đăng ký phòng họp thành công!');
       navigate('/rooms');
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Có lỗi xảy ra. Vui lòng kiểm tra lại!');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message || 'Có lỗi xảy ra. Vui lòng kiểm tra lại!');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto p-4 sm:p-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <button 
-          onClick={() => navigate(-1)} 
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Đăng kí Phòng họp</h1>
-          <p className="text-sm text-gray-500 mt-1">Vui lòng điền thông tin chi tiết cuộc họp.</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
-        {error && (
-          <div className="mb-6 p-3 rounded bg-red-50 text-red-600 border border-red-100 text-sm">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Tên cuộc họp */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tiêu đề cuộc họp <span className="text-red-500">*</span></label>
-            <input 
-              type="text" 
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="VD: Họp giao ban tuần, Báo cáo dự án..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Chọn phòng */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phòng họp <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Building2 className="w-5 h-5 text-gray-400" />
-              </div>
-              <select 
-                name="roomId"
-                value={formData.roomId}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none bg-white"
-                required
-              >
-                {rooms.map(room => (
-                  <option key={room.id} value={room.id}>
-                    {room.name} (Sức chứa {room.capacity} người)
-                  </option>
-                ))}
-                {rooms.length === 0 && <option value="">Đang tải hoặc không có phòng...</option>}
-              </select>
-            </div>
-          </div>
-
-          {/* Thời gian */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Bắt đầu lúc <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                </div>
-                <input 
-                  type="datetime-local" 
-                  name="startTime"
-                  value={formData.startTime}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Kết thúc lúc <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                </div>
-                <input 
-                  type="datetime-local" 
-                  name="endTime"
-                  value={formData.endTime}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Số người tham gia */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Số người tham gia dự kiến</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Users className="w-5 h-5 text-gray-400" />
-              </div>
-              <input 
-                type="number" 
-                name="attendeeCount"
-                value={formData.attendeeCount}
-                onChange={handleChange}
-                min="1"
-                placeholder="VD: 10"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Ghi chú */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Yêu cầu chuẩn bị (Ghi chú)</label>
-            <div className="relative">
-              <div className="absolute top-3 left-3 pointer-events-none">
-                <AlignLeft className="w-5 h-5 text-gray-400" />
-              </div>
-              <textarea 
-                name="note"
-                value={formData.note}
-                onChange={handleChange}
-                rows="4"
-                placeholder="VD: Chuẩn bị máy chiếu, 10 chai nước suối, teabreak lúc 9h..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              ></textarea>
-            </div>
-          </div>
-
-          <hr className="border-gray-100" />
-
-          {/* Submit */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" type="button" onClick={() => navigate(-1)} disabled={loading}>Hủy bỏ</Button>
-            <Button type="submit" disabled={loading}>{loading ? 'Đang gửi...' : 'Gửi đăng kí'}</Button>
-          </div>
-        </form>
-      </div>
-    </div>
+  const renderActions = () => (
+    <>
+      <Button variant="secondary" type="button" onClick={() => navigate(-1)} disabled={loading} className="flex-1 lg:flex-none">
+        Hủy bỏ
+      </Button>
+      <Button type="submit" disabled={loading || exceedsCapacity || rooms.length === 0} className="flex-1 lg:flex-none">
+        {loading ? 'Đang gửi...' : 'Gửi đăng ký'}
+      </Button>
+    </>
   );
+
+  return (
+    <BookingFormShell
+      title="Đặt phòng họp"
+      description="Điền thông tin cuộc họp; hệ thống sẽ kiểm tra thời gian và xung đột khi gửi."
+      onBack={() => navigate(-1)}
+      onSubmit={handleSubmit}
+      error={error}
+      renderActions={renderActions}
+      summary={(
+        <>
+          <BookingSummaryItem
+            icon={Building2}
+            label="Phòng họp"
+            value={selectedRoom ? `${selectedRoom.name}${selectedRoom.location ? ` · ${selectedRoom.location}` : ''}` : 'Chưa chọn phòng'}
+            accent="room"
+          />
+          <BookingSummaryItem
+            icon={Users}
+            label="Sức chứa"
+            value={selectedRoom?.capacity ? `${selectedRoom.capacity} người` : 'Chưa có thông tin'}
+            accent="room"
+          />
+          <BookingSummaryItem
+            icon={CalendarDays}
+            label="Ngày họp"
+            value={formData.startTime ? formatViDate(formData.startTime) : 'Chưa chọn ngày'}
+          />
+          <BookingSummaryItem
+            icon={Clock}
+            label="Thời gian"
+            value={formData.startTime && formData.endTime ? `${formatViTime(formData.startTime)} – ${formatViTime(formData.endTime)}` : 'Chưa chọn thời gian'}
+          />
+          <BookingSummaryItem
+            icon={Timer}
+            label="Thời lượng"
+            value={formatDuration(durationMinutes)}
+            accent="neutral"
+          />
+          <div className="mt-3 flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            <p className="leading-5">Lịch trống và xung đột sẽ được backend kiểm tra chính xác khi gửi đăng ký.</p>
+          </div>
+        </>
+      )}
+    >
+      <Field label="Tiêu đề cuộc họp *">
+        <input
+          required
+          maxLength={255}
+          name="title"
+          value={formData.title}
+          onChange={handleChange}
+          placeholder="Ví dụ: Họp giao ban tuần"
+          className={INPUT_CLASS}
+        />
+      </Field>
+
+      <Field label="Phòng họp *" icon={Building2}>
+        <select required name="roomId" value={formData.roomId} onChange={handleChange} className={ICON_INPUT_CLASS}>
+          {rooms.map((room) => (
+            <option key={room.id} value={room.id}>
+              {room.name} · sức chứa {room.capacity} người
+            </option>
+          ))}
+          {rooms.length === 0 && <option value="">Không có phòng khả dụng</option>}
+        </select>
+      </Field>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Bắt đầu lúc *" icon={Clock}>
+          <input required type="datetime-local" name="startTime" value={formData.startTime} onChange={handleChange} className={ICON_INPUT_CLASS} />
+        </Field>
+        <Field label="Kết thúc lúc *" icon={Clock}>
+          <input required type="datetime-local" name="endTime" value={formData.endTime} onChange={handleChange} className={ICON_INPUT_CLASS} />
+        </Field>
+      </div>
+
+      <Field
+        label="Số người tham gia dự kiến *"
+        icon={Users}
+        hint={exceedsCapacity
+          ? `Vượt sức chứa ${selectedRoom.capacity} người.`
+          : selectedRoom?.capacity
+            ? `Tối đa ${selectedRoom.capacity} người.`
+            : 'Chọn phòng để xem sức chứa.'}
+        error={exceedsCapacity}
+      >
+        <input
+          required
+          type="number"
+          min="1"
+          name="attendeeCount"
+          value={formData.attendeeCount}
+          onChange={handleChange}
+          placeholder="Ví dụ: 12"
+          className={ICON_INPUT_CLASS}
+        />
+      </Field>
+
+      <Field label="Yêu cầu chuẩn bị / Ghi chú" icon={AlignLeft}>
+        <textarea
+          name="note"
+          value={formData.note}
+          onChange={handleChange}
+          rows="5"
+          maxLength={500}
+          placeholder="Máy chiếu, bảng trắng, nước uống..."
+          className={`${ICON_INPUT_CLASS} min-h-32 resize-y py-3`}
+        />
+        <span className="mt-1 block text-right text-xs text-[var(--cfc-muted)]">{formData.note.length}/500</span>
+      </Field>
+    </BookingFormShell>
+  );
+}
+
+function Field({ label, icon: Icon, hint, error, children }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-[var(--cfc-ink)]">{label}</span>
+      <span className="relative block">
+        {Icon && <Icon className={`pointer-events-none absolute left-3 top-3.5 z-10 h-4 w-4 ${error ? 'text-red-500' : 'text-[var(--cfc-muted)]'}`} />}
+        {children}
+      </span>
+      {hint && <span className={`mt-1.5 block text-xs ${error ? 'text-red-600' : 'text-[var(--cfc-muted)]'}`}>{hint}</span>}
+    </label>
+  );
+}
+
+function formatDuration(minutes) {
+  if (!minutes) return 'Chưa xác định';
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  if (!hours) return `${remaining} phút`;
+  if (!remaining) return `${hours} giờ`;
+  return `${hours} giờ ${remaining} phút`;
 }

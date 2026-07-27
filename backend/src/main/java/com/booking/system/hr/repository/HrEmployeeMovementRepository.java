@@ -59,6 +59,7 @@ public interface HrEmployeeMovementRepository extends HrRepository<HrEmployeeMov
     @EntityGraph(attributePaths = {
             "employee", "employee.employment", "employee.employment.department",
             "employee.employment.position", "employee.employment.workingCondition",
+            "employee.identity", "employee.insurance", "employee.contact",
             "fromDepartment", "toDepartment", "fromPosition", "toPosition",
             "fromWorkingCondition", "toWorkingCondition"
     })

@@ -10,8 +10,7 @@ import com.booking.system.hr.api.dto.HrRosterResponse;
 import com.booking.system.hr.repository.HrAuditEventRepository;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrExcelImportBatchRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterRepository;
+import com.booking.system.hr.service.HrRosterProjectionService;
 import com.booking.system.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,26 +31,23 @@ public class HrActivityQueryService {
     public static final int MAX_PAGE_SIZE = 50;
 
     private final HrEmployeeMovementRepository movementRepository;
-    private final HrMonthlyRosterRepository rosterRepository;
-    private final HrMonthlyRosterItemRepository rosterItemRepository;
     private final HrAuditEventRepository auditRepository;
     private final HrExcelImportBatchRepository importBatchRepository;
     private final UserRepository userRepository;
+    private final HrRosterProjectionService rosterProjectionService;
 
     public HrActivityQueryService(
             HrEmployeeMovementRepository movementRepository,
-            HrMonthlyRosterRepository rosterRepository,
-            HrMonthlyRosterItemRepository rosterItemRepository,
             HrAuditEventRepository auditRepository,
             HrExcelImportBatchRepository importBatchRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            HrRosterProjectionService rosterProjectionService
     ) {
         this.movementRepository = movementRepository;
-        this.rosterRepository = rosterRepository;
-        this.rosterItemRepository = rosterItemRepository;
         this.auditRepository = auditRepository;
         this.importBatchRepository = importBatchRepository;
         this.userRepository = userRepository;
+        this.rosterProjectionService = rosterProjectionService;
     }
 
     public HrPageResponse<HrMovementResponse> movements(int page, int size) {
@@ -63,29 +59,15 @@ public class HrActivityQueryService {
     }
 
     public HrPageResponse<HrRosterResponse> rosters(int page, int size) {
-        Pageable pageable = pageRequest(page, size, Sort.by(Sort.Order.desc("periodStart")));
-        return HrPageResponse.from(rosterRepository.findAll(pageable), HrRosterResponse::from);
+        return rosterProjectionService.rosters(page, size);
     }
 
     public HrRosterResponse roster(String rosterId) {
-        if (rosterId == null || rosterId.isBlank()) {
-            throw HrApiException.notFound("HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng.");
-        }
-        return rosterRepository.findById(rosterId)
-                .map(HrRosterResponse::from)
-                .orElseThrow(() -> HrApiException.notFound(
-                        "HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng."));
+        return rosterProjectionService.roster(rosterId);
     }
 
     public HrPageResponse<HrRosterItemResponse> rosterItems(String rosterId, int page, int size) {
-        if (rosterId == null || rosterId.isBlank() || !rosterRepository.existsById(rosterId)) {
-            throw HrApiException.notFound("HR_ROSTER_NOT_FOUND", "Không tìm thấy danh sách nhân sự tháng.");
-        }
-        Pageable pageable = pageRequest(page, size, Sort.unsorted());
-        return HrPageResponse.from(
-                rosterItemRepository.findByRoster_IdOrderByDisplayOrder(rosterId, pageable),
-                HrRosterItemResponse::from
-        );
+        return rosterProjectionService.rosterItems(rosterId, page, size);
     }
 
     public HrPageResponse<HrAuditEventResponse> auditEvents(int page, int size) {

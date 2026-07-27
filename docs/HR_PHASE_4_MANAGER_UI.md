@@ -4,7 +4,7 @@
 
 Cập nhật: `2026-07-23`
 
-Trạng thái: **hoàn thành triển khai source và automated verification ngày 2026-07-23; chờ deploy/UAT runtime**.
+Trạng thái: **hoàn thành source; giao diện HR đã xuất hiện trên runtime theo ảnh người dùng, formal UAT checklist chưa đóng**.
 
 Ngày `2026-07-23`, người dùng xác nhận đã chạy migration HR và xác nhận import baseline thành công với `329` nhân sự. Agent chưa query độc lập database/runtime đang được người dùng sử dụng, vì vậy đây là **trạng thái do người dùng xác nhận**, chưa phải bằng chứng vận hành đã được agent đối chiếu.
 
@@ -173,6 +173,8 @@ Chỉ chạy read-only trên đúng database đang phục vụ môi trường c�
 ## 6. Ranh giới Phase 5–9
 
 ### Phase 5 — Tăng/Giảm và snapshot tháng
+
+> Lưu ý: danh sách Phase 5–9 bên dưới là dự kiến lịch sử tại thời điểm đóng Phase 4 và đã được thay thế bởi roadmap hiện hành trong `HR_MANAGEMENT_IMPLEMENTATION_PLAN.md`.
 
 - tạo/xác nhận/hủy movement;
 - ghi nhận tăng và giảm có ngày hiệu lực; điều chuyển/điều chỉnh tiếp tục khóa đến khi có contract riêng;

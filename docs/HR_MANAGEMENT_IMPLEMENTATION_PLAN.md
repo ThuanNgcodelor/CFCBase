@@ -1,7 +1,31 @@
 # Kế Hoạch Triển Khai Phân Hệ Quản Lý Nhân Sự
 
-Cập nhật: 2026-07-24
-Trạng thái: **Phase 0.1–6 hoàn thành ở source code và automated test; Phase 5–6 chờ deploy/UAT runtime; Phase 7 ứng viên thử việc đã triển khai source schema/API/UI, chờ deploy/UAT; ngày phép tự động đã gỡ/defer**
+Cập nhật: 2026-07-27
+Trạng thái: **Phase 7 đã hoàn thành source và gate ổn định UI. Phase 8 đang triển khai source theo rule mới: danh sách tháng là số liệu sống theo ngày hiệu lực, không còn flow chốt/mở tháng trên UI.**
+
+## Quyết định phạm vi từ ngày 2026-07-27
+
+- Quản lý nhân sự là sản phẩm duy nhất còn tiếp tục phát triển.
+- Booking phòng họp, xe và approval Booking đã ngừng phát triển và không còn nằm trong roadmap.
+- Mã Booking hiện hữu được giữ nguyên như legacy để tránh xóa nhầm hoặc ảnh hưởng Auth, Notification, PWA và hạ tầng dùng chung.
+- Không triển khai Booking Phase 6–10. Mọi phase 8–10 trong tài liệu này chỉ thuộc HR.
+- Roadmap giao diện HR Phase 0–5 là nhánh redesign đã hoàn thành; không thay đổi số thứ tự roadmap nghiệp vụ HR bên dưới.
+
+## Trạng thái phase rút gọn
+
+| Phase | Phạm vi HR | Trạng thái |
+| --- | --- | --- |
+| 0–0.1 | Kiến trúc và chuẩn hóa workbook | Hoàn thành |
+| 1 | Schema HR độc lập | Hoàn thành |
+| 2 | Import baseline chuẩn T6-26 = 339 | Hoàn thành source; đã có flow/runtime, vẫn giữ preview gate |
+| 3 | Security và API Manager | Hoàn thành |
+| 4 | Giao diện Manager cốt lõi | Hoàn thành |
+| 5 | Tăng/Giảm và danh sách tháng | Hoàn thành source; cần tiếp tục UAT dữ liệu thật có kiểm soát |
+| 6 | Export Excel tháng/năm | Hoàn thành source; cần tiếp tục UAT file xuất |
+| 7 | Ứng viên thử việc và hợp đồng Word | Hoàn thành source/UI; UAT dữ liệu thật đưa vào gate vận hành |
+| 8 | Projection sống cho danh sách tháng | Đang triển khai source; chưa deploy/chưa sửa dữ liệu runtime |
+| 9 | UX điều chỉnh biến động đã xác nhận | Plan mới; chờ Phase 8 được UAT |
+| 10 | Đối soát, UAT, hardening và rollout an toàn | Plan mới; chờ Phase 8–9 |
 
 Ghi nhận vận hành: ngày `2026-07-23`, người dùng hiệu chỉnh số liệu lịch sử: `T6-26` đúng là `339` nhân sự, không phải `329`. Agent chưa query độc lập database/runtime, nên preview/import mới vẫn là gate bắt buộc.
 
@@ -91,14 +115,15 @@ Các cột gốc `K`, `R`, `S`, `Y`, `Z` là helper/lookup/validation và không
 - Phase 2 phải coi các ô này là dữ liệu thiếu/cần xác minh, không insert chuỗi `#N/A` như giá trị nghiệp vụ.
 - Header `Z4` của file người dùng đang ghi `NƠI SINH (Sau sát nhập)`; baseline giữ nguyên để bảo toàn bản format. UI/schema có thể chuẩn hóa nhãn thành `NƠI SINH (SAU SÁP NHẬP)` mà không sửa dữ liệu đã khóa.
 
-### 3.5 Quy tắc tăng/giảm và snapshot
+### 3.5 Quy tắc tăng/giảm và danh sách tháng
 
-- Tăng có hiệu lực tháng nào thì nhân sự xuất hiện trong snapshot từ tháng đó.
-- Giảm có hiệu lực tháng nào thì nhân sự không còn trong snapshot cuối tháng đó và các tháng sau.
-- Ngoại lệ bất biến: nếu snapshot tháng hiệu lực đã `CLOSED` (đặc biệt baseline T6), movement xác nhận muộn không sửa snapshot cũ mà được áp dụng vào kỳ kế tiếp chưa chốt.
+- Danh sách tháng bắt đầu từ `T6-26`.
+- Tháng hiện tại tự xuất hiện, không cần Manager tạo hoặc chốt thủ công.
+- Danh sách tháng là quân số tính đến cuối tháng.
+- Tăng có hiệu lực tháng nào thì nhân sự xuất hiện từ tháng đó và các tháng sau.
+- Giảm có hiệu lực tháng nào thì nhân sự không còn trong tháng đó và các tháng sau.
 - Nhân sự giảm vẫn giữ hồ sơ, lịch sử và audit; không hard-delete nghiệp vụ.
-- Snapshot `CLOSED` là bất biến; điều chỉnh về sau phải có bản ghi điều chỉnh.
-- Trạng thái tháng dự kiến: `DRAFT`, `OPEN`, `CLOSED`, `EXPORTED`.
+- Movement `DRAFT` có thể hủy/xóa theo guard; movement đã `CONFIRMED` không xóa cứng, nếu sai sẽ xử lý bằng nghiệp vụ điều chỉnh ở phase sau.
 
 ## 4. Mô hình dữ liệu dự kiến
 
@@ -180,9 +205,10 @@ Trạng thái: **hoàn thành ngày 2026-07-22 ở source code/test cô lập; n
 
 ### Phase 2 — Import baseline T6-26
 
-Trạng thái: **hoàn thành ngày 2026-07-22 ở source code/test cô lập; người dùng xác nhận đã import baseline 329 nhân sự ngày 2026-07-23 nhưng agent chưa query độc lập runtime**.
+Trạng thái: **hoàn thành source/test cho baseline ban đầu và flow one-time hiệu chỉnh T6-26 = 339; người dùng đã báo import 339 thành công, agent chưa reconciliation độc lập database**.
 
-- Dùng `baseline-values-2026.xlsx`, không dùng trực tiếp file gốc/archive.
+- `baseline-values-2026.xlsx` = 329 chỉ là artifact trung gian lịch sử của Phase 0.1/2.
+- Baseline runtime đúng dùng `workforce-baseline-339-2026.xlsx`; không upload trực tiếp file nguồn hoặc artifact 329.
 - Parse schema `T6-26!A4:AH333`; dữ liệu nhân sự ở hàng 5–333.
 - Upload -> parse -> preview -> validate -> confirm; không insert ngay khi upload.
 - Mapping theo field allowlist, không map DB bằng vị trí cột một cách ngầm định.
@@ -212,7 +238,7 @@ Trạng thái: **hoàn thành ngày 2026-07-22 ở source code và test cô lậ
 
 ### Phase 4 — Giao diện quản lý HR
 
-Trạng thái: **hoàn thành source và automated verification ngày 2026-07-23; chờ deploy/UAT runtime**.
+Trạng thái: **hoàn thành source; UI đã xuất hiện trên runtime theo ảnh người dùng, formal UAT checklist chưa đóng**.
 
 - `MANAGER` login/silent refresh/PWA root tự chuyển tới `/manager/hr`; deep link được SPA forward.
 - Dùng chung `DashboardLayout`, notification và push hiện tại; có nav HR responsive riêng cho Manager.
@@ -227,22 +253,21 @@ Phạm vi, acceptance và UAT: [HR Phase 4 — Giao diện Manager](HR_PHASE_4_M
 
 ### Phase 5 — Tăng/Giảm và snapshot tháng
 
-Trạng thái: **hoàn thành source và automated verification ngày 2026-07-23; chưa deploy/restart production, chưa UAT runtime**.
+Trạng thái: **hoàn thành source/automated verification; runtime đã có các màn nghiệp vụ, formal UAT dữ liệu chưa đóng**.
 
 - Tạo thủ công `INCREASE` cho Employee `DRAFT` và `DECREASE` cho Employee `ACTIVE`; movement có ngày hiệu lực, reason/quyết định, principal-derived actor, idempotency key và `rowVersion`.
 - Vòng đời movement là `DRAFT -> CONFIRMED/CANCELLED`; movement đã xác nhận là bất biến.
-- Tạo đúng tháng liền sau, `DRAFT -> OPEN -> CLOSED`; close dựng lại item để nhận movement vừa xác nhận rồi tạo checksum.
-- Reopen chỉ cho kỳ `CLOSED` không phải baseline, chưa export, chưa có kỳ downstream và bắt buộc lý do.
-- `T6-26` sinh từ import là baseline bất biến. Movement lịch sử xác nhận muộn không sửa T6 mà được áp dụng idempotent vào kỳ kế tiếp chưa chốt.
+- Flow cũ tạo/mở/chốt roster vẫn còn ở backend để tương thích, nhưng UI Manager hiện đã được Phase 8 thay bằng projection sống theo ngày hiệu lực.
+- `T6-26` sinh từ import là dữ liệu nền. Danh sách tháng hiển thị hiện tại được tính lại từ T6 và movement đã xác nhận.
 - Hard-delete chỉ cho Employee/movement/roster `DRAFT` tạo tay, chưa có reference; mọi action có audit đã lọc.
-- UI Manager đã có form Tăng/Giảm, confirm/cancel/delete nháp, tạo/mở/chốt/reopen/delete kỳ và xóa hồ sơ nháp.
-- Test khóa baseline hiệu chỉnh: `T6-26 CLOSED` có 339 item/checksum, 339 Employee active và không tạo `T7-26` tự động.
+- UI Manager đã có form Tăng/Giảm, confirm/cancel/delete nháp, xem danh sách tháng tự động và xóa hồ sơ nháp.
+- Test khóa baseline cũ vẫn giữ snapshot gốc; Phase 8 thêm test projection để movement hiệu lực trong T6 làm T6 và T7 cùng cập nhật số hiển thị.
 
 Chi tiết flow, API và UAT: [HR Phase 5 — Tăng/Giảm và danh sách tháng](HR_PHASE_5_WORKFORCE_MONTHLY.md).
 
 ### Phase 6 — Export Excel hoàn chỉnh
 
-Trạng thái: **hoàn thành source và automated test ngày 2026-07-23; chưa deploy/restart production, chưa UAT runtime**.
+Trạng thái: **hoàn thành source/automated test; UI export đã có trên runtime, formal UAT file tháng/năm chưa đóng**.
 
 - Export đặt tại `/manager/hr/rosters`.
 - Export năm tạo workbook 14 sheet: `TĂNG`, `GIẢM`, `T1-26` ... `T12-26`.
@@ -256,7 +281,7 @@ Chi tiết: [HR Phase 6 — Export Excel](HR_PHASE_6_EXCEL_EXPORT.md).
 
 ### Phase 7 — Ứng viên thử việc và hợp đồng Word
 
-Trạng thái: **đã hoàn thành source schema/API/UI ngày 2026-07-24; chưa deploy/restart production, chưa UAT runtime**.
+Trạng thái: **đã hoàn thành source schema/API/UI và gate ổn định giao diện; formal end-to-end UAT dữ liệu thật được giữ ở gate vận hành**.
 
 - Thêm domain `Ứng viên thử việc` trước `HrEmployee`.
 - Sinh hợp đồng thử việc `.docx` từ template backend.
@@ -273,18 +298,47 @@ Trạng thái: **đã hoàn thành source schema/API/UI ngày 2026-07-24; chưa 
 
 Chi tiết: [HR Phase 7 — Ứng viên thử việc và hợp đồng Word](HR_PHASE_7_PROBATION_CONTRACTS.md).
 
-### Phase 8 — Đơn nghỉ và phê duyệt HR
+### Phase 8 — Projection sống cho danh sách tháng
 
-- Flow riêng, không dùng booking approval.
-- Quản lý số dư, đơn nghỉ, hủy, phê duyệt và lịch sử.
-- Chống trừ phép hai lần bằng transaction/idempotency.
+Trạng thái: **đang triển khai source; chưa deploy/restart production và chưa sửa dữ liệu runtime**.
 
-### Phase 9 — Báo cáo, audit và UAT
+- Backend thêm `HrRosterProjectionService` để tính quân số tháng từ baseline T6 và movement đã xác nhận.
+- `/api/v1/hr/rosters`, detail và items trả số liệu sống từ T6 đến tháng hiện tại.
+- Nếu DB chưa có row của tháng hiện tại, API vẫn trả synthetic period id để UI xem được tháng đó.
+- Export tháng/năm dùng cùng projection backend với UI.
+- UI `/manager/hr/rosters` bỏ nút tạo tháng kế tiếp, bỏ trạng thái chốt/mở và chỉ hiển thị số tự động.
+- Chi tiết tháng bỏ `Mở kỳ`, `Chốt tháng`, `Mở lại`.
+- Tăng/Giảm giải thích ngày hiệu lực sẽ cập nhật tháng đó và các tháng sau.
 
-- Báo cáo headcount, tăng/giảm, bảo hiểm, hồ sơ thiếu và ngày phép.
-- Audit truy cập/export PII.
-- UAT đối chiếu DB, UI và Excel với dữ liệu thực.
-- Tài liệu vận hành, backup/restore và rollback.
+### Phase 9 — UX điều chỉnh biến động đã xác nhận
+
+Trạng thái: **plan mới — triển khai sau khi Phase 8 được UAT**.
+
+- Màn Tăng/Giảm có preview ảnh hưởng trước khi xác nhận.
+- Preview hiển thị các tháng sẽ đổi và quân số mới.
+- Nếu movement đã confirmed bị sai, không xóa cứng; dùng flow điều chỉnh/đảo nghiệp vụ có audit.
+- Có thể thêm `ngày đơn vị báo cáo` và lý do báo trễ nếu TCHC cần theo dõi.
+- Danh sách tháng hiển thị số được tính từ bao nhiêu movement.
+- Search/filter/sort/page từ backend; giao diện responsive desktop, Android và iOS PWA.
+
+### Phase 10 — Đối soát, UAT, hardening và rollout an toàn
+
+Trạng thái: **plan hoàn chỉnh — triển khai sau Phase 8–9**.
+
+- Reconciliation read-only giữa baseline, movement timeline và projection sống.
+- UAT đầy đủ case tăng/giảm cùng tháng, báo trễ, tái tuyển, trùng movement, quyền và backward compatibility.
+- Kiểm tra index/query, locking, pagination, audit, PII và hiệu năng.
+- Backup/restore và rollout theo gate; không tự sửa dữ liệu khi phát hiện lệch.
+- Chỉ đóng Phase 10 khi có bằng chứng runtime và TCHC xác nhận số liệu.
+
+Chi tiết Phase 8–10: [Refactor danh sách nhân sự tháng](HR_PHASE_8_10_MONTHLY_ROSTER_REFACTOR.md).
+
+### Backlog chưa xếp phase
+
+- Tính ngày phép, số dư phép và đơn nghỉ/phê duyệt HR tiếp tục **defer**.
+- Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao và cảnh báo hồ sơ được thực hiện sau khi Phase 8–10 ổn định.
+- Chỉ đưa lại vào roadmap sau khi phòng TCHC chốt công thức, đối tượng áp dụng và case test.
+- Không tái sử dụng booking approval cho nghiệp vụ HR.
 
 ## 7. Gate triển khai hiện tại
 
@@ -314,7 +368,7 @@ Phase 2 đã đạt:
 - Không seed 329 nhân sự hoặc 9 tăng/2 giảm bằng migration schema.
 - Trong lượt xây/test Phase 2 ngày `2026-07-22`, agent không deploy/restart server hoặc thay đổi database production.
 
-Ghi nhận sau gate source: người dùng xác nhận ngày `2026-07-23` rằng migration/import baseline đã hoàn tất và có 329 nhân sự. Agent chưa đối chiếu độc lập Employee, `INITIAL_LOAD`, roster `T6-26` và batch `CONFIRMED` trên runtime đó.
+Ghi nhận hiện tại: bộ 329 đã bị xóa; người dùng sau đó báo import artifact chuẩn 339 thành công. Agent chưa đối chiếu độc lập Employee, `INITIAL_LOAD`, roster `T6-26` và batch `CONFIRMED` trên runtime.
 
 Phase 3 đã đạt:
 
@@ -330,14 +384,14 @@ Phase 4 đã đóng gate source/automated:
 - Frontend lint/build đạt; PWA/service worker build đạt, còn một lint warning và chunk-size warning cũ.
 - Backend target test đạt `8/8`; toàn bộ regression đạt `75` test, `0` failure/error và `1` skip theo điều kiện môi trường.
 - Production JAR chứa frontend mới build thành công; `git diff --check` đạt.
-- Chưa có read-only reconciliation độc lập cho 329 Employee, 329 `INITIAL_LOAD`, snapshot `T6-26` và batch import trên runtime người dùng vừa thao tác.
+- Chưa có read-only reconciliation độc lập cho baseline 339 Employee, 339 `INITIAL_LOAD`, snapshot `T6-26` và batch import trên runtime người dùng vừa thao tác.
 - Chưa deploy/restart server và chưa hoàn tất browser UAT desktop/mobile trong lượt này.
 
 Phase 5 đã đóng gate source/automated:
 
 - API ghi lấy actor từ principal `MANAGER`; không thêm liên kết Employee -> User và không đổi login/profile/booking.
 - Lock/version/idempotency và guard hard-delete đã có; confirmed history và baseline không thể hard-delete.
-- T6 baseline bất biến; snapshot kế thừa áp dụng movement theo ngày hiệu lực và tạo checksum khi chốt.
+- Phase 8 bổ sung projection sống: T6 và các tháng sau được tính từ baseline + movement theo ngày hiệu lực, không cần chốt trên UI.
 - Target integration/controller/security test đạt; full backend regression đạt 80 test, 0 failure/error và 1 skip; frontend lint/build đạt.
 - Chưa deploy/restart server, chưa chạy movement trên database người dùng và chưa UAT browser/runtime.
 

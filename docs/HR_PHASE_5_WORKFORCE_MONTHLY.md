@@ -1,8 +1,10 @@
 # HR Phase 5 — Tăng/Giảm Và Danh Sách Tháng
 
-Cập nhật: 2026-07-23
+Cập nhật: 2026-07-27
 
-Trạng thái: **hoàn thành ở source code và automated test; chưa deploy/restart production, chưa UAT trên database đang chạy**
+Trạng thái: **hoàn thành source/automated test. Flow tạo/mở/chốt roster trong tài liệu này là lịch sử Phase 5; từ Phase 8, UI Manager dùng danh sách tháng tự động tính theo ngày hiệu lực và không còn chốt/mở tháng thủ công.**
+
+Ghi chú Phase 8: backend vẫn giữ endpoint roster cũ để tương thích, nhưng `/manager/hr/rosters`, chi tiết tháng và export hiện đọc projection sống từ baseline T6 + movement đã xác nhận.
 
 ## 1. Phạm vi đã triển khai
 

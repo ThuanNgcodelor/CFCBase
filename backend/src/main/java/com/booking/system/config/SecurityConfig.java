@@ -72,6 +72,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll() // Mở endpoint đăng nhập
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/v1/hr/**").hasRole("MANAGER")
+                .requestMatchers("/api/v1/dashboard/admin").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exceptions -> exceptions

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, ClipboardList, FileBadge2, Save } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrError, HrLoading, HrPageHeader, HrPageShell } from '../../components/hr/HrUi';
@@ -98,11 +98,19 @@ function Field({ label, wide = false, children }) {
   );
 }
 
-function FormSection({ title, description, children }) {
+function FormSection({ icon: Icon, step, title, description, children }) {
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="font-semibold text-gray-900">{title}</h2>
-      {description && <p className="mt-1 text-sm leading-6 text-gray-500">{description}</p>}
+    <section className="rounded-xl border border-[var(--cfc-border)] bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Mục {step}/2</p>
+          <h2 className="mt-0.5 font-semibold text-[var(--cfc-ink)]">{title}</h2>
+          {description && <p className="mt-1 text-sm leading-6 text-[var(--cfc-muted)]">{description}</p>}
+        </div>
+      </div>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">{children}</div>
     </section>
   );
@@ -204,7 +212,22 @@ export default function HrProbationJobTemplateForm() {
         <HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} />
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
-          <FormSection title="Thông tin mẫu">
+          <div className="grid gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 sm:grid-cols-3">
+            <div className="flex items-center gap-3">
+              <FileBadge2 className="h-5 w-5 shrink-0 text-emerald-700" />
+              <div><p className="text-xs text-[var(--cfc-muted)]">Mã mẫu</p><p className="mt-0.5 truncate text-sm font-semibold text-[var(--cfc-ink)]">{form.code || 'Chưa nhập'}</p></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <BriefcaseBusiness className="h-5 w-5 shrink-0 text-emerald-700" />
+              <div><p className="text-xs text-[var(--cfc-muted)]">Tên mẫu</p><p className="mt-0.5 truncate text-sm font-semibold text-[var(--cfc-ink)]">{form.name || 'Chưa nhập'}</p></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ClipboardList className="h-5 w-5 shrink-0 text-emerald-700" />
+              <div><p className="text-xs text-[var(--cfc-muted)]">Trạng thái</p><p className="mt-0.5 text-sm font-semibold text-[var(--cfc-ink)]">{form.status === 'INACTIVE' ? 'Ngừng hoạt động' : 'Đang hoạt động'}</p></div>
+            </div>
+          </div>
+
+          <FormSection icon={FileBadge2} step="1" title="Thông tin mẫu">
             <Field label="Mã mẫu *">
               <input required maxLength={32} value={form.code} onChange={(event) => updateForm('code', event.target.value.toUpperCase())} className={INPUT_CLASS} />
             </Field>
@@ -243,6 +266,8 @@ export default function HrProbationJobTemplateForm() {
           </FormSection>
 
           <FormSection
+            icon={ClipboardList}
+            step="2"
             title="Nội dung công việc và lương"
             description="Các nội dung này sẽ được dùng để điền nhanh cho ứng viên và phục vụ sinh hợp đồng thử việc."
           >

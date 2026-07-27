@@ -1,6 +1,6 @@
-# Ngữ Cảnh AI Cho BookingBase
+# Ngữ Cảnh AI — CFC Quản Lý Nhân Sự
 
-Cập nhật: 2026-07-24
+Cập nhật: 2026-07-27
 
 File này là context tiếng Việt cho AI agent. Code và config hiện tại luôn là `Source of Truth`. Giữ nguyên thuật ngữ kỹ thuật như `Frontend`, `Backend`, `JWT`, `DTO`, `PWA`, `Service Worker`, `WebSocket`, `STOMP`, `runtime cache`.
 
@@ -17,7 +17,14 @@ Docs chỉ là tham khảo. Nếu docs khác code, ưu tiên code.
 
 ## Mục Tiêu Hệ Thống
 
-BookingBase là hệ thống booking nội bộ cho phòng họp và xe công ty. Repo hiện triển khai:
+Từ ngày `2026-07-27`, phạm vi sản phẩm active chỉ còn phân hệ Quản lý nhân sự cho `MANAGER`.
+
+- Booking phòng họp/xe và approval Booking đã ngừng phát triển.
+- Mã Booking vẫn tồn tại như legacy; không tự xóa hoặc refactor nếu task không yêu cầu rõ.
+- Không tiếp tục Booking Phase 6–10.
+- Auth, tài khoản, Notification, PWA, Email và deploy được giữ khi phục vụ HR hoặc hạ tầng dùng chung.
+
+Repo hiện vẫn chứa:
 
 - Authentication chính bằng email/password, OTP register/forgot password và Admin approval cho tài khoản mới.
 - Booking phòng họp và xe.
@@ -251,8 +258,9 @@ Approval:
 - Roster tạo tuần tự `DRAFT -> OPEN -> CLOSED`; close dựng lại item và checksum. Reopen có lý do, không áp dụng cho baseline/kỳ exported/kỳ đã có downstream.
 - Hard-delete chỉ cho dữ liệu `DRAFT` tạo tay chưa có reference.
 - HR detail trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và lương/phụ cấp cho `MANAGER`; roster/audit metadata vẫn không sao chép các giá trị nhạy cảm này. Export Excel Phase 6 có thể join lại Employee để xuất đúng template đầy đủ cho `MANAGER`.
-- Transition 339 là flow khóa cứng theo file/kỳ/chênh lệch, không phải generic bulk import/export của Phase 6. Phase 7 ngày phép tự động đã được gỡ/defer ngày 2026-07-24; Phase 8 đơn nghỉ vẫn chưa thuộc flow hiện tại.
-- Phase 7 là ứng viên thử việc và hợp đồng Word: `Ứng viên thử việc -> hợp đồng thử việc -> đạt -> HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE`. Source đã có Flyway V3, API `/api/v1/hr/probation/**`, UI `/manager/hr/probation` và template backend `backend/src/main/resources/hr/templates/probation-contract-template.docx`; chưa deploy/UAT runtime.
+- Transition 339 là flow khóa cứng theo file/kỳ/chênh lệch, không phải generic bulk import/export của Phase 6. Tính ngày phép và đơn nghỉ tiếp tục defer vì chưa có rule TCHC.
+- Phase 7 là ứng viên thử việc và hợp đồng Word: `Ứng viên thử việc -> hợp đồng thử việc -> đạt -> HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE`. Source đã có Flyway V3, API `/api/v1/hr/probation/**`, UI `/manager/hr/probation` và template backend `backend/src/main/resources/hr/templates/probation-contract-template.docx`; UI đã xuất hiện trên runtime theo ảnh người dùng, formal end-to-end UAT chưa đóng.
+- Phase 8 kế tiếp là kho hồ sơ/giấy tờ nhân sự; Phase 9 là báo cáo/cảnh báo/chất lượng dữ liệu; Phase 10 là hardening/UAT/vận hành.
 
 ## Trạng Thái PWA Hiện Tại
 

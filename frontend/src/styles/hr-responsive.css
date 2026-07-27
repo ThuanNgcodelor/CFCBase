@@ -1,0 +1,150 @@
+/*
+ * HR responds to the available content width after the desktop sidebar,
+ * instead of the browser viewport. Booking screens are intentionally outside
+ * this scope.
+ */
+.hr-page-shell {
+  container-name: hr-page;
+  container-type: inline-size;
+}
+
+.hr-responsive-table {
+  display: none;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+
+.hr-responsive-cards {
+  display: block;
+  min-width: 0;
+}
+
+.hr-roster-ledger-desktop {
+  display: none;
+}
+
+.hr-roster-ledger-mobile {
+  display: block;
+}
+
+.hr-roster-timeline {
+  position: relative;
+}
+
+.hr-roster-timeline::before {
+  background: var(--cfc-border);
+  bottom: 2rem;
+  content: "";
+  left: 2.55rem;
+  position: absolute;
+  top: 2rem;
+  width: 1px;
+}
+
+.hr-roster-timeline-dot {
+  background: #8a949f;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px #8a949f;
+  height: 12px;
+  left: 2.2rem;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  z-index: 1;
+}
+
+.hr-roster-timeline-dot.is-open {
+  background: var(--cfc-emerald);
+  box-shadow: 0 0 0 2px var(--cfc-emerald);
+}
+
+.hr-filter-grid > * {
+  min-width: 0;
+  width: 100%;
+}
+
+.hr-filter-grid--probation {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container hr-page (min-width: 640px) {
+  .hr-filter-grid--probation {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container hr-page (min-width: 900px) {
+  .hr-filter-grid--probation {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hr-roster-ledger-desktop {
+    display: grid;
+  }
+
+  .hr-roster-ledger-mobile {
+    display: none;
+  }
+}
+
+@container hr-page (min-width: 984px) {
+  .hr-responsive-table--compact {
+    display: block;
+  }
+
+  .hr-responsive-cards--compact {
+    display: none;
+  }
+}
+
+@container hr-page (min-width: 1044px) {
+  .hr-responsive-table--standard {
+    display: block;
+  }
+
+  .hr-responsive-cards--standard {
+    display: none;
+  }
+}
+
+@container hr-page (min-width: 1084px) {
+  .hr-responsive-table--balanced {
+    display: block;
+  }
+
+  .hr-responsive-cards--balanced {
+    display: none;
+  }
+}
+
+@container hr-page (min-width: 1124px) {
+  .hr-filter-grid--probation {
+    grid-template-columns:
+      minmax(240px, 1fr)
+      minmax(150px, 180px)
+      minmax(180px, 220px)
+      minmax(150px, 180px)
+      auto
+      auto;
+  }
+
+  .hr-responsive-table--wide {
+    display: block;
+  }
+
+  .hr-responsive-cards--wide {
+    display: none;
+  }
+}
+
+@container hr-page (min-width: 1184px) {
+  .hr-responsive-table--extra-wide {
+    display: block;
+  }
+
+  .hr-responsive-cards--extra-wide {
+    display: none;
+  }
+}

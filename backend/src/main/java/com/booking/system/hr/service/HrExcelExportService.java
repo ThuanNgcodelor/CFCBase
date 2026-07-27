@@ -8,14 +8,10 @@ import com.booking.system.hr.entity.HrEmployeeEmployment;
 import com.booking.system.hr.entity.HrEmployeeIdentity;
 import com.booking.system.hr.entity.HrEmployeeInsurance;
 import com.booking.system.hr.entity.HrEmployeeMovement;
-import com.booking.system.hr.entity.HrMonthlyRoster;
-import com.booking.system.hr.entity.HrMonthlyRosterItem;
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrMovementStatus;
 import com.booking.system.hr.enums.HrMovementType;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
-import com.booking.system.hr.repository.HrMonthlyRosterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -62,15 +57,14 @@ public class HrExcelExportService {
     private static final Pattern CELL_STYLE_PATTERN = Pattern.compile("\\bs=\\\"([^\\\"]+)\\\"");
     private static final LocalDate EXCEL_EPOCH = LocalDate.of(1899, 12, 30);
 
-    private final HrMonthlyRosterRepository rosterRepository;
-    private final HrMonthlyRosterItemRepository rosterItemRepository;
     private final HrEmployeeMovementRepository movementRepository;
+    private final HrRosterProjectionService rosterProjectionService;
 
     public ExportFile exportMonth(int year, int month) {
         LocalDate periodStart = periodStart(year, month);
         LocalDate periodEnd = periodStart.plusMonths(1).minusDays(1);
-        HrMonthlyRoster roster = rosterRepository.findByPeriodStart(periodStart).orElse(null);
         List<HrEmployeeMovement> movements = confirmedMovements(periodStart, periodEnd);
+        List<HrRosterProjectionService.ProjectedRosterItem> rosterItems = rosterProjectionService.projectedItems(periodStart);
 
         List<SheetPlan> sheets = List.of(
                 new SheetPlan("TĂNG", "xl/worksheets/sheet1.xml"),
@@ -82,7 +76,7 @@ public class HrExcelExportService {
         applyWorkbookPlan(entries, sheets);
         entries.put("xl/worksheets/sheet1.xml", sheetBytes(movementSheetXml(entries, "xl/worksheets/sheet1.xml", movements, HrMovementType.INCREASE)));
         entries.put("xl/worksheets/sheet2.xml", sheetBytes(movementSheetXml(entries, "xl/worksheets/sheet2.xml", movements, HrMovementType.DECREASE)));
-        entries.put("xl/worksheets/sheet3.xml", sheetBytes(rosterSheetXml(entries, roster, periodStart, true)));
+        entries.put("xl/worksheets/sheet3.xml", sheetBytes(rosterSheetXml(entries, rosterItems, periodStart, true)));
 
         return new ExportFile(
                 "hr-" + monthSheetName(periodStart) + ".xlsx",
@@ -95,10 +89,6 @@ public class HrExcelExportService {
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
         List<HrEmployeeMovement> movements = confirmedMovements(yearStart, yearEnd);
-        Map<LocalDate, HrMonthlyRoster> rosters = new LinkedHashMap<>();
-        for (HrMonthlyRoster roster : rosterRepository.findAllByPeriodStartBetweenOrderByPeriodStartAsc(yearStart, yearEnd)) {
-            rosters.put(roster.getPeriodStart(), roster);
-        }
 
         List<SheetPlan> sheets = new ArrayList<>();
         sheets.add(new SheetPlan("TĂNG", "xl/worksheets/sheet1.xml"));
@@ -114,7 +104,12 @@ public class HrExcelExportService {
         for (int month = 1; month <= 12; month++) {
             LocalDate periodStart = LocalDate.of(year, month, 1);
             String sheetPath = "xl/worksheets/sheet" + (month + 2) + ".xml";
-            entries.put(sheetPath, sheetBytes(rosterSheetXml(entries, rosters.get(periodStart), periodStart, month == 1)));
+            entries.put(sheetPath, sheetBytes(rosterSheetXml(
+                    entries,
+                    rosterProjectionService.projectedItems(periodStart),
+                    periodStart,
+                    month == 1
+            )));
         }
 
         return new ExportFile("hr-nam-" + year + ".xlsx", zip(entries));
@@ -182,13 +177,16 @@ public class HrExcelExportService {
         );
     }
 
-    private String rosterSheetXml(Map<String, byte[]> entries, HrMonthlyRoster roster, LocalDate periodStart, boolean keepDrawings) {
+    private String rosterSheetXml(
+            Map<String, byte[]> entries,
+            List<HrRosterProjectionService.ProjectedRosterItem> rosterItems,
+            LocalDate periodStart,
+            boolean keepDrawings
+    ) {
         String template = text(entries, "xl/worksheets/sheet3.xml");
         List<List<CellValue>> rows = new ArrayList<>();
-        if (roster != null) {
-            for (HrMonthlyRosterItem item : rosterItemRepository.findAllByRoster_IdOrderByDisplayOrder(roster.getId())) {
-                rows.add(rosterRow(item, periodStart));
-            }
+        for (HrRosterProjectionService.ProjectedRosterItem item : rosterItems) {
+            rows.add(rosterRow(item, periodStart));
         }
         String xml = rewriteSheetData(template, 5, 34, rows, "AH", true);
         xml = xml.replaceFirst("<dimension ref=\\\"[^\\\"]+\\\"", "<dimension ref=\"A1:AH" + Math.max(4, rows.size() + 4) + "\"");
@@ -200,8 +198,8 @@ public class HrExcelExportService {
         return xml;
     }
 
-    private List<CellValue> rosterRow(HrMonthlyRosterItem item, LocalDate periodStart) {
-        HrEmployee employee = item.getEmployee();
+    private List<CellValue> rosterRow(HrRosterProjectionService.ProjectedRosterItem item, LocalDate periodStart) {
+        HrEmployee employee = item.employee();
         HrEmployeeEmployment employment = employee == null ? null : employee.getEmployment();
         HrEmployeeInsurance insurance = employee == null ? null : employee.getInsurance();
         HrEmployeeIdentity identity = employee == null ? null : employee.getIdentity();
@@ -210,13 +208,13 @@ public class HrExcelExportService {
         BigDecimal allowance = employment == null ? null : employment.getAllowance();
         BigDecimal totalIncome = baseSalary == null ? allowance : allowance == null ? baseSalary : baseSalary.add(allowance);
         LocalDate birthDate = employee == null ? null : employee.getDateOfBirth();
-        LocalDate hireDate = firstDate(item.getHireDate(), employment == null ? null : employment.getHireDate());
+        LocalDate hireDate = firstDate(item.hireDate(), employment == null ? null : employment.getHireDate());
         return List.of(
-                number(item.getDisplayOrder()),
-                number(item.getDepartmentDisplayOrder()),
-                text(item.getEmployeeCode()),
+                number(item.displayOrder()),
+                number(item.departmentDisplayOrder()),
+                text(item.employeeCode()),
                 text(insurance == null ? null : insurance.getSocialInsuranceNumber()),
-                text(item.getFullName()),
+                text(item.fullName()),
                 text(insurance == null ? null : insurance.getHealthInsuranceNumber()),
                 decimal(baseSalary),
                 decimal(allowance),
@@ -224,8 +222,8 @@ public class HrExcelExportService {
                 text(genderLabel(employee == null ? null : employee.getGender())),
                 text(employee == null ? null : employee.getEthnicity()),
                 text(employee == null ? null : employee.getReligion()),
-                text(item.getPositionName()),
-                text(item.getDepartmentName()),
+                text(item.positionName()),
+                text(item.departmentName()),
                 date(birthDate),
                 date(hireDate),
                 text(employment == null ? null : employment.getContractTypeLabel()),
@@ -234,7 +232,7 @@ public class HrExcelExportService {
                 text(identity == null ? null : identity.getLegacyIdentityNumber()),
                 text(identity == null ? null : identity.getCitizenIdentityNumber()),
                 date(identity == null ? null : identity.getIssuedDate()),
-                text(item.getWorkingConditionName()),
+                text(item.workingConditionName()),
                 text(identity == null ? null : identity.getIssuedPlace()),
                 text(employee == null ? null : employee.getBirthPlaceOriginal()),
                 text(employee == null ? null : employee.getBirthPlaceCurrent()),
@@ -245,7 +243,7 @@ public class HrExcelExportService {
                 text(employee == null ? null : employee.getMajor()),
                 text(employment == null ? null : employment.getJobDescription()),
                 number(age(birthDate, periodStart.plusMonths(1).minusDays(1))),
-                decimal(item.getLeaveDays())
+                decimal(item.leaveDays())
         );
     }
 

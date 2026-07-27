@@ -6,8 +6,8 @@ export const dashboardApi = {
     return response.data.data;
   },
 
-  getClientStats: async (userId) => {
-    const response = await baseApi.get(`/dashboard/client/${userId}`);
+  getClientStats: async () => {
+    const response = await baseApi.get('/dashboard/client');
     return response.data.data;
   }
 };

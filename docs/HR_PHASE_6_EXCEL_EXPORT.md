@@ -1,8 +1,8 @@
 # HR Phase 6 — Export Excel
 
-Cập nhật: 2026-07-23
+Cập nhật: 2026-07-27
 
-Trạng thái: **hoàn thành ở source code và automated test; chưa deploy/restart production, chưa UAT trên database đang chạy**
+Trạng thái: **hoàn thành source/automated test; từ Phase 8 export tháng/năm dùng cùng projection sống với UI danh sách tháng. Formal UAT đối chiếu file tháng/năm chưa được ghi nhận là đã đóng**
 
 ## Phạm vi
 
