@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <title>CFC People Operations - Quản Lý Nhân Sự</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Font: Be Vietnam Pro -->
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Be Vietnam Pro', 'sans-serif'] },
+          colors: {
+            hrNavy: '#062A3D',
+            hrInk: '#0B1F3A',
+            cfcEmerald: '#009B63',
+            emeraldTint: '#E8F7F0',
+            actionCobalt: '#0F5BFF',
+            canvasBg: '#F5F8F7',
+            borderColor: '#D7E0E6',
+            mutedText: '#637087'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-canvasBg font-sans text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Header Navigation (HR Navy #062A3D) -->
+  <header class="bg-hrNavy text-white shadow-md sticky top-0 z-50">
+    <div class="max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16 items-center">
+        
+        <!-- Brand / Logo Motif -->
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('tabOverview')">
+          <div class="w-9 h-9 rounded-lg bg-cfcEmerald flex items-center justify-center font-bold text-white shadow">
+            CFC
+          </div>
+          <div>
+            <span class="font-bold text-lg tracking-tight block">CFC People Operations</span>
+            <span class="text-[10px] text-emerald-300 tracking-wider uppercase block font-semibold">Xí nghiệp Phân bón Hóa chất</span>
+          </div>
+        </div>
+
+        <!-- Navigation Rail Tabs -->
+        <nav class="flex space-x-1 sm:space-x-2">
+          <button onclick="switchTab('tabOverview')" id="nav-tabOverview" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-cfcEmerald text-white">
+            📊 Tổng Quan
+          </button>
+          <button onclick="switchTab('tabEmployees')" id="nav-tabEmployees" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-slate-700/50 text-slate-200">
+            👥 Danh Sách Nhân Sự
+          </button>
+          <button onclick="switchTab('tabContract')" id="nav-tabContract" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-slate-700/50 text-slate-200">
+            📝 Hợp Đồng Thử Việc
+          </button>
+          <button onclick="switchTab('tabMovements')" id="nav-tabMovements" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-slate-700/50 text-slate-200">
+            📈 Tăng Giảm Nhân Sự
+          </button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+    <!-- 1. TAB TỔNG QUAN (OVERVIEW) -->
+    <div id="tabOverview" class="tab-content space-y-6">
+      
+      <!-- Summary Band Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        
+        <div class="bg-white p-5 rounded-xl border border-borderColor shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-mutedText uppercase tracking-wider">Tổng Nhân Sự T6/2026</p>
+            <h3 id="statTotal" class="text-3xl font-bold text-hrInk mt-1">336</h3>
+            <p class="text-xs text-cfcEmerald font-medium mt-1">✔ Chuẩn số liệu T6-26</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-blue-50 text-actionCobalt flex items-center justify-center text-xl font-bold">
+            👥
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-borderColor shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-mutedText uppercase tracking-wider">Đang Làm Việc</p>
+            <h3 id="statActive" class="text-3xl font-bold text-cfcEmerald mt-1">336</h3>
+            <p class="text-xs text-mutedText mt-1">Chính thức & Đã xác nhận</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emeraldTint text-cfcEmerald flex items-center justify-center text-xl font-bold">
+            ⚡
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-borderColor shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-mutedText uppercase tracking-wider">Ứng Viên Thử Việc</p>
+            <h3 id="statProbation" class="text-3xl font-bold text-amber-600 mt-1">0</h3>
+            <p class="text-xs text-amber-600 font-medium mt-1">Đang cập nhật hồ sơ</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold">
+            📄
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-borderColor shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-mutedText uppercase tracking-wider">Xuất File Báo Cáo</p>
+            <button onclick="downloadExcel()" class="mt-2 text-xs font-semibold text-white bg-actionCobalt hover:bg-blue-700 px-3.5 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition">
+              📥 Tải Excel Tháng 6
+            </button>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold">
+            📊
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Ledger Table -->
+      <div class="bg-white rounded-xl border border-borderColor shadow-sm p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold text-hrInk">Danh Sách Nhân Sự Nổi Bật (Xí Nghiệp Phân Bón Hóa Chất)</h2>
+          <button onclick="switchTab('tabEmployees')" class="text-sm font-semibold text-actionCobalt hover:underline">Xem Tất Cả 336 Nhân Sự →</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-canvasBg text-mutedText text-xs font-semibold uppercase border-b border-borderColor">
+                <th class="p-3">Mã NV</th>
+                <th class="p-3">Họ và Tên</th>
+                <th class="p-3">Chức vụ</th>
+                <th class="p-3">Đơn vị công tác</th>
+                <th class="p-3 text-right">Lương chính</th>
+              </tr>
+            </thead>
+            <tbody id="overviewTable" class="divide-y divide-borderColor text-slate-700">
+              <tr><td colspan="5" class="p-4 text-center text-mutedText">Đang kết nối dữ liệu...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. TAB DANH SÁCH NHÂN SỰ (EMPLOYEES LEDGER) -->
+    <div id="tabEmployees" class="tab-content hidden space-y-4">
+      
+      <!-- Command Rail / Filters -->
+      <div class="bg-white p-4 rounded-xl border border-borderColor shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+        
+        <div class="relative w-full md:w-96">
+          <input type="text" id="searchInput" onkeyup="filterEmployees()" placeholder="Tìm theo Mã NV, Họ tên hoặc Chức vụ..." 
+                 class="w-full pl-9 pr-4 py-2 border border-borderColor rounded-lg text-sm focus:ring-2 focus:ring-actionCobalt focus:outline-none bg-canvasBg">
+          <span class="absolute left-3 top-2.5 text-mutedText">🔍</span>
+        </div>
+
+        <div class="flex flex-wrap gap-3 w-full md:w-auto">
+          <select id="deptFilter" onchange="filterEmployees()" class="border border-borderColor rounded-lg text-sm px-3 py-2 bg-canvasBg focus:outline-none">
+            <option value="">Tất cả Đơn vị / Phòng ban</option>
+          </select>
+          <select id="statusFilter" onchange="filterEmployees()" class="border border-borderColor rounded-lg text-sm px-3 py-2 bg-canvasBg focus:outline-none">
+            <option value="">Tất cả Trạng thái</option>
+            <option value="Đang làm việc">Đang làm việc</option>
+            <option value="Thử việc">Thử việc</option>
+            <option value="Đã nghỉ việc">Đã nghỉ việc</option>
+          </select>
+          <button onclick="fetchEmployees()" class="bg-canvasBg hover:bg-slate-200 border border-borderColor text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1">
+            🔄 Làm mới
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Ledger Table -->
+      <div class="bg-white rounded-xl border border-borderColor shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-canvasBg text-mutedText text-xs font-semibold uppercase tracking-wider border-b border-borderColor">
+                <th class="p-3.5">Mã NV</th>
+                <th class="p-3.5">Họ và Tên</th>
+                <th class="p-3.5">Số BHXH</th>
+                <th class="p-3.5">Chức vụ</th>
+                <th class="p-3.5">Đơn vị công tác</th>
+                <th class="p-3.5 text-right">Lương chính</th>
+                <th class="p-3.5 text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="employeeTableBody" class="divide-y divide-borderColor text-slate-700">
+              <tr><td colspan="7" class="p-8 text-center text-mutedText">Đang tải dữ liệu 336 nhân sự...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 3. TAB QUẢN LÝ THỬ VIỆC & XUẤT HỢP ĐỒNG -->
+    <div id="tabContract" class="tab-content hidden space-y-6">
+      
+      <div class="bg-white rounded-xl border border-borderColor shadow-sm p-6">
+        <div class="border-b border-borderColor pb-4 mb-6">
+          <h2 class="text-xl font-bold text-hrInk">Tạo Mới Ứng Viên Thử Việc & Sinh Hợp Đồng PDF (Khớp 22 Biến Backend)</h2>
+          <p class="text-xs text-mutedText mt-1">Hệ thống tự động thay thế 22 placeholder trong Mẫu Google Docs và xuất ra file PDF lưu trực tiếp trên Google Drive.</p>
+        </div>
+
+        <form id="contractForm" onsubmit="handleCreateContract(event)" class="space-y-6">
+          
+          <!-- Section 1: Cấu hình Google Drive Template -->
+          <div class="bg-canvasBg p-4 rounded-xl border border-borderColor grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-hrInk uppercase mb-1">Mẫu Google Docs Template ID (*)</label>
+              <input type="text" id="docTemplateId" required placeholder="Nhập ID file Google Docs mẫu" class="w-full p-2 border border-borderColor rounded text-sm bg-white">
+              <span class="text-[11px] text-mutedText">File Google Docs chứa các biến {{FULL_NAME}}, {{CITIZEN_ID}}, {{BASE_SALARY_TEXT}}...</span>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-hrInk uppercase mb-1">Thư mục Google Drive ID (*)</label>
+              <input type="text" id="folderDriveId" required placeholder="Nhập ID thư mục lưu HĐTV trên Drive" class="w-full p-2 border border-borderColor rounded text-sm bg-white">
+              <span class="text-[11px] text-mutedText">Thư mục trên Drive để lưu file PDF hợp đồng đã sinh.</span>
+            </div>
+          </div>
+
+          <!-- Section 2: Thông tin Ứng Viên & Hợp Đồng -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Số Hợp Đồng ({{CONTRACT_NO}})</label>
+              <input type="text" id="cContractNo" placeholder="HĐTV-2026/001" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Danh xưng ({{CANDIDATE_TITLE}})</label>
+              <select id="cCandidateTitle" class="w-full p-2 border border-borderColor rounded text-sm">
+                <option value="Ông">Ông</option>
+                <option value="Bà">Bà</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Họ và Tên (* {{FULL_NAME}})</label>
+              <input type="text" id="cFullName" required placeholder="NGUYỄN VĂN A" class="w-full p-2 border border-borderColor rounded text-sm uppercase">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Ngày sinh ({{DATE_OF_BIRTH}})</label>
+              <input type="text" id="cDateOfBirth" placeholder="15/05/1996" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Số CCCD (* {{CITIZEN_ID}})</label>
+              <input type="text" id="cCitizenId" required placeholder="034096xxxxxx" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Ngày cấp CCCD ({{CITIZEN_ID_ISSUED_DATE}})</label>
+              <input type="text" id="cCitizenIdIssuedDate" placeholder="10/10/2021" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Nơi cấp CCCD ({{CITIZEN_ID_ISSUED_PLACE}})</label>
+              <input type="text" id="cCitizenIdIssuedPlace" value="Cục Cảnh sát QLHC về trật tự xã hội" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Địa chỉ thường trú ({{PERMANENT_ADDRESS}})</label>
+              <input type="text" id="cPermanentAddress" placeholder="TP. Hồ Chí Minh" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Chức danh thử việc ({{POSITION_NAME}})</label>
+              <input type="text" id="cPositionName" required placeholder="Nhân viên kỹ thuật" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Đơn vị công tác ({{DEPARTMENT_NAME}})</label>
+              <input type="text" id="cDepartment" required placeholder="P. Kỹ thuật" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Mức lương thử việc ({{BASE_SALARY_TEXT}})</label>
+              <input type="number" id="cBaseSalary" placeholder="7000000" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Ngày bắt đầu ({{PROBATION_START_DATE}})</label>
+              <input type="text" id="cProbationStartDate" placeholder="01/08/2026" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Ngày kết thúc ({{PROBATION_END_DATE}})</label>
+              <input type="text" id="cProbationEndDate" placeholder="30/09/2026" class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Mô tả công việc ({{JOB_DESCRIPTION}})</label>
+              <input type="text" id="cJobDescription" value="Thực hiện công việc theo sự phân công của Trưởng đơn vị." class="w-full p-2 border border-borderColor rounded text-sm">
+            </div>
+
+          </div>
+
+          <div class="flex justify-end pt-4 border-t border-borderColor">
+            <button type="submit" id="btnExportPdf" class="bg-cfcEmerald hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-lg text-sm flex items-center gap-2 shadow">
+              🚀 Sinh Hợp Đồng & Export PDF Google Drive
+            </button>
+          </div>
+
+        </form>
+
+        <!-- Result PDF Alert -->
+        <div id="contractResult" class="mt-6 hidden p-4 rounded-xl bg-emeraldTint border border-emerald-300">
+          <h4 class="font-bold text-cfcEmerald mb-1">✨ Đã Tạo Hợp Đồng Thử Việc Thành Công!</h4>
+          <p id="contractMessage" class="text-sm text-slate-700 mb-3"></p>
+          <div class="flex gap-3">
+            <a id="linkPdf" target="_blank" class="bg-cfcEmerald text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-emerald-700 shadow">📄 Mở Xem File PDF</a>
+            <a id="linkDoc" target="_blank" class="bg-actionCobalt text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 shadow">📝 Mở Xem File Google Docs</a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 4. TAB TĂNG GIẢM NHÂN SỰ (MOVEMENTS) -->
+    <div id="tabMovements" class="tab-content hidden space-y-6">
+      <div class="bg-white rounded-xl border border-borderColor shadow-sm p-6">
+        <h2 class="text-xl font-bold text-hrInk mb-4">Ghi Nhận Biến Động Nhân Sự (Tăng / Giảm)</h2>
+        
+        <form onsubmit="handleLogChange(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Loại biến động</label>
+            <select id="chgType" class="w-full p-2 border border-borderColor rounded text-sm">
+              <option value="Tuyển mới">Tuyển mới (+1)</option>
+              <option value="Thôi việc">Thôi việc (-1)</option>
+              <option value="Chuyển chính thức">Chuyển chính thức</option>
+              <option value="Điều chuyển phòng ban">Điều chuyển phòng ban</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Mã NV / Họ Tên</label>
+            <input type="text" id="chgName" required placeholder="Nhập tên hoặc mã số nhân sự" class="w-full p-2 border border-borderColor rounded text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Tháng/Năm hiệu lực</label>
+            <input type="text" id="chgMonth" placeholder="08/2026" class="w-full p-2 border border-borderColor rounded text-sm">
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Lý do biến động</label>
+            <input type="text" id="chgReason" placeholder="Lý do tuyển dụng hoặc lý do thôi việc..." class="w-full p-2 border border-borderColor rounded text-sm">
+          </div>
+
+          <div class="flex items-end">
+            <button type="submit" class="w-full bg-cfcEmerald hover:bg-emerald-700 text-white font-bold p-2 rounded text-sm shadow">
+              💾 Lưu Biến Động VÀO Google Sheets
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- DOSSIER DETAIL MODAL -->
+    <div id="dossierModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+      <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-borderColor relative m-4">
+        <button onclick="closeDossierModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+        <div class="flex items-center gap-4 pb-4 border-b border-borderColor">
+          <div class="w-14 h-14 rounded-full bg-hrNavy text-white font-bold flex items-center justify-center text-xl shadow" id="dAvatar">
+            NV
+          </div>
+          <div>
+            <h3 id="dFullName" class="text-xl font-bold text-hrInk">Họ và Tên Nhân Viên</h3>
+            <p id="dCodePos" class="text-sm text-mutedText">Mã NV: A268 | Chức vụ: Tổng Giám đốc</p>
+          </div>
+        </div>
+
+        <div class="py-4 grid grid-cols-2 gap-4 text-sm">
+          <div><span class="text-mutedText">Đơn vị công tác:</span> <p id="dDept" class="font-semibold text-slate-800">-</p></div>
+          <div><span class="text-mutedText">Số sổ BHXH:</span> <p id="dBhxh" class="font-semibold text-slate-800">-</p></div>
+          <div><span class="text-mutedText">Mã số BHYT:</span> <p id="dBhyt" class="font-semibold text-slate-800">-</p></div>
+          <div><span class="text-mutedText">Lương chính:</span> <p id="dSalary" class="font-semibold text-cfcEmerald">-</p></div>
+          <div><span class="text-mutedText">Phụ cấp:</span> <p id="dAllowance" class="font-semibold text-slate-800">-</p></div>
+          <div><span class="text-mutedText">Tổng thu nhập:</span> <p id="dTotalIncome" class="font-semibold text-actionCobalt">-</p></div>
+          <div><span class="text-mutedText">Giới tính:</span> <p id="dGender" class="font-semibold text-slate-800">-</p></div>
+          <div><span class="text-mutedText">Ngày sinh:</span> <p id="dDob" class="font-semibold text-slate-800">-</p></div>
+        </div>
+
+        <div class="pt-4 border-t border-borderColor flex justify-end">
+          <button onclick="closeDossierModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-lg text-sm">Đóng Hồ Sơ</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-borderColor py-4 text-center text-xs text-mutedText">
+    CFC People Operations © 2026 - Xí nghiệp Phân bón Hóa chất
+  </footer>
+
+  <script>
+    let allEmployees = [];
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+      
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.remove('bg-cfcEmerald', 'text-white');
+        b.classList.add('text-slate-200');
+      });
+      const activeBtn = document.getElementById('nav-' + tabId);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-cfcEmerald', 'text-white');
+        activeBtn.classList.remove('text-slate-200');
+      }
+    }
+
+    function fetchEmployees() {
+      google.script.run.withSuccessHandler(data => {
+        allEmployees = data || [];
+        document.getElementById('statTotal').innerText = allEmployees.length;
+        document.getElementById('statActive').innerText = allEmployees.length;
+        
+        populateDepartments(allEmployees);
+        renderOverviewTable(allEmployees.slice(0, 5));
+        renderTable(allEmployees);
+      }).apiGetEmployees();
+    }
+
+    function populateDepartments(list) {
+      const depts = [...new Set(list.map(e => e.department).filter(Boolean))];
+      const select = document.getElementById('deptFilter');
+      select.innerHTML = '<option value="">Tất cả Đơn vị / Phòng ban</option>' + 
+        depts.map(d => `<option value="${d}">${d}</option>`).join('');
+    }
+
+    function renderOverviewTable(list) {
+      const tbody = document.getElementById('overviewTable');
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-mutedText">Không có dữ liệu</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map(emp => `
+        <tr class="hover:bg-canvasBg">
+          <td class="p-3 font-semibold text-actionCobalt">${emp.code}</td>
+          <td class="p-3 font-medium">${emp.fullName}</td>
+          <td class="p-3">${emp.position}</td>
+          <td class="p-3">${emp.department}</td>
+          <td class="p-3 text-right font-medium text-cfcEmerald">${emp.salary ? emp.salary.toLocaleString('vi-VN') + ' đ' : '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderTable(list) {
+      const tbody = document.getElementById('employeeTableBody');
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-mutedText">Không tìm thấy nhân sự phù hợp</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.map(emp => `
+        <tr class="hover:bg-canvasBg transition">
+          <td class="p-3.5 font-semibold text-actionCobalt">${emp.code}</td>
+          <td class="p-3.5 font-medium text-hrInk">${emp.fullName}</td>
+          <td class="p-3.5 text-mutedText">${emp.bhxh || '-'}</td>
+          <td class="p-3.5 text-slate-700">${emp.position || '-'}</td>
+          <td class="p-3.5 text-slate-700">${emp.department || '-'}</td>
+          <td class="p-3.5 text-right font-medium text-cfcEmerald">${emp.salary ? emp.salary.toLocaleString('vi-VN') + ' đ' : '-'}</td>
+          <td class="p-3.5 text-center flex justify-center gap-2">
+            <button onclick="openDossierModal('${emp.code}')" class="text-xs bg-canvasBg hover:bg-slate-200 border border-borderColor text-slate-700 px-2.5 py-1 rounded font-semibold">
+              👁 Dossier
+            </button>
+            <button onclick="fillProbationForm('${emp.fullName}', '${emp.position}', '${emp.department}', '${emp.salary}')" 
+                    class="text-xs bg-emeraldTint text-cfcEmerald px-2.5 py-1 rounded font-bold hover:bg-emerald-200">
+              Xuất HĐTV
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterEmployees() {
+      const keyword = document.getElementById('searchInput').value.toLowerCase();
+      const dept = document.getElementById('deptFilter').value;
+      const status = document.getElementById('statusFilter').value;
+
+      const filtered = allEmployees.filter(e => {
+        const matchKw = !keyword || e.fullName.toLowerCase().includes(keyword) || e.code.toLowerCase().includes(keyword) || e.position.toLowerCase().includes(keyword);
+        const matchDept = !dept || e.department === dept;
+        const matchStatus = !status || e.status === status;
+        return matchKw && matchDept && matchStatus;
+      });
+      renderTable(filtered);
+    }
+
+    function openDossierModal(code) {
+      const emp = allEmployees.find(e => e.code === code);
+      if (!emp) return;
+      document.getElementById('dAvatar').innerText = emp.fullName.slice(0, 2).toUpperCase();
+      document.getElementById('dFullName').innerText = emp.fullName;
+      document.getElementById('dCodePos').innerText = `Mã NV: ${emp.code} | Chức vụ: ${emp.position}`;
+      document.getElementById('dDept').innerText = emp.department;
+      document.getElementById('dBhxh').innerText = emp.bhxh || '-';
+      document.getElementById('dBhyt').innerText = emp.bhyt || '-';
+      document.getElementById('dSalary').innerText = emp.salary ? emp.salary.toLocaleString('vi-VN') + ' đ' : '-';
+      document.getElementById('dAllowance').innerText = emp.allowance ? emp.allowance.toLocaleString('vi-VN') + ' đ' : '-';
+      document.getElementById('dTotalIncome').innerText = emp.totalIncome ? emp.totalIncome.toLocaleString('vi-VN') + ' đ' : '-';
+      document.getElementById('dGender').innerText = emp.gender || 'Nam';
+      document.getElementById('dDob').innerText = emp.dob || '-';
+
+      document.getElementById('dossierModal').classList.remove('hidden');
+    }
+
+    function closeDossierModal() {
+      document.getElementById('dossierModal').classList.add('hidden');
+    }
+
+    function fillProbationForm(name, pos, dept, salary) {
+      switchTab('tabContract');
+      document.getElementById('cFullName').value = name;
+      document.getElementById('cPositionName').value = pos;
+      document.getElementById('cDepartment').value = dept;
+      if (salary) document.getElementById('cBaseSalary').value = salary;
+    }
+
+    function handleCreateContract(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnExportPdf');
+      btn.innerText = '⌛ Đang tạo Hợp đồng & Xuất PDF...';
+      btn.disabled = true;
+
+      const payload = {
+        contractNo: document.getElementById('cContractNo').value,
+        candidateTitle: document.getElementById('cCandidateTitle').value,
+        fullName: document.getElementById('cFullName').value,
+        dateOfBirth: document.getElementById('cDateOfBirth').value,
+        citizenId: document.getElementById('cCitizenId').value,
+        citizenIdIssuedDate: document.getElementById('cCitizenIdIssuedDate').value,
+        citizenIdIssuedPlace: document.getElementById('cCitizenIdIssuedPlace').value,
+        permanentAddress: document.getElementById('cPermanentAddress').value,
+        positionName: document.getElementById('cPositionName').value,
+        department: document.getElementById('cDepartment').value,
+        baseSalary: document.getElementById('cBaseSalary').value,
+        probationStartDate: document.getElementById('cProbationStartDate').value,
+        probationEndDate: document.getElementById('cProbationEndDate').value,
+        jobDescription: document.getElementById('cJobDescription').value
+      };
+
+      const tId = document.getElementById('docTemplateId').value;
+      const fId = document.getElementById('folderDriveId').value;
+
+      google.script.run.withSuccessHandler(res => {
+        btn.innerText = '🚀 Sinh Hợp Đồng & Export PDF Google Drive';
+        btn.disabled = false;
+        
+        if (res.success) {
+          document.getElementById('contractResult').classList.remove('hidden');
+          document.getElementById('contractMessage').innerText = res.message;
+          document.getElementById('linkPdf').href = res.pdfUrl;
+          document.getElementById('linkDoc').href = res.docUrl;
+        } else {
+          alert('Thất bại: ' + res.message);
+        }
+      }).apiCreateProbationContract(payload, tId, fId);
+    }
+
+    function downloadExcel() {
+      google.script.run.withSuccessHandler(url => {
+        window.open(url, '_blank');
+      }).apiGetMonthlyExcelExportUrl();
+    }
+
+    window.onload = fetchEmployees;
+  </script>
+</body>
+</html>

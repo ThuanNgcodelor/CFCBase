@@ -1,0 +1,7 @@
+node_modules/
+.clasp.json
+dist/
+Quan_Ly_Nhan_Su.xlsx
+*.local.json
+*.log
+.vite/
