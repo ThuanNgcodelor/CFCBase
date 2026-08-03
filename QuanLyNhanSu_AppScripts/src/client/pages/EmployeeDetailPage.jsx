@@ -101,8 +101,9 @@ export function EmployeeDetailPage({ id, navigate }) {
               <DataField label="Ngày sinh" value={formatDateDisplay(employee.dob)} />
               <DataField label="Dân tộc" value={employee.ethnicity} />
               <DataField label="Tôn giáo" value={employee.religion} />
-              <DataField label="Trình độ" value={employee.education} />
-              <DataField label="Chuyên ngành" value={employee.major} />
+              <DataField label="Nơi sinh" value={employee.birthPlace} />
+              <DataField label="Thường trú" value={employee.permanentAddress} />
+              <DataField label="Chỗ ở hiện tại" value={employee.currentAddress} />
             </div>
           </section>
 
@@ -118,10 +119,13 @@ export function EmployeeDetailPage({ id, navigate }) {
           </section>
 
           <section className="detail-section">
-            <h2>Liên hệ</h2>
+            <h2>Liên hệ & Khẩn cấp</h2>
             <div className="detail-grid detail-grid--two">
               <DataField label="Điện thoại" value={employee.phone} />
               <DataField label="Email" value={employee.email} />
+              <DataField label="Liên hệ khẩn cấp" value={employee.emergencyContactName} />
+              <DataField label="SĐT khẩn cấp" value={employee.emergencyContactPhone} />
+              <DataField label="Quan hệ" value={employee.emergencyContactRelation} />
             </div>
           </section>
         </div>
