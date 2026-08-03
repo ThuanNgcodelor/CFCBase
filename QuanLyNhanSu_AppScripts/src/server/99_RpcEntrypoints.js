@@ -60,52 +60,6 @@ function hrRows_(value) {
   return [];
 }
 
-function hrLegacyImportPreviewDto_(preview) {
-  preview = preview || {};
-  var summary = preview.summary || {};
-  var issues = Array.isArray(preview.issues) ? preview.issues : [];
-  var errorRows = {};
-  issues.forEach(function (issue) {
-    if (issue && issue.severity === 'ERROR' && issue.row_number) {
-      errorRows[issue.row_number] = true;
-    }
-  });
-  var ready = preview.ready_to_confirm === true;
-  return {
-    sourceSheet: preview.source && preview.source.sheet_name || '',
-    headerRow: Number(preview.source && preview.source.header_row || 0),
-    totalRows: Number(summary.source_rows || 0),
-    importableRows: ready ? Number(summary.new_employees || 0) : 0,
-    duplicateRows: Number(summary.existing_employee_codes || 0),
-    errorRows: Number(
-      summary.invalid_rows === undefined
-        ? Object.keys(errorRows).length
-        : summary.invalid_rows
-    ),
-    warningCount: Number(summary.warning_count || 0),
-    warnings: issues.filter(function (issue) {
-      return issue && issue.severity === 'WARNING';
-    }).map(function (issue) {
-      return {
-        rowNumber: issue.row_number || null,
-        field: issue.field || null,
-        code: issue.code || null,
-        message: issue.message || 'Dữ liệu cần kiểm tra.'
-      };
-    }),
-    // The import preview deliberately returns counts/issues instead of raw HR
-    // records. This keeps the RPC response free of unnecessary PII.
-    sample: [],
-    previewToken: ready && preview.confirmation
-      ? preview.confirmation.confirmation_token
-      : null,
-    readyToConfirm: ready,
-    message: preview.message || '',
-    omittedIssueCount: Number(preview.omitted_issue_count || 0),
-    catalogs: summary.catalogs || {}
-  };
-}
-
 function hrCatalogKind_(value) {
   var normalized = String(value || '').trim().toUpperCase();
   var aliases = {
@@ -573,57 +527,13 @@ function apiCancelChange(movementId, reason) {
   return apiCancelMovement(movementId, reason);
 }
 
-function apiPreviewLegacyImport() {
+function apiGetMonthlyExcelExportUrl() {
   return hrRpc_(function () {
-    return hrLegacyImportPreviewDto_(HrLegacyImportService.preview());
-  });
-}
-
-function apiConfirmLegacyImport(previewToken) {
-  return hrRpc_(function (context) {
-    var token = String(previewToken || '').trim().toLowerCase();
-    HrCore.assert(
-      token,
-      'LEGACY_IMPORT_CONFIRMATION_REQUIRED',
-      'Hãy xem trước dữ liệu trước khi xác nhận nhập.'
-    );
-    var currentPreview = HrLegacyImportService.preview();
-    HrCore.assert(
-      currentPreview.ready_to_confirm === true &&
-        currentPreview.confirmation &&
-        currentPreview.confirmation.confirmation_token === token,
-      'LEGACY_IMPORT_SOURCE_CHANGED',
-      'Dữ liệu nguồn đã thay đổi; hãy xem trước lại trước khi nhập.'
-    );
-    var result = HrLegacyImportService.confirm(
-      currentPreview.confirmation,
-      { context: context }
-    );
-    var summary = result.summary || {};
+    var spreadsheetId = HrConfig.openSpreadsheet().getId();
     return {
-      insertedEmployees: Number(summary.imported_employees || 0),
-      skippedEmployees: Number(summary.skipped_existing_employees || 0),
-      appliedSourceEmployees: Number(summary.applied_source_employees || 0),
-      activeEmployeesAfter: Number(summary.active_employees_after || 0),
-      createdDepartments: Number(summary.created_departments || 0),
-      createdPositions: Number(summary.created_positions || 0),
-      createdWorkingConditions: Number(summary.created_working_conditions || 0),
-      replayed: result.replayed === true,
-      warnings: [],
-      message: result.message || 'Đã hoàn tất nhập dữ liệu nhân sự.'
+      url: 'https://docs.google.com/spreadsheets/d/' +
+        encodeURIComponent(spreadsheetId) +
+        '/export?format=xlsx'
     };
   });
-}
-
-function apiExportMonthlyWorkbook(year, month) {
-  return hrRpc_(function () {
-    return HrMonthlyExportService.exportMonth(year, month);
-  });
-}
-
-// Compatibility alias for clients from the previous deployment. The method no
-// longer exposes the database spreadsheet URL; it returns the same private XLSX
-// payload as apiExportMonthlyWorkbook.
-function apiGetMonthlyExcelExportUrl(year, month) {
-  return apiExportMonthlyWorkbook(year, month);
 }

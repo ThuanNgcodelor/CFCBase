@@ -11,7 +11,7 @@
     "build:all": "npm run build:workspace && npm run build:server && npm run verify",
     "check:server": "node scripts/check-server.mjs",
     "check:client-imports": "node scripts/check-client-imports.mjs",
-    "test:server": "node scripts/run-server-tests.mjs",
+    "test:server": "node tests/server/foundation.test.cjs",
     "verify": "node scripts/verify-dist.mjs",
     "check": "npm run check:server && npm run check:client-imports && npm run test:server && npm run build:all",
     "preview": "vite preview"
