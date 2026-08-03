@@ -69,9 +69,9 @@ var HrSheetStore = (function () {
     var expected = HrSchema.headers(schema.name);
     var lastColumn = sheet.getLastColumn();
     HrCore.assert(
-      lastColumn === expected.length,
+      lastColumn >= expected.length,
       'SHEET_HEADER_MISMATCH',
-      schema.name + ' has an unexpected number of columns.'
+      schema.name + ' has fewer columns than expected.'
     );
 
     var actual = sheet.getRange(HEADER_ROW, 1, 1, expected.length).getValues()[0]
