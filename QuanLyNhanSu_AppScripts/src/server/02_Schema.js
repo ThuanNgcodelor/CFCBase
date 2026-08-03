@@ -66,13 +66,47 @@ var HrSchema = (function () {
 
   function mutableTable(name, primaryKeyName, businessColumns, options) {
     var settings = options || {};
+    var baseColumns = [primaryKey(primaryKeyName)].concat(
+      businessColumns,
+      commonMutableColumns()
+    );
+    var trailingColumns = settings.trailingColumns || [];
+    var additionalTrailingColumns = settings.additionalTrailingColumns || [];
+    var headerUpgrades = [];
+    // V1 upgrade: base columns → base + trailing columns.
+    if (settings.trailingHeaderUpgrade) {
+      headerUpgrades.push({
+        name: settings.trailingHeaderUpgrade,
+        fromHeaders: baseColumns.map(function (definition) {
+          return definition.name;
+        }),
+        appendHeaders: trailingColumns.map(function (definition) {
+          return definition.name;
+        })
+      });
+    }
+    // V2 upgrade: base + trailing → base + trailing + additionalTrailing.
+    // Applies to sheets that already have the V1 trailing columns but not yet
+    // the additional columns added in a subsequent schema revision.
+    if (settings.additionalTrailingUpgrade && additionalTrailingColumns.length > 0) {
+      headerUpgrades.push({
+        name: settings.additionalTrailingUpgrade,
+        fromHeaders: baseColumns.concat(trailingColumns).map(function (definition) {
+          return definition.name;
+        }),
+        appendHeaders: additionalTrailingColumns.map(function (definition) {
+          return definition.name;
+        })
+      });
+    }
     return table(
       name,
       primaryKeyName,
-      [primaryKey(primaryKeyName)].concat(businessColumns, commonMutableColumns()),
+      baseColumns.concat(trailingColumns).concat(additionalTrailingColumns),
       {
         appendOnly: false,
-        unique: settings.unique || []
+        unique: settings.unique || [],
+        headerUpgrades: headerUpgrades
       }
     );
   }
@@ -96,6 +130,13 @@ var HrSchema = (function () {
         return Object.freeze({
           fields: Object.freeze(constraint.fields.slice()),
           caseInsensitive: constraint.caseInsensitive === true
+        });
+      })),
+      headerUpgrades: Object.freeze((settings.headerUpgrades || []).map(function (upgrade) {
+        return Object.freeze({
+          name: upgrade.name,
+          fromHeaders: Object.freeze(upgrade.fromHeaders.slice()),
+          appendHeaders: Object.freeze(upgrade.appendHeaders.slice())
         });
       }))
     });
@@ -163,7 +204,26 @@ var HrSchema = (function () {
     }),
     column('status_effective_date', 'DATE')
   ], {
-    unique: [{ fields: ['employee_code'], caseInsensitive: true }]
+    unique: [{ fields: ['employee_code'], caseInsensitive: true }],
+    // These fields were added after the first Apps Script release. Keeping
+    // them at the end lets HrSheetStore append headers without moving or
+    // rewriting any existing employee data.
+    trailingColumns: [
+      column('display_order', 'INTEGER'),
+      column('department_display_order', 'INTEGER'),
+      column('contract_number', 'TEXT', { maxLength: 160 }),
+      column('education_level', 'TEXT', { maxLength: 240 }),
+      column('major', 'TEXT', { maxLength: 240 }),
+      column('leave_days', 'DECIMAL')
+    ],
+    trailingHeaderUpgrade: 'EMPLOYEES_V1_ADD_LEGACY_EXPORT_FIELDS',
+    // V2 fields: insurance start date and medical registration place.
+    // Added after V1 to track BHXH enrollment date and initial KCB facility.
+    additionalTrailingColumns: [
+      column('social_insurance_start_date', 'DATE'),
+      column('medical_registration_place', 'TEXT', { maxLength: 500 })
+    ],
+    additionalTrailingUpgrade: 'EMPLOYEES_V2_ADD_INSURANCE_FIELDS'
   });
 
   SCHEMAS[TABLES.DEPARTMENTS] = mutableTable(TABLES.DEPARTMENTS, 'department_id', [

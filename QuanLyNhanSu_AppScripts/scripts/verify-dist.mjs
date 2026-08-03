@@ -8,7 +8,22 @@ const [server, html, manifestText] = await Promise.all([
   readFile(resolve(projectRoot, 'dist/appsscript.json'), 'utf8'),
 ]);
 
-JSON.parse(manifestText);
+const manifest = JSON.parse(manifestText);
+const webAccess = manifest.webapp?.access;
+if (!['MYSELF', 'DOMAIN'].includes(webAccess)) {
+  throw new Error(
+    'Web App HR chỉ được dùng access MYSELF hoặc DOMAIN; không được mở cho ANYONE.',
+  );
+}
+if (manifest.webapp?.executeAs !== 'USER_DEPLOYING') {
+  throw new Error('Web App HR phải chạy bằng quyền của tài khoản triển khai.');
+}
+const advancedServices = manifest.dependencies?.enabledAdvancedServices || [];
+if (!advancedServices.some(
+  (service) => service.serviceId === 'drive' && service.version === 'v3',
+)) {
+  throw new Error('Manifest chưa bật Advanced Drive Service v3 để xuất XLSX.');
+}
 
 const requiredServerEntrypoints = [
   'doGet',
@@ -25,6 +40,9 @@ const requiredServerEntrypoints = [
   'apiListProbationCandidates',
   'apiSaveProbationCandidate',
   'apiRunProbationAction',
+  'apiPreviewLegacyImport',
+  'apiConfirmLegacyImport',
+  'apiExportMonthlyWorkbook',
 ];
 
 const missing = requiredServerEntrypoints.filter(

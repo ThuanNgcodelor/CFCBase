@@ -13,11 +13,14 @@ Script không hỗ trợ câu lệnh ES module `import`.
 
 ### Google Sheet dữ liệu
 
-Tạo một Google Sheet trống dành riêng cho HR và lấy ID nằm giữa `/d/` và
-`/edit` trong URL. Lần mở ứng dụng đầu tiên sẽ tự tạo 10 sheet dữ liệu chuẩn.
+Dùng một Google Sheet riêng cho HR và lấy ID nằm giữa `/d/` và `/edit` trong
+URL. Lần mở ứng dụng đầu tiên sẽ tự tạo các sheet dữ liệu chuẩn.
 
-Không dùng trực tiếp file `.xlsx` làm cơ sở dữ liệu. Ứng dụng hiện không tự
-import workbook HR cũ; việc nhập/migrate dữ liệu cũ là một quy trình riêng.
+Nếu dữ liệu cũ đang ở file `.xlsx`, hãy mở/import file đó thành Google Sheets
+trước. Tab danh sách cũ (ví dụ `T6-26`) phải nằm trong chính Sheet được cấu hình
+bởi `PRIMARY_SPREADSHEET_ID`. Ứng dụng sẽ đọc tab cũ, cho xem trước, rồi chỉ ghi
+vào các sheet chuẩn sau khi người dùng xác nhận. Tab nguồn không bị xóa, đổi tên
+hoặc ghi đè.
 
 ### Mẫu hợp đồng thử việc
 
@@ -139,10 +142,12 @@ Trong Apps Script:
 2. Chọn loại **Web app**.
 3. Chọn **Execute as: Me / User deploying** để server dùng quyền Drive và
    Sheet của người triển khai.
-4. Chọn phạm vi truy cập phù hợp. Ứng dụng không có màn hình đăng nhập riêng;
-   với dữ liệu HR nên ưu tiên tài khoản trong tổ chức hoặc người dùng Google
-   được phép, không nên mở anonymous.
-5. Chọn **Deploy**, cấp quyền Sheets, Drive và Docs, rồi mở URL `/exec`.
+4. Giữ **Only myself** nếu chỉ một tài khoản HR vận hành. Manifest mặc định dùng
+   `MYSELF`; ứng dụng không có màn hình đăng nhập riêng.
+5. Nếu công ty dùng Google Workspace và nhiều nhân sự HR cần truy cập, đổi
+   `webapp.access` trong `appsscript.json` thành `DOMAIN`, build lại rồi deploy.
+   Không dùng `ANYONE` hoặc `ANYONE_ANONYMOUS` cho dữ liệu nhân sự.
+6. Chọn **Deploy**, cấp quyền Sheets, Drive và Docs, rồi mở URL `/exec`.
 
 Khi cập nhật code lần sau:
 
@@ -157,10 +162,26 @@ mã mới nhất nhưng chỉ dành cho người có quyền sửa project.
 
 ## 5. Dùng hệ thống lần đầu
 
-1. Mở **Danh mục** và tạo Phòng ban, Chức vụ, Điều kiện làm việc.
-2. Mở **Nhân sự → Thêm nhân sự** để tạo hồ sơ `DRAFT`.
-3. Mở **Biến động**, tạo bản nháp tăng nhân sự, xem trước rồi xác nhận. Nhân sự
-   chuyển sang `ACTIVE` và xuất hiện trong danh sách tháng.
+### Nhập danh sách cũ
+
+1. Mở **Nhập dữ liệu**.
+2. Bấm **Xem trước dữ liệu**. Với file hiện tại, kết quả mong đợi là tab
+   `T6-26`, hàng tiêu đề `4`, tổng cộng `336` dòng và không có dòng lỗi.
+3. Kiểm tra số dòng hợp lệ, trùng và cảnh báo. Xem trước là thao tác chỉ đọc.
+4. Tích ô xác nhận và bấm **Xác nhận nhập 336 hồ sơ**. Chỉ bấm một lần và chờ
+   thông báo hoàn tất.
+5. Hệ thống tự tạo/tái sử dụng Phòng ban, Chức vụ, Điều kiện làm việc; hồ sơ
+   được nhập ở trạng thái `ACTIVE`. Chạy lại vẫn an toàn vì mã nhân sự đã có sẽ
+   được bỏ qua.
+6. Tải lại **Tổng quan** và **Nhân sự**; số đang làm việc phải là `336`.
+
+### Vận hành tiếp theo
+
+1. Mở **Nhân sự → Thêm nhân sự** để tạo hồ sơ `DRAFT` khi có người mới.
+2. Mở **Tăng / Giảm**, tạo bản nháp, xem trước rồi xác nhận biến động.
+3. Mở **Danh sách tháng**, chọn đúng tháng cần báo cáo và bấm **Tải Excel**.
+   File tải xuống chỉ gồm `TĂNG`, `GIẢM` và tab danh sách `T<THÁNG>-<NĂM>`,
+   không còn các sheet kỹ thuật tiếng Anh.
 4. Mở **Thử việc → Mẫu công việc**, tạo mẫu `DRAFT`, điền đủ lương, mô tả và
    nội quy, sau đó **Kích hoạt**.
 5. Tạo ứng viên, chọn mẫu đang `ACTIVE`, nhập đủ CCCD/địa chỉ/thời gian thử
@@ -168,7 +189,13 @@ mã mới nhất nhưng chỉ dành cho người có quyền sửa project.
    Drive riêng.
 6. Sau hợp đồng: **Bắt đầu → Đạt/Không đạt → Chuyển nhân sự**. Hồ sơ chuyển đổi
    được tạo ở trạng thái nhân sự `DRAFT`.
-7. Mở **Danh sách tháng** để xem roster và tải bản Excel từ Google Sheet.
+
+### Giới hạn của bản Apps Script
+
+Danh sách thuộc/không thuộc biên chế của từng tháng được chiếu theo ngày hiệu
+lực và kỳ baseline. Tuy nhiên các trường hồ sơ có thể thay đổi như lương, hợp
+đồng và địa chỉ chưa có bảng snapshot theo tháng; khi cần tái xuất lịch sử tuyệt
+đối sau các thay đổi này, phải bổ sung mô hình snapshot/effective-date trước.
 
 ## 6. Lỗi thường gặp
 
@@ -188,13 +215,39 @@ npx @google/clasp push
 
 ### Mở Web App nhưng chưa có dữ liệu
 
-Đây là trạng thái đúng của Sheet mới. Tạo danh mục và dữ liệu mới trong giao
-diện, hoặc thực hiện migration workbook cũ trước khi dùng production.
+Dashboard chỉ đọc các sheet chuẩn như `EMPLOYEES`; nó không đọc trực tiếp tab
+`T6-26`. Mở **Nhập dữ liệu → Xem trước dữ liệu → Xác nhận nhập** để chuyển dữ
+liệu cũ vào schema chuẩn.
+
+### Không nhận diện được tab dữ liệu cũ
+
+Kiểm tra tab nguồn:
+
+- Nằm trong Google Sheet có ID đúng với `PRIMARY_SPREADSHEET_ID`.
+- Không trùng tên một sheet chuẩn.
+- Hàng tiêu đề nằm trong 25 dòng đầu.
+- Có ít nhất hai cột `MÃ SỐ` và `HỌ VÀ TÊN`.
+
+Ứng dụng không nhận file `.xlsx` từ trình duyệt; cần import file vào Google
+Sheets trước.
+
+### Báo `Không xác định được kỳ dữ liệu nền`
+
+Tên tab nguồn cần chứa kỳ theo dạng `T6-26` hoặc `T6-2026` trước lần xác nhận
+import đầu tiên. Hệ thống chỉ lưu kỳ chuẩn hóa `2026-06` trong audit, không lưu
+tên tab nguồn vì tên đó có thể chứa thông tin cá nhân.
 
 ### Push xong nhưng giao diện vẫn là bản cũ
 
 Tạo **New version** trong **Manage deployments**. `clasp push` không tự đổi
 version của deployment `/exec`.
+
+### File tháng vẫn có các sheet tiếng Anh
+
+Bạn đang dùng deployment cũ hoặc tải trực tiếp toàn bộ Google Sheet. Hãy tạo
+**New version** cho Web App, sau đó tải bằng nút **Tải Excel** trong
+**Danh sách tháng**. Bản mới sinh một workbook tạm riêng, tải về cho trình
+duyệt rồi xóa workbook tạm.
 
 ### Không sinh được DOCX/PDF
 

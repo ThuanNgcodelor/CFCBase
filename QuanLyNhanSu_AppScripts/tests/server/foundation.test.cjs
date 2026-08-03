@@ -288,6 +288,94 @@ test('store bootstraps, validates FKs, batches records and enforces row_version'
   );
 });
 
+test('store writes formula-looking text as literal data and decodes it on read', () => {
+  const { context, spreadsheet } = loadFoundation();
+  const { HrSchema, HrSheetStore } = context;
+  HrSheetStore.bootstrap();
+  const formulaLookingName = '=HYPERLINK("https://example.invalid","name")';
+
+  HrSheetStore.insert(HrSchema.TABLES.EMPLOYEES, {
+    employee_code: 'FORMULA001',
+    full_name: formulaLookingName
+  });
+
+  const employeeSheet = spreadsheet.getSheetByName(HrSchema.TABLES.EMPLOYEES);
+  const headers = Array.from(HrSchema.headers(HrSchema.TABLES.EMPLOYEES));
+  const fullNameColumn = headers.indexOf('full_name') + 1;
+  assert.equal(
+    employeeSheet.getRange(2, fullNameColumn, 1, 1).getValues()[0][0],
+    `'${formulaLookingName}`
+  );
+  assert.equal(
+    HrSheetStore.list(HrSchema.TABLES.EMPLOYEES)[0].full_name,
+    formulaLookingName
+  );
+});
+
+test('bootstrap appends new employee columns without moving legacy canonical data', () => {
+  const { context, spreadsheet } = loadFoundation();
+  const { HrSchema, HrSheetStore } = context;
+  const expected = Array.from(HrSchema.headers(HrSchema.TABLES.EMPLOYEES));
+  // Remove all 8 trailing columns (6 from V1 + 2 from V2) to simulate a
+  // pre-V1 sheet. Bootstrap must chain V1 then V2 upgrades to reach the
+  // full expected shape.
+  const oldHeaders = expected.slice(0, -8);
+  const sheet = spreadsheet.insertSheet(HrSchema.TABLES.EMPLOYEES);
+  sheet.getRange(1, 1, 1, oldHeaders.length).setValues([oldHeaders]);
+  sheet.getRange(2, 1, 1, oldHeaders.length).setValues([
+    oldHeaders.map((header) => header === 'employee_code' ? 'A268' : '')
+  ]);
+
+  HrSheetStore.bootstrap();
+
+  assert.deepEqual(sheet.getRange(1, 1, 1, expected.length).getValues()[0], expected);
+  assert.equal(
+    sheet.getRange(2, oldHeaders.indexOf('employee_code') + 1, 1, 1).getValues()[0][0],
+    'A268'
+  );
+});
+
+test('bootstrap rejects a truncated arbitrary canonical table instead of repairing it', () => {
+  const { context, spreadsheet } = loadFoundation();
+  const { HrSchema, HrSheetStore } = context;
+  const tableName = HrSchema.TABLES.DEPARTMENTS;
+  const expected = Array.from(HrSchema.headers(tableName));
+  const truncated = expected.slice(0, -1);
+  const sheet = spreadsheet.insertSheet(tableName);
+  sheet.getRange(1, 1, 1, truncated.length).setValues([truncated]);
+
+  assert.throws(
+    () => HrSheetStore.bootstrap(),
+    (error) => error.code === 'SHEET_HEADER_MISMATCH'
+  );
+  assert.deepEqual(
+    sheet.getRange(1, 1, 1, truncated.length).getValues()[0],
+    truncated
+  );
+  assert.equal(sheet.getLastColumn(), truncated.length);
+});
+
+test('bootstrap rejects an unknown truncated EMPLOYEES header signature', () => {
+  const { context, spreadsheet } = loadFoundation();
+  const { HrSchema, HrSheetStore } = context;
+  const tableName = HrSchema.TABLES.EMPLOYEES;
+  const expected = Array.from(HrSchema.headers(tableName));
+  const unknown = expected.slice(0, -6);
+  unknown[unknown.indexOf('employee_code')] = 'employee_code_typo';
+  const sheet = spreadsheet.insertSheet(tableName);
+  sheet.getRange(1, 1, 1, unknown.length).setValues([unknown]);
+
+  assert.throws(
+    () => HrSheetStore.bootstrap(),
+    (error) => error.code === 'SHEET_HEADER_MISMATCH'
+  );
+  assert.deepEqual(
+    sheet.getRange(1, 1, 1, unknown.length).getValues()[0],
+    unknown
+  );
+  assert.equal(sheet.getLastColumn(), unknown.length);
+});
+
 test('idempotency serializes work and supports domain-shaped replay', () => {
   const { context } = loadFoundation();
   const { HrSheetStore } = context;

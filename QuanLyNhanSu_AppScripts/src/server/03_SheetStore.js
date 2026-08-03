@@ -86,6 +86,57 @@ var HrSheetStore = (function () {
     return expected;
   }
 
+  function ensureHeaders_(sheet, schema) {
+    var expected = HrSchema.headers(schema.name);
+    var lastColumn = sheet.getLastColumn();
+    if (lastColumn === expected.length) return assertHeaders_(sheet, schema);
+
+    var actual = lastColumn > 0
+      ? sheet.getRange(HEADER_ROW, 1, 1, lastColumn).getValues()[0]
+        .map(normalizeHeader_)
+      : [];
+    var upgrade = null;
+    (schema.headerUpgrades || []).some(function (candidate) {
+      if (candidate.fromHeaders.length !== actual.length) return false;
+      var matches = candidate.fromHeaders.every(function (header, index) {
+        return normalizeHeader_(header) === actual[index];
+      });
+      if (matches) upgrade = candidate;
+      return matches;
+    });
+
+    HrCore.assert(
+      upgrade,
+      'SHEET_HEADER_MISMATCH',
+      schema.name + ' does not match an allowed header upgrade signature.'
+    );
+    HrCore.assert(
+      upgrade.appendHeaders.length > 0,
+      'SCHEMA_HEADER_UPGRADE_INVALID',
+      schema.name + ' header upgrade does not append any columns.'
+    );
+    // The upgraded headers must be a valid prefix of the expected schema so
+    // that chained upgrades (e.g. V1 → V2) eventually reach the full shape.
+    var upgradedHeaders = upgrade.fromHeaders.concat(upgrade.appendHeaders)
+      .map(normalizeHeader_);
+    HrCore.assert(
+      upgradedHeaders.length <= expected.length &&
+        upgradedHeaders.every(function (header, index) {
+          return header === expected[index];
+        }),
+      'SCHEMA_HEADER_UPGRADE_INVALID',
+      schema.name + ' has an invalid header upgrade definition.'
+    );
+    sheet.getRange(
+      HEADER_ROW,
+      lastColumn + 1,
+      1,
+      upgrade.appendHeaders.length
+    ).setValues([upgrade.appendHeaders]);
+    // Recurse to apply any subsequent upgrades (e.g. V1 → V2 → assertHeaders).
+    return ensureHeaders_(sheet, schema);
+  }
+
   function sheet_(tableName) {
     var schema = HrSchema.get(tableName);
     var sheet = spreadsheet_().getSheetByName(schema.name);
@@ -123,7 +174,7 @@ var HrSheetStore = (function () {
           sheet.setFrozenRows(1);
           created.push(tableName);
         } else {
-          assertHeaders_(sheet, schema);
+          ensureHeaders_(sheet, schema);
           verified.push(tableName);
         }
       });
@@ -173,15 +224,24 @@ var HrSheetStore = (function () {
       );
       return date.toISOString();
     }
-    return String(value);
+    var text = String(value);
+    // Apps Script stores a leading apostrophe as a literal-text escape. Decode
+    // only the formula guard added by toCell_; all other apostrophes are data.
+    return text.indexOf("'=") === 0 ? text.slice(1) : text;
   }
 
   function toCell_(definition, value) {
     if (value === null || value === undefined) return '';
+    var cellValue = value;
     if (definition.type === 'JSON' && typeof value !== 'string') {
-      return HrCore.canonicalJson(value);
+      cellValue = HrCore.canonicalJson(value);
     }
-    return value;
+    // Range.setValues treats strings beginning with "=" as formulas. Canonical
+    // HR tables contain data only, so force such text to remain literal.
+    if (typeof cellValue === 'string' && cellValue.charAt(0) === '=') {
+      return "'" + cellValue;
+    }
+    return cellValue;
   }
 
   function rowToRecord_(schema, row, physicalRow) {

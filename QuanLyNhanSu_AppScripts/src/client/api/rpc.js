@@ -8,6 +8,13 @@ import {
   mockRosters
 } from '../data/mockData.js';
 
+const getMockRosters = () => {
+  const scenario = typeof URLSearchParams === 'function'
+    ? new URLSearchParams(globalThis.location?.search || '').get('mockRosters')
+    : '';
+  return scenario === 'current-only' ? mockRosters.slice(0, 1) : mockRosters;
+};
+
 const mockHandlers = {
   apiBootstrap: () => ({
     overview: mockOverview,
@@ -15,7 +22,7 @@ const mockHandlers = {
     candidates: mockCandidates,
     jobTemplates: mockJobTemplates,
     movements: mockMovements,
-    rosters: mockRosters,
+    rosters: getMockRosters(),
     catalogs: mockCatalogs
   }),
   apiGetOverview: () => mockOverview,
@@ -40,7 +47,7 @@ const mockHandlers = {
   apiGetProbationCandidates: () => mockCandidates,
   apiGetProbationJobTemplates: () => mockJobTemplates,
   apiGetChangeLogs: () => mockMovements,
-  apiGetRosters: () => mockRosters,
+  apiGetRosters: () => getMockRosters(),
   apiGetCatalogs: () => mockCatalogs,
   apiSaveEmployeeDraft: (payload) => ({ ...payload, id: `emp-${Date.now()}`, status: 'DRAFT' }),
   apiSaveProbationCandidate: (payload) => ({
@@ -108,6 +115,50 @@ const mockHandlers = {
   apiConfirmChange: (movementId) => ({ id: movementId, status: 'CONFIRMED' }),
   apiCancelChange: (movementId, reason) => ({ id: movementId, status: 'CANCELLED', cancellationReason: reason }),
   apiGetMonthlyExcelExportUrl: () => '',
+  apiExportMonthlyWorkbook: (year, month) => {
+    const normalizedYear = Number(year) || new Date().getFullYear();
+    const normalizedMonth = Number(month) || new Date().getMonth() + 1;
+    const mockContent = `Mock XLSX export for ${normalizedMonth}/${normalizedYear}`;
+    const base64 = globalThis.btoa
+      ? globalThis.btoa(mockContent)
+      : '';
+    return {
+      fileName: `Danh sách nhân sự tháng ${String(normalizedMonth).padStart(2, '0')}-${normalizedYear}.xlsx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      base64
+    };
+  },
+  apiPreviewLegacyImport: () => ({
+    sourceSheet: 'T6-26',
+    headerRow: 4,
+    totalRows: 337,
+    importableRows: 331,
+    duplicateRows: 4,
+    errorRows: 2,
+    warnings: [
+      '4 hồ sơ đã tồn tại theo mã nhân sự và sẽ được bỏ qua.',
+      '2 dòng thiếu mã nhân sự hoặc họ tên cần được sửa trong tab nguồn.'
+    ],
+    sample: mockEmployees.slice(0, 5).map((employee, index) => ({
+      sourceRow: index + 5,
+      employeeCode: employee.code,
+      fullName: employee.fullName,
+      department: employee.department,
+      position: employee.position
+    })),
+    previewToken: `legacy-preview-${Date.now()}`
+  }),
+  apiConfirmLegacyImport: (previewToken) => {
+    if (!previewToken) throw new Error('Phiên xem trước không còn hợp lệ.');
+    return {
+      insertedEmployees: 331,
+      skippedEmployees: 6,
+      createdDepartments: 12,
+      createdPositions: 42,
+      createdWorkingConditions: 5,
+      warnings: ['Các dòng trùng hoặc chưa hợp lệ đã được giữ nguyên trong tab nguồn để đối soát.']
+    };
+  },
   apiSaveCatalog: (catalogType, payload) => ({
     ...payload,
     id: payload.id || `${catalogType}-${Date.now()}`,
@@ -197,6 +248,9 @@ export const hrRpc = {
   previewMovement: (movementId) => callRpc('apiPreviewChange', movementId),
   confirmMovement: (movementId) => callRpc('apiConfirmChange', movementId),
   cancelMovement: (movementId, reason) => callRpc('apiCancelChange', movementId, reason),
-  getMonthlyExportUrl: () => callRpc('apiGetMonthlyExcelExportUrl'),
+  getMonthlyExportUrl: (year, month) => callRpc('apiGetMonthlyExcelExportUrl', year, month),
+  exportMonthlyWorkbook: (year, month) => callRpc('apiExportMonthlyWorkbook', year, month),
+  previewLegacyImport: () => callRpc('apiPreviewLegacyImport'),
+  confirmLegacyImport: (previewToken) => callRpc('apiConfirmLegacyImport', previewToken),
   saveCatalog: (catalogType, payload) => callRpc('apiSaveCatalog', catalogType, payload)
 };

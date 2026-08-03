@@ -7,7 +7,7 @@ import {
   History,
   UsersRound
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/StatePanel.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -35,17 +35,102 @@ const rangeOf = (roster) => {
 
 const headcountOf = (roster) => roster?.employeeCount ?? roster?.itemCount ?? roster?.headcount ?? 0;
 const movementCountOf = (roster) => roster?.movementCount ?? roster?.appliedMovementCount ?? 0;
+const monthOptions = Array.from({ length: 12 }, (_, index) => index + 1);
+
+const periodOf = (roster) => {
+  const source = String(periodStartOf(roster) || roster?.range || '');
+  const isoMatch = source.match(/\b(20\d{2})-(\d{1,2})\b/);
+  if (isoMatch) return { year: Number(isoMatch[1]), month: Number(isoMatch[2]) };
+
+  const displayMatch = source.match(/\b\d{1,2}\/(\d{1,2})\/(20\d{2})\b/);
+  if (displayMatch) return { year: Number(displayMatch[2]), month: Number(displayMatch[1]) };
+  return null;
+};
+
+const safeWorkbookName = (fileName, year, month) => {
+  const fallback = `Danh sách nhân sự tháng ${String(month).padStart(2, '0')}-${year}.xlsx`;
+  const normalized = String(fileName || fallback)
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .trim();
+  return normalized || fallback;
+};
+
+const downloadWorkbook = (result, year, month) => {
+  const encoded = String(result?.base64 || '').replace(/^data:[^;]+;base64,/, '');
+  if (!encoded) return false;
+
+  const binary = globalThis.atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  const blob = new Blob([bytes], {
+    type: result?.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = safeWorkbookName(result?.fileName, year, month);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  globalThis.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  return true;
+};
+
+const openExportUrl = (result) => {
+  const url = typeof result === 'string' ? result : result?.url;
+  if (!url) return false;
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.click();
+  return true;
+};
 
 export function RostersPage() {
-  const { rosters, loading, error, reload, notify, getMonthlyExportUrl } = useAppData();
-  const years = useMemo(() => {
-    const available = rosters.map((roster) => {
-      const match = String(periodStartOf(roster) || roster.range || '').match(/\b(20\d{2})\b/);
-      return match?.[1];
-    }).filter(Boolean);
-    return [...new Set(available)].sort((a, b) => b.localeCompare(a));
+  const {
+    rosters,
+    loading,
+    error,
+    reload,
+    notify,
+    exportMonthlyWorkbook,
+    getMonthlyExportUrl
+  } = useAppData();
+  const availablePeriods = useMemo(() => {
+    const unique = new Map();
+    rosters.forEach((roster) => {
+      const period = periodOf(roster);
+      if (!period) return;
+      unique.set(`${period.year}-${period.month}`, period);
+    });
+    return [...unique.values()].sort((left, right) =>
+      right.year - left.year || right.month - left.month
+    );
   }, [rosters]);
-  const [year, setYear] = useState(years[0] || '');
+  const years = useMemo(
+    () => [...new Set(availablePeriods.map((period) => String(period.year)))],
+    [availablePeriods]
+  );
+  const [year, setYear] = useState(years[0] || null);
+  const [exportYear, setExportYear] = useState('');
+  const [exportMonth, setExportMonth] = useState('');
+  const [exportingPeriod, setExportingPeriod] = useState('');
+
+  useEffect(() => {
+    if (year === null && years[0]) setYear(years[0]);
+  }, [year, years]);
+
+  useEffect(() => {
+    if (loading || exportYear || exportMonth) return;
+    const latestPeriod = availablePeriods[0];
+    const now = new Date();
+    setExportYear(String(latestPeriod?.year || now.getFullYear()));
+    setExportMonth(String(latestPeriod?.month || now.getMonth() + 1));
+  }, [availablePeriods, exportMonth, exportYear, loading]);
 
   const visibleRosters = useMemo(() => rosters.filter((roster) => {
     if (!year) return true;
@@ -55,22 +140,51 @@ export function RostersPage() {
   const latest = visibleRosters[0];
   const baseline = [...visibleRosters].reverse().find((roster) => roster.status === 'BASELINE' || roster.baseline);
   const delta = latest && baseline ? headcountOf(latest) - headcountOf(baseline) : 0;
+  const selectedExportLabel = exportYear && exportMonth
+    ? `T${Number(exportMonth)}-${String(exportYear).slice(-2)}`
+    : 'tháng đã chọn';
+  const numericExportYear = Number(exportYear);
+  const canExportSelectedPeriod = Number.isInteger(numericExportYear)
+    && numericExportYear >= 2000
+    && numericExportYear <= 2100
+    && Number(exportMonth) >= 1
+    && Number(exportMonth) <= 12;
 
-  const exportRoster = async () => {
+  const exportRoster = async (roster) => {
+    const period = periodOf(roster);
+    if (!period) {
+      notify('Không xác định được tháng cần xuất.', 'error');
+      return;
+    }
+
+    const periodKey = `${period.year}-${String(period.month).padStart(2, '0')}`;
+    setExportingPeriod(periodKey);
     try {
-      const result = await getMonthlyExportUrl();
-      const url = typeof result === 'string' ? result : result?.url;
-      if (!url) {
-        notify('Chưa có liên kết XLSX khả dụng để tải xuống.', 'info');
-        return;
+      const result = await exportMonthlyWorkbook(period.year, period.month);
+      if (downloadWorkbook(result, period.year, period.month)) {
+        notify(`Đã tải báo cáo nhân sự tháng ${period.month}/${period.year}.`);
+      } else if (openExportUrl(result)) {
+        notify('Đã mở file xuất trong cửa sổ mới.');
+      } else {
+        const fallback = await getMonthlyExportUrl(period.year, period.month);
+        if (!openExportUrl(fallback)) {
+          throw new Error('Server không trả về nội dung hoặc liên kết file XLSX.');
+        }
       }
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.click();
     } catch (requestError) {
-      notify(requestError.message || 'Không thể lấy liên kết XLSX.', 'error');
+      const unavailableRpc = /apiExportMonthlyWorkbook|script function not found|chưa được triển khai/i
+        .test(requestError?.message || '');
+      if (unavailableRpc) {
+        try {
+          const fallback = await getMonthlyExportUrl(period.year, period.month);
+          if (openExportUrl(fallback)) return;
+        } catch {
+          // Giữ lỗi RPC ban đầu để người dùng biết deployment chưa có API mới.
+        }
+      }
+      notify(requestError.message || 'Không thể tạo file XLSX tháng đã chọn.', 'error');
+    } finally {
+      setExportingPeriod('');
     }
   };
 
@@ -79,12 +193,56 @@ export function RostersPage() {
       <PageHeader
         title="Danh sách nhân sự theo tháng"
         description="Số liệu sống được chiếu từ baseline và các biến động đã xác nhận; không cần thao tác mở hoặc khóa tháng."
-        actions={latest ? (
-          <Button onClick={exportRoster}>
-            <Download aria-hidden="true" />Tải workbook XLSX
-          </Button>
-        ) : null}
       />
+
+      <section className="roster-export-panel surface" aria-labelledby="roster-export-title">
+        <div className="roster-export-panel__intro">
+          <span className="roster-export-panel__icon"><Download aria-hidden="true" /></span>
+          <div>
+            <span className="roster-export-panel__eyebrow">Xuất báo cáo tiếng Việt</span>
+            <h2 id="roster-export-title">Chọn tháng và năm cần tải</h2>
+            <p>Có thể chọn tháng cũ ngay cả khi lịch sử bên dưới chỉ đang có kỳ hiện tại.</p>
+          </div>
+        </div>
+        <div className="roster-export-panel__controls">
+          <label>
+            <span>Tháng</span>
+            <select
+              aria-label="Tháng xuất báo cáo"
+              value={exportMonth}
+              disabled={Boolean(exportingPeriod)}
+              onChange={(event) => setExportMonth(event.target.value)}
+            >
+              {monthOptions.map((month) => (
+                <option key={month} value={month}>Tháng {month}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Năm</span>
+            <input
+              type="number"
+              aria-label="Năm xuất báo cáo"
+              value={exportYear}
+              min="2000"
+              max="2100"
+              step="1"
+              inputMode="numeric"
+              disabled={Boolean(exportingPeriod)}
+              onChange={(event) => setExportYear(event.target.value)}
+            />
+          </label>
+          <Button
+            disabled={!canExportSelectedPeriod || Boolean(exportingPeriod)}
+            onClick={() => exportRoster({
+              periodStart: `${exportYear}-${String(exportMonth).padStart(2, '0')}-01`
+            })}
+          >
+            <Download aria-hidden="true" />
+            {exportingPeriod ? 'Đang tạo file...' : `Tải XLSX ${selectedExportLabel}`}
+          </Button>
+        </div>
+      </section>
 
       <section className="roster-live-banner">
         <div className="roster-live-banner__icon"><FileSpreadsheet /></div>
@@ -116,7 +274,7 @@ export function RostersPage() {
           <CalendarDays />
           <span><strong>Lịch sử danh sách tháng</strong><small>Chọn năm để xem chuỗi số liệu.</small></span>
         </div>
-        <select value={year} onChange={(event) => setYear(event.target.value)}>
+        <select value={year || ''} onChange={(event) => setYear(event.target.value)}>
           <option value="">Tất cả năm</option>
           {years.map((item) => <option key={item}>{item}</option>)}
         </select>
@@ -142,7 +300,17 @@ export function RostersPage() {
                 <span><small>Biến động áp dụng</small><strong>{movementCountOf(roster)}</strong></span>
               </div>
               <StatusBadge status={roster.status || (roster.baseline ? 'BASELINE' : 'LIVE')} label={roster.status === 'BASELINE' || roster.baseline ? 'Baseline' : 'Số liệu sống'} />
-              <Button size="sm" variant="secondary" onClick={exportRoster}><Download />Tải XLSX</Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={Boolean(exportingPeriod)}
+                onClick={() => exportRoster(roster)}
+              >
+                <Download />
+                {exportingPeriod === `${periodOf(roster)?.year}-${String(periodOf(roster)?.month || '').padStart(2, '0')}`
+                  ? 'Đang tạo...'
+                  : 'Tải XLSX'}
+              </Button>
             </article>
           ))}
         </div>

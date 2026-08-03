@@ -244,7 +244,24 @@ export function AppDataProvider({ children }) {
     await bootstrap();
   }, [bootstrap, notify]);
 
-  const getMonthlyExportUrl = useCallback(() => hrRpc.getMonthlyExportUrl(), []);
+  const getMonthlyExportUrl = useCallback(
+    (year, month) => hrRpc.getMonthlyExportUrl(year, month),
+    []
+  );
+
+  const exportMonthlyWorkbook = useCallback(
+    (year, month) => hrRpc.exportMonthlyWorkbook(year, month),
+    []
+  );
+
+  const previewLegacyImport = useCallback(() => hrRpc.previewLegacyImport(), []);
+
+  const confirmLegacyImport = useCallback(async (previewToken) => {
+    const result = await hrRpc.confirmLegacyImport(previewToken);
+    notify(`Đã nhập ${Number(result?.insertedEmployees || 0).toLocaleString('vi-VN')} hồ sơ nhân sự.`);
+    await bootstrap();
+    return result;
+  }, [bootstrap, notify]);
 
   const saveCatalog = useCallback(async (catalogType, payload) => {
     const saved = await hrRpc.saveCatalog(catalogType, payload);
@@ -284,6 +301,9 @@ export function AppDataProvider({ children }) {
     confirmMovement,
     cancelMovement,
     getMonthlyExportUrl,
+    exportMonthlyWorkbook,
+    previewLegacyImport,
+    confirmLegacyImport,
     saveCatalog
   }), [
     data,
@@ -303,6 +323,9 @@ export function AppDataProvider({ children }) {
     confirmMovement,
     cancelMovement,
     getMonthlyExportUrl,
+    exportMonthlyWorkbook,
+    previewLegacyImport,
+    confirmLegacyImport,
     saveCatalog
   ]);
 

@@ -96,6 +96,19 @@ var HrClientMapper = (function () {
       FEMALE: 'FEMALE', OTHER: 'OTHER', UNKNOWN: 'UNKNOWN' })[normalized] || 'UNKNOWN';
   }
 
+  function contractTypeLabel_(value) {
+    var normalized = trim_(value).toUpperCase();
+    var labels = {
+      INDEFINITE: 'Không xác định thời hạn',
+      UNLIMITED: 'Không xác định thời hạn',
+      FIXED_TERM: 'Xác định thời hạn',
+      DEFINITE: 'Xác định thời hạn',
+      PROBATION: 'Thử việc',
+      SEASONAL: 'Theo mùa vụ'
+    };
+    return labels[normalized] || trim_(value);
+  }
+
   function employee(row, catalogs) {
     row = row || {};
     catalogs = catalogs || rawCatalogs_();
@@ -125,10 +138,21 @@ var HrClientMapper = (function () {
       hireDate: row.hire_date || '',
       officialDate: row.official_date || '',
       terminationDate: row.termination_date || '',
-      contractType: row.contract_type_code || '',
+      contractType: contractTypeLabel_(row.contract_type_code),
+      contractTypeCode: row.contract_type_code || '',
+      contractNumber: row.contract_number || '',
       baseSalary: row.base_salary === null || row.base_salary === undefined ? '' : row.base_salary,
       allowance: row.allowance === null || row.allowance === undefined ? '' : row.allowance,
       jobDescription: row.job_description || '',
+      education: row.education_level || '',
+      educationLevel: row.education_level || '',
+      major: row.major || '',
+      leaveDays: row.leave_days === null || row.leave_days === undefined ? '' : row.leave_days,
+      displayOrder: row.display_order === null || row.display_order === undefined
+        ? null : Number(row.display_order),
+      departmentDisplayOrder: row.department_display_order === null ||
+        row.department_display_order === undefined
+        ? null : Number(row.department_display_order),
       status: row.employment_status || row.status || 'DRAFT',
       statusEffectiveDate: row.status_effective_date || '',
       cccd: row.citizen_id || row.legacy_identity_number || '',
@@ -137,6 +161,8 @@ var HrClientMapper = (function () {
       citizenIssuedPlace: row.citizen_id_issued_place || '',
       bhxh: row.social_insurance_number || '',
       bhyt: row.health_insurance_number || '',
+      insuranceStartDate: row.social_insurance_start_date || '',
+      medicalPlace: row.medical_registration_place || '',
       permanentAddress: row.permanent_address || '',
       currentAddress: row.current_address || '',
       phone: row.phone || '',
