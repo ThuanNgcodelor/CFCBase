@@ -1220,9 +1220,57 @@ var HrSheetStore = (function () {
   var bootstrapped_ = false;
   var readCache_ = {};
 
+  function bumpCacheVersion_(tableName) {
+    if (typeof CacheService === 'undefined') return;
+    var key = 'HR_VERSION_' + String(tableName).toUpperCase();
+    CacheService.getScriptCache().put(key, Date.now().toString(), 21600);
+  }
+
+  function getCachedValues_(tableName, lastRow) {
+    if (typeof CacheService === 'undefined') return null;
+    var cache = CacheService.getScriptCache();
+    var key = String(tableName).toUpperCase();
+    var version = cache.get('HR_VERSION_' + key) || '0';
+    var metaStr = cache.get('HR_META_' + key);
+    if (!metaStr) return null;
+    
+    var meta = HrCore.safeJsonParse(metaStr, null);
+    if (!meta || meta.version !== version || meta.lastRow !== lastRow) return null;
+
+    var chunks = [];
+    for (var i = 0; i < meta.chunks; i++) {
+      var chunk = cache.get('HR_CHUNK_' + key + '_' + i);
+      if (!chunk) return null;
+      chunks.push(chunk);
+    }
+    return HrCore.safeJsonParse(chunks.join(''), null);
+  }
+
+  function setCachedValues_(tableName, values, lastRow) {
+    if (typeof CacheService === 'undefined') return;
+    var cache = CacheService.getScriptCache();
+    var key = String(tableName).toUpperCase();
+    var version = cache.get('HR_VERSION_' + key);
+    if (!version) {
+      version = Date.now().toString();
+      cache.put('HR_VERSION_' + key, version, 21600);
+    }
+    
+    var jsonStr = JSON.stringify(values);
+    var chunkSize = 90000;
+    var chunks = Math.ceil(jsonStr.length / chunkSize);
+    var payload = {};
+    for (var i = 0; i < chunks; i++) {
+      payload['HR_CHUNK_' + key + '_' + i] = jsonStr.substring(i * chunkSize, (i + 1) * chunkSize);
+    }
+    payload['HR_META_' + key] = JSON.stringify({ version: version, lastRow: lastRow, chunks: chunks });
+    cache.putAll(payload, 21600);
+  }
+
   function invalidate_(tableName) {
     if (tableName) {
       delete readCache_[String(tableName).toUpperCase()];
+      bumpCacheVersion_(tableName);
     } else {
       readCache_ = {};
     }
@@ -1277,9 +1325,9 @@ var HrSheetStore = (function () {
     var expected = HrSchema.headers(schema.name);
     var lastColumn = sheet.getLastColumn();
     HrCore.assert(
-      lastColumn === expected.length,
+      lastColumn >= expected.length,
       'SHEET_HEADER_MISMATCH',
-      schema.name + ' has an unexpected number of columns.'
+      schema.name + ' has fewer columns than expected.'
     );
 
     var actual = sheet.getRange(HEADER_ROW, 1, 1, expected.length).getValues()[0]
@@ -1426,12 +1474,17 @@ var HrSheetStore = (function () {
       return readCache_[cacheKey];
     }
 
-    var values = target.sheet.getRange(
-      HEADER_ROW + 1,
-      1,
-      lastRow - HEADER_ROW,
-      target.schema.columns.length
-    ).getValues();
+    var values = getCachedValues_(tableName, lastRow);
+    if (!values) {
+      values = target.sheet.getRange(
+        HEADER_ROW + 1,
+        1,
+        lastRow - HEADER_ROW,
+        target.schema.columns.length
+      ).getValues();
+      setCachedValues_(tableName, values, lastRow);
+    }
+
     var records = [];
     values.forEach(function (row, index) {
       var record = rowToRecord_(target.schema, row, HEADER_ROW + 1 + index);
