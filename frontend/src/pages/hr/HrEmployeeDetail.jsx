@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, BriefcaseBusiness, Contact, FilePenLine, Fingerprint, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarDays, Contact, FilePenLine, Fingerprint, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
 import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
+import { hrActivityApi } from '../../api/hrActivityApi';
 import { apiErrorMessage, employmentStatusLabel, formatHrDate, formatHrDateTime, nonEmpty } from '../../utils/hr';
 
 const GENDER_LABELS = { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác', UNKNOWN: 'Chưa xác định' };
+const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
 
 function formatMoney(value) {
   if (value === null || value === undefined || value === '') return '—';
@@ -44,11 +47,19 @@ function DetailItem({ label, value, wide = false }) {
 export default function HrEmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const currentYear = new Date().getFullYear();
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [leaveYear, setLeaveYear] = useState(currentYear);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [leaveError, setLeaveError] = useState('');
+  const [leaveData, setLeaveData] = useState(null);
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const [leaveForm, setLeaveForm] = useState({ manualOverrideDays: '', note: '' });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +76,32 @@ export default function HrEmployeeDetail() {
     return () => controller.abort();
   }, [id, reloadKey]);
 
+  useEffect(() => {
+    if (!employee?.id || !Number.isFinite(Number(leaveYear))) {
+      setLeaveData(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setLeaveLoading(true);
+    setLeaveError('');
+    hrActivityApi.getLeaveEntitlement(employee.id, leaveYear, { signal: controller.signal })
+      .then((data) => {
+        if (!controller.signal.aborted) setLeaveData(data);
+      })
+      .catch((requestError) => {
+        if (!controller.signal.aborted) {
+          setLeaveError(apiErrorMessage(requestError, 'Không thể tải ngày nghỉ phép năm.'));
+          setLeaveData(null);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLeaveLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [employee?.id, leaveYear]);
+
   if (loading) return <HrLoading label="Đang tải hồ sơ nhân sự..." />;
   if (error) return <HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} />;
   if (!employee) return <HrError message="Không tìm thấy hồ sơ nhân sự." />;
@@ -75,6 +112,27 @@ export default function HrEmployeeDetail() {
   const insurance = employee.insurance || {};
   const contact = employee.contact || employee.contacts || {};
   const employmentStatus = employee.employmentStatus || personal.employmentStatus || employee.status;
+  const previewFinalDays = leaveForm.manualOverrideDays === ''
+    ? leaveData?.calculatedDays
+    : leaveForm.manualOverrideDays;
+
+  const openLeaveModal = () => {
+    if (!leaveData) {
+      toast.error('Chưa có dữ liệu ngày phép để chỉnh.');
+      return;
+    }
+    setLeaveForm({
+      manualOverrideDays: leaveData.manualOverrideDays ?? '',
+      note: leaveData.note || '',
+    });
+    setLeaveModalOpen(true);
+  };
+
+  const closeLeaveModal = () => {
+    if (leaveSaving) return;
+    setLeaveModalOpen(false);
+    setLeaveForm({ manualOverrideDays: '', note: '' });
+  };
 
   const deleteDraft = async () => {
     if (!window.confirm(`Xóa vĩnh viễn hồ sơ nháp ${personal.fullName}? Thao tác này không thể hoàn tác.`)) return;
@@ -88,6 +146,27 @@ export default function HrEmployeeDetail() {
       setReloadKey((value) => value + 1);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const saveLeaveEntitlement = async (event) => {
+    event.preventDefault();
+    if (!leaveData) return;
+    setLeaveSaving(true);
+    try {
+      const updated = await hrActivityApi.updateLeaveEntitlement(employee.id, {
+        leaveYear: leaveData.leaveYear,
+        rowVersion: leaveData.rowVersion ?? 0,
+        manualOverrideDays: leaveForm.manualOverrideDays === '' ? null : Number(leaveForm.manualOverrideDays),
+        note: leaveForm.note.trim() || null,
+      });
+      setLeaveData(updated);
+      toast.success(`Đã cập nhật ngày phép năm ${leaveData.leaveYear}.`);
+      closeLeaveModal();
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể lưu ngày nghỉ phép.'));
+    } finally {
+      setLeaveSaving(false);
     }
   };
 
@@ -161,6 +240,43 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Mô tả công việc" value={employment.jobDescription} wide />
         </DetailSection>
 
+        <DetailSection icon={CalendarDays} title="Ngày phép năm" note="Số cuối cùng sẽ được dùng cho export tháng và export năm.">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Năm áp dụng</dt>
+            <dd className="mt-1.5">
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                value={leaveYear}
+                onChange={(event) => setLeaveYear(Number(event.target.value) || currentYear)}
+                className={INPUT_CLASS}
+              />
+            </dd>
+          </div>
+          <DetailItem label="Điều kiện lao động" value={leaveLoading ? 'Đang tải...' : leaveData?.workingConditionName} />
+          <DetailItem label="Ngày phép nền" value={leaveLoading ? 'Đang tải...' : leaveData?.baseDays} />
+          <DetailItem label="Thâm niên cộng thêm" value={leaveLoading ? 'Đang tải...' : leaveData?.seniorityBonusDays} />
+          <DetailItem label="Tự tính" value={leaveLoading ? 'Đang tải...' : leaveData?.calculatedDays} />
+          <DetailItem label="Số cuối cùng" value={leaveLoading ? 'Đang tải...' : leaveData?.finalDays} />
+          <DetailItem label="Chỉnh tay" value={leaveLoading ? 'Đang tải...' : (leaveData?.manualOverrideDays ?? 'Không')} />
+          <DetailItem label="Ghi chú" value={leaveLoading ? 'Đang tải...' : leaveData?.note} wide />
+          <div className="sm:col-span-2">
+            {leaveError ? (
+              <HrError message={leaveError} onRetry={() => setLeaveYear((value) => value)} />
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                <p className="text-sm text-emerald-800">
+                  Hệ thống tự lấy ngày phép nền từ điều kiện lao động và cộng thâm niên mỗi 5 năm. Nếu cần, bạn có thể chỉnh tay cho riêng nhân sự này.
+                </p>
+                <Button type="button" onClick={openLeaveModal} disabled={leaveLoading || !leaveData}>
+                  Sửa ngày phép năm
+                </Button>
+              </div>
+            )}
+          </div>
+        </DetailSection>
+
         <DetailSection icon={Fingerprint} title="Định danh" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
           <DetailItem label="CMND cũ" value={identity.legacyIdentityNumberMasked || identity.legacyIdentityNumber} />
           <DetailItem label="CCCD" value={identity.citizenIdentityNumberMasked || identity.citizenIdentityNumber} />
@@ -193,6 +309,59 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Hiệu lực trạng thái" value={formatHrDate(personal.statusEffectiveDate || employee.statusEffectiveDate)} />
         </DetailSection>
       </div>
+
+      <Modal isOpen={leaveModalOpen} onClose={closeLeaveModal} title={`Ngày phép ${personal.fullName || ''} - ${leaveYear}`}>
+        {leaveData ? (
+          <form onSubmit={saveLeaveEntitlement} className="space-y-4">
+            <div className="grid gap-3 rounded-lg bg-gray-50 p-4 text-sm sm:grid-cols-2">
+              <div><p className="text-xs uppercase tracking-wide text-gray-400">Năm</p><p className="mt-1 font-semibold text-gray-800">{leaveData.leaveYear}</p></div>
+              <div><p className="text-xs uppercase tracking-wide text-gray-400">Điều kiện lao động</p><p className="mt-1 font-semibold text-gray-800">{nonEmpty(leaveData.workingConditionName)}</p></div>
+              <div><p className="text-xs uppercase tracking-wide text-gray-400">Ngày phép nền</p><p className="mt-1 font-semibold text-gray-800">{nonEmpty(leaveData.baseDays)}</p></div>
+              <div><p className="text-xs uppercase tracking-wide text-gray-400">Thâm niên cộng thêm</p><p className="mt-1 font-semibold text-gray-800">{nonEmpty(leaveData.seniorityBonusDays)}</p></div>
+              <div><p className="text-xs uppercase tracking-wide text-gray-400">Tự tính</p><p className="mt-1 font-semibold text-emerald-700">{nonEmpty(leaveData.calculatedDays)}</p></div>
+              <div><p className="text-xs uppercase tracking-wide text-gray-400">Số cuối cùng</p><p className="mt-1 font-semibold text-blue-700">{nonEmpty(previewFinalDays)}</p></div>
+            </div>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-gray-700">Chỉnh tay ngày phép</span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={leaveForm.manualOverrideDays}
+                onChange={(event) => setLeaveForm((current) => ({ ...current, manualOverrideDays: event.target.value }))}
+                className={INPUT_CLASS}
+                placeholder="Để trống để dùng số tự tính"
+              />
+              <span className="text-xs text-gray-500">Ví dụ hệ thống tính 16, bạn có thể nhập 15.</span>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-gray-700">Ghi chú</span>
+              <textarea
+                value={leaveForm.note}
+                onChange={(event) => setLeaveForm((current) => ({ ...current, note: event.target.value }))}
+                className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-base outline-none focus:border-emerald-500 sm:text-sm"
+                placeholder="Ví dụ: điều chỉnh theo quyết định nội bộ"
+              />
+            </label>
+            <div className="flex justify-between gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setLeaveForm((current) => ({ ...current, manualOverrideDays: '', note: '' }))}
+                disabled={leaveSaving}
+              >
+                Trả về tự động
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={closeLeaveModal} disabled={leaveSaving}>Hủy</Button>
+                <Button type="submit" disabled={leaveSaving}>{leaveSaving ? 'Đang lưu...' : 'Lưu ngày phép'}</Button>
+              </div>
+            </div>
+          </form>
+        ) : (
+          <div className="py-8 text-center text-sm text-gray-500">Chưa có dữ liệu ngày phép.</div>
+        )}
+      </Modal>
     </HrPageShell>
   );
 }

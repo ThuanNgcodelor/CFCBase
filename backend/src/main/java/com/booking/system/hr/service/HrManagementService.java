@@ -225,6 +225,7 @@ public class HrManagementService {
             entity = positionRepository.save(position);
         } else if (entity instanceof HrWorkingCondition condition) {
             rejectParentForFlatCatalog(request.parentId());
+            condition.setAnnualLeaveDaysBase(defaultAnnualLeaveDaysBase(request.annualLeaveDaysBase()));
             entity = workingConditionRepository.save(condition);
         }
 
@@ -273,6 +274,9 @@ public class HrManagementService {
             entity = positionRepository.save(position);
         } else if (entity instanceof HrWorkingCondition condition) {
             rejectParentForFlatCatalog(request.parentId());
+            condition.setAnnualLeaveDaysBase(request.annualLeaveDaysBase() == null
+                    ? defaultAnnualLeaveDaysBase(condition.getAnnualLeaveDaysBase())
+                    : request.annualLeaveDaysBase());
             entity = workingConditionRepository.save(condition);
         }
 
@@ -510,12 +514,16 @@ public class HrManagementService {
         HrDepartment parent = entity instanceof HrDepartment department ? department.getParent() : null;
         return new HrApiDtos.CatalogResponse(
                 entity.getId(), entity.getCode(), entity.getName(), entity.getDescription(), entity.getStatus(),
-                entity.getSortOrder(), parent == null ? null : parent.getId(),
+                entity.getSortOrder(), annualLeaveDaysBase(entity), parent == null ? null : parent.getId(),
                 parent == null ? null : parent.getName(), entity.getRowVersion(), entity.getUpdatedAt());
     }
 
     private HrApiDtos.CatalogRef ref(HrCatalogEntity entity) {
         return entity == null ? null : new HrApiDtos.CatalogRef(entity.getId(), entity.getCode(), entity.getName());
+    }
+
+    private static java.math.BigDecimal annualLeaveDaysBase(HrCatalogEntity entity) {
+        return entity instanceof HrWorkingCondition condition ? condition.getAnnualLeaveDaysBase() : null;
     }
 
     private void copyCatalog(HrCatalogEntity entity, String code, String name, String description,
@@ -526,6 +534,10 @@ public class HrManagementService {
         entity.setStatus(HrCatalogStatus.ACTIVE);
         entity.setSortOrder(sortOrder == null ? 0 : sortOrder);
         setCreatedAudit(entity, actor);
+    }
+
+    private static java.math.BigDecimal defaultAnnualLeaveDaysBase(java.math.BigDecimal value) {
+        return value == null ? new java.math.BigDecimal("12.00") : value;
     }
 
     private HrCatalogEntity requireCatalog(CatalogType type, String id) {

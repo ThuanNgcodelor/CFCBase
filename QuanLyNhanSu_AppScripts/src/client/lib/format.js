@@ -16,6 +16,13 @@ export const formatDateDisplay = (value) => {
   if (!value) return '—';
   const stringValue = String(value);
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(stringValue)) return stringValue;
+  if (/^\d+(\.\d+)?$/.test(stringValue)) {
+    const serial = Number(stringValue);
+    if (Number.isFinite(serial) && serial > 0 && serial < 90000) {
+      const parsed = new Date(Date.UTC(1899, 11, 30) + Math.round(serial * 86400000));
+      return new Intl.DateTimeFormat('vi-VN').format(parsed);
+    }
+  }
   const match = stringValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) return `${match[3]}/${match[2]}/${match[1]}`;
   const parsed = new Date(stringValue);
@@ -27,6 +34,13 @@ export const toDateInput = (value) => {
   if (!value) return '';
   const stringValue = String(value);
   if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) return stringValue;
+  if (/^\d+(\.\d+)?$/.test(stringValue)) {
+    const serial = Number(stringValue);
+    if (Number.isFinite(serial) && serial > 0 && serial < 90000) {
+      const parsed = new Date(Date.UTC(1899, 11, 30) + Math.round(serial * 86400000));
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
   const match = stringValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (match) return `${match[3]}-${match[2]}-${match[1]}`;
   return stringValue.slice(0, 10);

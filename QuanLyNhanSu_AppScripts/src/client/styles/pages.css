@@ -482,19 +482,21 @@
 
 .detail-info-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   min-height: 48px;
-  margin: -48px 0 28px 130px;
+  margin: 14px 0 28px 130px;
   padding: 10px 14px;
   border: 1px solid var(--cfc-border);
   border-radius: 6px;
   background: var(--cfc-white);
   color: var(--cfc-muted);
   font-size: 12px;
+  line-height: 1.45;
 }
 
 .detail-info-banner svg {
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
   color: var(--cfc-cobalt-600);
@@ -520,6 +522,66 @@
 .detail-section + .detail-section {
   padding-top: 26px;
   border-top: 1px solid var(--cfc-border);
+}
+
+.detail-inline-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--cfc-border);
+  border-radius: 6px;
+  background: var(--cfc-surface);
+}
+
+.detail-inline-editor label {
+  display: grid;
+  gap: 6px;
+}
+
+.detail-inline-editor label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cfc-muted);
+  font-size: 11px;
+}
+
+.detail-inline-input,
+.detail-inline-textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--cfc-border-strong);
+  border-radius: 6px;
+  background: var(--cfc-white);
+  color: var(--cfc-ink);
+  font-size: 16px;
+}
+
+.detail-inline-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.detail-inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.detail-inline-actions > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detail-inline-note {
+  margin: 0;
+  color: var(--cfc-muted);
+  font-size: 12px;
 }
 
 .detail-section h2,
@@ -1173,6 +1235,16 @@
   .detail-grid--three,
   .detail-grid--two {
     grid-template-columns: 1fr;
+  }
+
+  .detail-inline-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .detail-inline-actions > div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .employee-detail-side {

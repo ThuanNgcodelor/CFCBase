@@ -16,6 +16,7 @@ export const mockEmployees = [
     position: 'Chuyên viên phát triển',
     workingCondition: 'Bình thường',
     joinDate: '01/03/2021',
+    leaveAccrualStartDate: '2021-03-01',
     contractType: 'Hợp đồng không xác định thời hạn',
     status: 'ACTIVE',
     phone: '0901 234 567',
@@ -47,6 +48,7 @@ export const mockEmployees = [
     position: 'Kế toán viên',
     workingCondition: 'Bình thường',
     joinDate: '01/07/2022',
+    leaveAccrualStartDate: '2022-07-01',
     contractType: 'Hợp đồng xác định thời hạn',
     status: 'ACTIVE',
     phone: '0902 345 678',
@@ -62,6 +64,7 @@ export const mockEmployees = [
     position: 'Chuyên viên nhân sự',
     workingCondition: 'Bình thường',
     joinDate: '10/08/2022',
+    leaveAccrualStartDate: '2022-08-10',
     contractType: 'Hợp đồng xác định thời hạn',
     status: 'ACTIVE',
     phone: '0903 456 789',
@@ -77,6 +80,7 @@ export const mockEmployees = [
     position: 'Nhân viên kinh doanh',
     workingCondition: 'Bình thường',
     joinDate: '05/09/2022',
+    leaveAccrualStartDate: '2022-09-05',
     contractType: 'Hợp đồng không xác định thời hạn',
     status: 'ACTIVE',
     phone: '0904 567 890',
@@ -92,6 +96,7 @@ export const mockEmployees = [
     position: 'Kỹ sư cơ khí',
     workingCondition: 'Nặng nhọc',
     joinDate: '12/12/2022',
+    leaveAccrualStartDate: '2022-12-12',
     contractType: 'Hợp đồng không xác định thời hạn',
     status: 'ACTIVE',
     phone: '0905 678 901',
@@ -107,6 +112,7 @@ export const mockEmployees = [
     position: 'Chuyên viên tuyển dụng',
     workingCondition: 'Bình thường',
     joinDate: '',
+    leaveAccrualStartDate: '',
     contractType: '',
     status: 'DRAFT',
     phone: '0906 789 012',
@@ -247,9 +253,9 @@ export const mockCatalogs = {
     { id: 'pos-3', code: 'CV003', name: 'Kỹ sư cơ khí', description: 'Vận hành và bảo trì cơ khí', status: 'ACTIVE' }
   ],
   conditions: [
-    { id: 'con-1', code: 'DK001', name: 'Bình thường', description: 'Điều kiện lao động bình thường', status: 'ACTIVE' },
-    { id: 'con-2', code: 'DK002', name: 'Nặng nhọc', description: 'Điều kiện lao động nặng nhọc', status: 'ACTIVE' },
-    { id: 'con-3', code: 'DK003', name: 'Độc hại', description: 'Điều kiện lao động có yếu tố độc hại', status: 'ACTIVE' }
+    { id: 'con-1', code: 'DK001', name: 'Bình thường', description: 'Điều kiện lao động bình thường', annualLeaveDaysBase: 12, status: 'ACTIVE' },
+    { id: 'con-2', code: 'DK002', name: 'Nặng nhọc', description: 'Điều kiện lao động nặng nhọc', annualLeaveDaysBase: 12, status: 'ACTIVE' },
+    { id: 'con-3', code: 'DK003', name: 'Độc hại', description: 'Điều kiện lao động có yếu tố độc hại', annualLeaveDaysBase: 14, status: 'ACTIVE' }
   ]
 };
 

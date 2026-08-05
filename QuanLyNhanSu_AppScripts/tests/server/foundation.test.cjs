@@ -170,6 +170,17 @@ function loadFoundation() {
   return { context, spreadsheet };
 }
 
+function loadAdditionalModules(context, files) {
+  const sourceDirectory = path.resolve(__dirname, '../../src/server');
+  files.forEach((fileName) => {
+    vm.runInContext(
+      fs.readFileSync(path.join(sourceDirectory, fileName), 'utf8'),
+      context,
+      { filename: fileName }
+    );
+  });
+}
+
 function insertCatalogs(context) {
   const { HrSchema, HrSheetStore } = context;
   const department = HrSheetStore.insert(HrSchema.TABLES.DEPARTMENTS, {
@@ -203,10 +214,12 @@ test('config and context use development fallback and a stable internal actor', 
 test('schema registry exposes the ten MVP tables and strict validation', () => {
   const { context } = loadFoundation();
   const { HrSchema } = context;
-  assert.equal(HrSchema.names().length, 10);
+  assert.equal(HrSchema.names().length, 11);
   assert.ok(HrSchema.headers(HrSchema.TABLES.EMPLOYEES).includes('citizen_id'));
+  assert.ok(HrSchema.headers(HrSchema.TABLES.EMPLOYEES).includes('leave_accrual_start_date'));
   assert.ok(HrSchema.headers(HrSchema.TABLES.PROBATION_CANDIDATES).includes('birth_place'));
   assert.ok(HrSchema.headers(HrSchema.TABLES.GENERATED_DOCUMENTS).includes('secure_snapshot_ref'));
+  assert.ok(HrSchema.headers(HrSchema.TABLES.WORKING_CONDITIONS).includes('annual_leave_days_base'));
   assert.throws(
     () => HrSchema.prepare(HrSchema.TABLES.EMPLOYEES, { unsupported: true }, 'update'),
     (error) => error.code === 'SCHEMA_COLUMN_UNKNOWN'
@@ -225,8 +238,8 @@ test('store bootstraps, validates FKs, batches records and enforces row_version'
   const { context, spreadsheet } = loadFoundation();
   const { HrSchema, HrSheetStore } = context;
   const bootstrap = HrSheetStore.bootstrap();
-  assert.equal(bootstrap.created.length, 10);
-  assert.equal(spreadsheet.sheets.size, 10);
+  assert.equal(bootstrap.created.length, 11);
+  assert.equal(spreadsheet.sheets.size, 11);
   assert.equal(HrSheetStore.bootstrap().cached, true);
 
   const catalogs = insertCatalogs(context);
@@ -286,6 +299,92 @@ test('store bootstraps, validates FKs, batches records and enforces row_version'
     HrSheetStore.list(HrSchema.TABLES.EMPLOYEES, { offset: 10, limit: 20 }).length,
     20
   );
+});
+
+test('bootstrap appends newly added headers and leave service calculates manual override', () => {
+  const { context, spreadsheet } = loadFoundation();
+  const { HrSchema, HrSheetStore } = context;
+
+  const legacySheet = spreadsheet.insertSheet(HrSchema.TABLES.WORKING_CONDITIONS);
+  const legacyHeaders = HrSchema.headers(HrSchema.TABLES.WORKING_CONDITIONS)
+    .filter((header) => header !== 'annual_leave_days_base');
+  legacySheet.getRange(1, 1, 1, legacyHeaders.length).setValues([legacyHeaders]);
+  legacySheet.setFrozenRows(1);
+
+  const bootstrap = HrSheetStore.bootstrap();
+  assert.equal(bootstrap.cached, false);
+  const currentHeaders = legacySheet.getRange(1, 1, 1, HrSchema.headers(HrSchema.TABLES.WORKING_CONDITIONS).length).getValues()[0];
+  assert.equal(currentHeaders.at(-1), 'annual_leave_days_base');
+
+  loadAdditionalModules(context, ['10_CatalogService.js', '11_EmployeeService.js', '16_LeaveService.js']);
+
+  const catalogs = insertCatalogs(context);
+  const employee = context.HrSheetStore.insert(HrSchema.TABLES.EMPLOYEES, {
+    employee_code: 'A777',
+    full_name: 'Leave Test',
+    department_id: catalogs.department.department_id,
+    position_id: catalogs.position.position_id,
+    working_condition_id: catalogs.condition.working_condition_id,
+    hire_date: '2021-03-01',
+    leave_accrual_start_date: '2021-03-01',
+    employment_status: 'ACTIVE'
+  });
+
+  const computed = context.HrLeaveService.get(employee.employee_id, 2026);
+  assert.equal(computed.base_days, 12);
+  assert.equal(computed.seniority_bonus_days, 1);
+  assert.equal(computed.final_days, 13);
+
+  const updated = context.HrLeaveService.update(employee.employee_id, {
+    leave_year: 2026,
+    manual_override_days: 15,
+    note: 'Điều chỉnh test'
+  });
+  assert.equal(updated.final_days, 15);
+  assert.equal(updated.manual_override_days, 15);
+});
+
+test('leave service converts Excel serial dates and adds seniority bonus for export-ready rows', () => {
+  const { context, spreadsheet } = loadFoundation();
+  const { HrSchema, HrSheetStore } = context;
+
+  HrSheetStore.bootstrap();
+  loadAdditionalModules(context, ['10_CatalogService.js', '11_EmployeeService.js', '16_LeaveService.js']);
+
+  const catalogs = insertCatalogs(context);
+  context.HrSheetStore.update(
+    HrSchema.TABLES.WORKING_CONDITIONS,
+    catalogs.condition.working_condition_id,
+    { annual_leave_days_base: 12 },
+    0
+  );
+
+  const employee = context.HrSheetStore.insert(HrSchema.TABLES.EMPLOYEES, {
+    employee_code: 'A035',
+    full_name: 'Nguyễn Nam Bình',
+    department_id: catalogs.department.department_id,
+    position_id: catalogs.position.position_id,
+    working_condition_id: catalogs.condition.working_condition_id,
+    hire_date: '1993-10-01',
+    leave_accrual_start_date: '1993-10-01',
+    employment_status: 'ACTIVE'
+  });
+
+  const employeeHeaders = HrSchema.headers(HrSchema.TABLES.EMPLOYEES);
+  const hireDateColumn = employeeHeaders.indexOf('hire_date') + 1;
+  const accrualStartColumn = employeeHeaders.indexOf('leave_accrual_start_date') + 1;
+  const employeeSheet = spreadsheet.getSheetByName(HrSchema.TABLES.EMPLOYEES);
+  employeeSheet.getRange(2, hireDateColumn, 1, 1).setValues([[34243]]);
+  employeeSheet.getRange(2, accrualStartColumn, 1, 1).setValues([[34243]]);
+
+  const stored = context.HrSheetStore.get(HrSchema.TABLES.EMPLOYEES, employee.employee_id);
+  assert.equal(stored.hire_date, '1993-10-01');
+  assert.equal(stored.leave_accrual_start_date, '1993-10-01');
+
+  const computed = context.HrLeaveService.get(employee.employee_id, 2026);
+  assert.equal(computed.base_days, 12);
+  assert.equal(computed.seniority_bonus_days, 6);
+  assert.equal(computed.final_days, 18);
 });
 
 test('idempotency serializes work and supports domain-shaped replay', () => {

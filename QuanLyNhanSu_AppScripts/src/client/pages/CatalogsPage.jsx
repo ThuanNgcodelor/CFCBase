@@ -25,7 +25,8 @@ const emptyItem = {
   id: '',
   code: '',
   name: '',
-  description: ''
+  description: '',
+  annualLeaveDaysBase: '12'
 };
 
 export function CatalogsPage() {
@@ -58,7 +59,10 @@ export function CatalogsPage() {
   }, [items, keyword, status]);
 
   const openCreate = () => {
-    setForm(emptyItem);
+    setForm({
+      ...emptyItem,
+      annualLeaveDaysBase: activeTab === 'conditions' ? '12' : ''
+    });
     setFormError('');
     setDrawerOpen(true);
   };
@@ -85,7 +89,8 @@ export function CatalogsPage() {
         id: form.id,
         code: form.code,
         name: form.name,
-        description: form.description
+        description: form.description,
+        annualLeaveDaysBase: activeTab === 'conditions' ? form.annualLeaveDaysBase : undefined
       });
       setDrawerOpen(false);
     } catch (requestError) {
@@ -140,13 +145,13 @@ export function CatalogsPage() {
         <div className="catalog-ledger surface">
           <div className="catalog-table-wrap">
             <table className="data-table catalog-table">
-              <thead><tr><th>Mã</th><th>Tên {tab.singular}</th><th>Mô tả</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+              <thead><tr><th>Mã</th><th>Tên {tab.singular}</th><th>{activeTab === 'conditions' ? 'Ngày phép nền' : 'Mô tả'}</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
               <tbody>
                 {loading ? <tr><td colSpan="5"><LoadingState label="Đang tải danh mục..." /></td></tr> : visibleItems.map((item) => (
                   <tr key={item.id || item.code}>
                     <td><strong className="catalog-code">{item.code || '—'}</strong></td>
                     <td><strong>{item.name || '—'}</strong></td>
-                    <td>{item.description || '—'}</td>
+                    <td>{activeTab === 'conditions' ? (item.annualLeaveDaysBase || '12') : (item.description || '—')}</td>
                     <td><StatusBadge status={item.status} label={item.status === 'ACTIVE' ? 'Đang sử dụng' : undefined} /></td>
                     <td><Button size="sm" variant="secondary" onClick={() => openEdit(item)}><PencilLine />Chỉnh sửa</Button></td>
                   </tr>
@@ -166,7 +171,10 @@ export function CatalogsPage() {
                   <span className="catalog-card__icon"><Icon /></span>
                   <div><strong>{item.name || '—'}</strong><small>{item.code || '—'}</small></div>
                   <StatusBadge status={item.status} label={item.status === 'ACTIVE' ? 'Đang sử dụng' : undefined} />
-                  <p>{item.description || 'Chưa có mô tả'}</p>
+                  <p>{activeTab === 'conditions'
+                    ? `Ngày phép nền: ${item.annualLeaveDaysBase || '12'} ngày/năm`
+                    : (item.description || 'Chưa có mô tả')}
+                  </p>
                   <Button variant="secondary" onClick={() => openEdit(item)}><PencilLine />Chỉnh sửa</Button>
                 </article>
               );
@@ -196,6 +204,11 @@ export function CatalogsPage() {
           <Field label="Mã" required><TextInput value={form.code} onChange={update('code')} placeholder="Nhập mã danh mục" /></Field>
           <Field label={`Tên ${tab.singular}`} required><TextInput value={form.name} onChange={update('name')} placeholder={`Nhập tên ${tab.singular}`} /></Field>
           <Field label="Mô tả"><TextArea value={form.description} onChange={update('description')} placeholder="Mô tả ngắn mục đích sử dụng" /></Field>
+          {activeTab === 'conditions' ? (
+            <Field label="Ngày phép nền / năm" hint="Ví dụ: bình thường 12, độc hại 14.">
+              <TextInput type="number" min="0" step="0.5" value={form.annualLeaveDaysBase} onChange={update('annualLeaveDaysBase')} placeholder="Nhập số ngày phép nền" />
+            </Field>
+          ) : null}
           <p className="drawer-readonly-note">Trạng thái danh mục được quản lý bằng luồng ngừng sử dụng có kiểm tra tham chiếu, không thay đổi trong biểu mẫu này.</p>
           {formError ? <p className="form-submit-error" role="alert">{formError}</p> : null}
         </div>

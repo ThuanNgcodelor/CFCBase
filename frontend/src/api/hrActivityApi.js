@@ -124,6 +124,19 @@ export const hrActivityApi = {
     return unwrapApiData(response);
   },
 
+  getLeaveEntitlement: async (employeeId, year, options = {}) => {
+    const response = await baseApi.get(`/hr/employees/${employeeId}/leave-entitlement`, {
+      params: { year },
+      signal: options.signal,
+    });
+    return unwrapApiData(response);
+  },
+
+  updateLeaveEntitlement: async (employeeId, payload) => {
+    const response = await baseApi.patch(`/hr/employees/${employeeId}/leave-entitlement`, payload);
+    return unwrapApiData(response);
+  },
+
   getAuditEvents: async (params, options = {}) => {
     const response = await baseApi.get('/hr/audit', {
       params: boundedParams(params),

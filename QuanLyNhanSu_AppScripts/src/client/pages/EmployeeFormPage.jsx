@@ -28,6 +28,7 @@ const emptyForm = {
   position: '',
   workingCondition: 'Bình thường',
   joinDate: '',
+  leaveAccrualStartDate: '',
   contractType: '',
   status: 'DRAFT'
 };
@@ -76,7 +77,8 @@ export function EmployeeFormPage({ id, navigate }) {
           ...detail,
           dob: toDateInput(detail.dob),
           citizenIssuedDate: toDateInput(detail.citizenIssuedDate),
-          joinDate: toDateInput(detail.joinDate)
+          joinDate: toDateInput(detail.joinDate),
+          leaveAccrualStartDate: toDateInput(detail.leaveAccrualStartDate)
         });
       })
       .catch((requestError) => {
@@ -208,6 +210,9 @@ export function EmployeeFormPage({ id, navigate }) {
           </Field>
           <Field label="Ngày vào làm">
             <TextInput type="date" value={form.joinDate} onChange={update('joinDate')} />
+          </Field>
+          <Field label="Mốc tính phép">
+            <TextInput type="date" value={form.leaveAccrualStartDate} onChange={update('leaveAccrualStartDate')} />
           </Field>
           <Field label="Loại hợp đồng" className="form-field--full">
             <SelectInput value={form.contractType} onChange={update('contractType')}>

@@ -6,6 +6,7 @@ import com.booking.system.hr.enums.HrRosterStatus;
 import com.booking.system.hr.repository.HrAuditEventRepository;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrExcelImportBatchRepository;
+import com.booking.system.hr.service.HrLeaveEntitlementService;
 import com.booking.system.hr.service.HrRosterProjectionService;
 import com.booking.system.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,8 @@ class HrActivityQueryServiceTest {
     private UserRepository userRepository;
     @Mock
     private HrRosterProjectionService rosterProjectionService;
+    @Mock
+    private HrLeaveEntitlementService leaveEntitlementService;
 
     private HrActivityQueryService service;
 
@@ -50,7 +53,8 @@ class HrActivityQueryServiceTest {
                 auditRepository,
                 importBatchRepository,
                 userRepository,
-                rosterProjectionService
+                rosterProjectionService,
+                leaveEntitlementService
         );
     }
 

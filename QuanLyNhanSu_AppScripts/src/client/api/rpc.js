@@ -25,6 +25,42 @@ const mockHandlers = {
     if (!employee) throw new Error('Không tìm thấy hồ sơ nhân sự.');
     return employee;
   },
+  apiGetLeaveEntitlement: (employeeId, leaveYear) => {
+    const employee = mockEmployees.find((item) => String(item.id) === String(employeeId));
+    if (!employee) throw new Error('Không tìm thấy hồ sơ nhân sự.');
+    const baseDays = Number(employee.workingCondition === 'Độc hại' ? 14 : 12);
+    const accrualDate = employee.leaveAccrualStartDate || employee.joinDate;
+    const year = Number(leaveYear);
+    let seniorityBonusDays = 0;
+    if (accrualDate && /^\d{4}-\d{2}-\d{2}$/.test(accrualDate)) {
+      const startYear = Number(accrualDate.slice(0, 4));
+      seniorityBonusDays = Math.max(Math.floor((year - startYear) / 5), 0);
+    }
+    const manualOverrideDays = employee.manualOverrideDays ?? null;
+    const calculatedDays = baseDays + seniorityBonusDays;
+    return {
+      leaveEntitlementId: `leave-${employeeId}-${leaveYear}`,
+      employeeId,
+      leaveYear: year,
+      workingConditionName: employee.workingCondition || '',
+      accrualStartDate: accrualDate || '',
+      baseDays,
+      seniorityBonusDays,
+      calculatedDays,
+      manualOverrideDays,
+      finalDays: manualOverrideDays ?? calculatedDays,
+      note: employee.leaveNote || '',
+      rowVersion: 0
+    };
+  },
+  apiUpdateLeaveEntitlement: (employeeId, payload) => {
+    const employee = mockEmployees.find((item) => String(item.id) === String(employeeId));
+    if (!employee) throw new Error('Không tìm thấy hồ sơ nhân sự.');
+    const manualOverrideDays = payload.manualOverrideDays ?? payload.manual_override_days ?? null;
+    employee.manualOverrideDays = manualOverrideDays;
+    employee.leaveNote = payload.note || '';
+    return mockHandlers.apiGetLeaveEntitlement(employeeId, payload.leaveYear || payload.leave_year);
+  },
   apiSearchEmployees: (keyword = '', department = '', status = '') => {
     const normalized = keyword.trim().toLocaleLowerCase('vi');
     return mockEmployees.filter((employee) => {
@@ -107,7 +143,12 @@ const mockHandlers = {
   },
   apiConfirmChange: (movementId) => ({ id: movementId, status: 'CONFIRMED' }),
   apiCancelChange: (movementId, reason) => ({ id: movementId, status: 'CANCELLED', cancellationReason: reason }),
-  apiGetMonthlyExcelExportUrl: () => '',
+  apiGetMonthlyExcelExportUrl: (year) => ({
+    year,
+    sheetName: `PHEP_NAM_${year || new Date().getFullYear()}`,
+    employeeCount: mockEmployees.filter((item) => item.status === 'ACTIVE').length,
+    url: ''
+  }),
   apiSaveCatalog: (catalogType, payload) => ({
     ...payload,
     id: payload.id || `${catalogType}-${Date.now()}`,
@@ -173,6 +214,8 @@ export const hrRpc = {
   getOverview: () => callRpc('apiGetOverview'),
   getEmployees: () => callRpc('apiGetEmployees'),
   getEmployee: (id) => callRpc('apiGetEmployee', id),
+  getLeaveEntitlement: (employeeId, leaveYear) => callRpc('apiGetLeaveEntitlement', employeeId, leaveYear),
+  updateLeaveEntitlement: (employeeId, payload) => callRpc('apiUpdateLeaveEntitlement', employeeId, payload),
   searchEmployees: (filters) => callRpc(
     'apiSearchEmployees',
     filters.keyword,
@@ -197,6 +240,6 @@ export const hrRpc = {
   previewMovement: (movementId) => callRpc('apiPreviewChange', movementId),
   confirmMovement: (movementId) => callRpc('apiConfirmChange', movementId),
   cancelMovement: (movementId, reason) => callRpc('apiCancelChange', movementId, reason),
-  getMonthlyExportUrl: () => callRpc('apiGetMonthlyExcelExportUrl'),
+  getMonthlyExportUrl: (leaveYear) => callRpc('apiGetMonthlyExcelExportUrl', leaveYear),
   saveCatalog: (catalogType, payload) => callRpc('apiSaveCatalog', catalogType, payload)
 };

@@ -6,6 +6,7 @@ import com.booking.system.enums.UserStatus;
 import com.booking.system.hr.api.dto.HrMovementCreateRequest;
 import com.booking.system.hr.enums.HrMovementType;
 import com.booking.system.hr.importer.HrImportActor;
+import com.booking.system.hr.service.HrLeaveEntitlementService;
 import com.booking.system.hr.service.HrWorkforceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,13 +26,15 @@ class HrWorkforceControllerTest {
 
     @Mock
     private HrWorkforceService workforceService;
+    @Mock
+    private HrLeaveEntitlementService leaveEntitlementService;
 
     private HrWorkforceController controller;
     private User manager;
 
     @BeforeEach
     void setUp() {
-        controller = new HrWorkforceController(workforceService, new HrActorResolver());
+        controller = new HrWorkforceController(workforceService, leaveEntitlementService, new HrActorResolver());
         manager = new User();
         manager.setId("manager-id");
         manager.setEmail("manager@example.test");

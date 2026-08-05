@@ -4,11 +4,14 @@ import com.booking.system.dto.ApiResponse;
 import com.booking.system.entity.User;
 import com.booking.system.hr.api.dto.HrMovementAdjustmentRequest;
 import com.booking.system.hr.api.dto.HrMovementCreateRequest;
+import com.booking.system.hr.api.dto.HrLeaveEntitlementResponse;
+import com.booking.system.hr.api.dto.HrLeaveEntitlementUpdateRequest;
 import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrRosterCreateRequest;
 import com.booking.system.hr.api.dto.HrRosterReopenRequest;
 import com.booking.system.hr.api.dto.HrRosterResponse;
 import com.booking.system.hr.api.dto.HrVersionRequest;
+import com.booking.system.hr.service.HrLeaveEntitlementService;
 import com.booking.system.hr.service.HrWorkforceService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -26,10 +29,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class HrWorkforceController {
 
     private final HrWorkforceService workforceService;
+    private final HrLeaveEntitlementService leaveEntitlementService;
     private final HrActorResolver actorResolver;
 
-    public HrWorkforceController(HrWorkforceService workforceService, HrActorResolver actorResolver) {
+    public HrWorkforceController(
+            HrWorkforceService workforceService,
+            HrLeaveEntitlementService leaveEntitlementService,
+            HrActorResolver actorResolver
+    ) {
         this.workforceService = workforceService;
+        this.leaveEntitlementService = leaveEntitlementService;
         this.actorResolver = actorResolver;
     }
 
@@ -158,5 +167,18 @@ public class HrWorkforceController {
         workforceService.deleteDraftRoster(
                 rosterId, rowVersion, actorResolver.fromPrincipal(principal));
         return ResponseEntity.ok(ApiResponse.success(null, "Xóa danh sách tháng nháp thành công"));
+    }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/employees/{employeeId}/leave-entitlement")
+    public ResponseEntity<ApiResponse<HrLeaveEntitlementResponse>> updateLeaveEntitlement(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String employeeId,
+            @Valid @RequestBody HrLeaveEntitlementUpdateRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                leaveEntitlementService.updateEntitlement(
+                        employeeId, request, actorResolver.fromPrincipal(principal)),
+                "Cập nhật số ngày nghỉ phép năm thành công"
+        ));
     }
 }

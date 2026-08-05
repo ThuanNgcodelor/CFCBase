@@ -64,6 +64,10 @@ var HrProbationService = (function () {
       'Chưa cấu hình bảng thử việc.');
   }
 
+  function activeSpreadsheet_() {
+    return HrConfig.openSpreadsheet();
+  }
+
   function context_(options) {
     options = options || {};
     return options.context || HrCore.context(options.requestId);
@@ -146,6 +150,114 @@ var HrProbationService = (function () {
     suffix = suffix.replace(/^đồng\s*\/\s*tháng/i, '');
     if (!suffix) return null;
     return /^\s/.test(suffix) ? suffix : ' ' + suffix;
+  }
+
+  function safeCodeFromName_(value, fallback) {
+    var normalized = code_(value || fallback || 'TEMPLATE');
+    normalized = normalized
+      .replace(/[^A-Z0-9._-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return normalized || fallback || 'TEMPLATE';
+  }
+
+  function sheetValues_(name) {
+    var sheet = activeSpreadsheet_().getSheetByName(name);
+    if (!sheet) return null;
+    var values = sheet.getDataRange().getValues();
+    return values && values.length ? values : null;
+  }
+
+  function toText_(value) {
+    return value === null || value === undefined ? '' : String(value).trim();
+  }
+
+  function rowObject_(headers, row) {
+    var result = {};
+    headers.forEach(function (header, index) {
+      result[header] = row[index];
+    });
+    return result;
+  }
+
+  function legacyStatus_(value) {
+    var normalized = toText_(value).toUpperCase();
+    if (normalized === 'ACTIVE' || normalized === 'INACTIVE' || normalized === 'DRAFT') {
+      return normalized;
+    }
+    return 'DRAFT';
+  }
+
+  function catalogIdByName_(tableName, fieldName, name) {
+    var wanted = normalize_(name);
+    if (!wanted || wanted === '(chung)') return null;
+    var rows = all_(tableName).filter(function (row) {
+      return row.record_status !== 'DELETED' &&
+        row.catalog_status === 'ACTIVE' &&
+        normalize_(row.name) === wanted;
+    });
+    return rows[0] ? rows[0][fieldName] : null;
+  }
+
+  function ensureLegacyTemplatesImported_() {
+    var existing = all_(TEMPLATES_).filter(function (row) {
+      return row.record_status !== 'DELETED';
+    });
+    if (existing.length) return;
+
+    var values = sheetValues_('Job_Templates');
+    if (!values || values.length < 2) return;
+
+    var headers = values[0].map(function (value) { return toText_(value); });
+    var required = ['Mã Mẫu', 'Tên Mẫu Công Việc', 'Phòng Ban', 'Mô Tả Công Việc', 'Lương (VNĐ)', 'Ghi Chú Lương', 'Loại Hợp Đồng', 'Nội Quy', 'Trạng Thái', 'Thứ Tự'];
+    var hasStructure = required.every(function (key) { return headers.indexOf(key) >= 0; });
+    if (!hasStructure) return;
+
+    HrSheetStore.withLock(function () {
+      var current = all_(TEMPLATES_).filter(function (row) { return row.record_status !== 'DELETED'; });
+      if (current.length) return;
+
+      var context = HrCore.context();
+      values.slice(1).forEach(function (row, index) {
+        var item = rowObject_(headers, row);
+        var codeValue = safeCodeFromName_(item['Mã Mẫu'], 'TEMPLATE-' + (index + 1));
+        var nameValue = toText_(item['Tên Mẫu Công Việc']);
+        if (!codeValue || !nameValue) return;
+
+        var departmentId = catalogIdByName_(
+          HrSchema.TABLES.DEPARTMENTS,
+          'department_id',
+          item['Phòng Ban']
+        );
+        var sortOrder = number_(item['Thứ Tự'], 'sort_order', index + 1, true);
+        var baseSalary = number_(item['Lương (VNĐ)'], 'base_salary_amount', null, false);
+        var templateRecord = {
+          job_template_id: HrCore.uuid(),
+          code: codeValue,
+          name: nameValue,
+          version: 1,
+          department_id: departmentId,
+          position_id: null,
+          working_condition_id: null,
+          probation_contract_type: toText_(item['Loại Hợp Đồng']) || 'Xác định thời hạn 02 tháng',
+          job_description: toText_(item['Mô Tả Công Việc']) || null,
+          base_salary_amount: baseSalary,
+          currency: 'VND',
+          salary_note_suffix: salarySuffix_(item['Ghi Chú Lương']),
+          department_rule_note: toText_(item['Nội Quy']) || null,
+          sort_order: sortOrder,
+          template_status: legacyStatus_(item['Trạng Thái']),
+          effective_from: null,
+          effective_until: null,
+          replaces_version: null,
+          record_status: 'ACTIVE',
+          legacy_system: 'JOB_TEMPLATES_SHEET',
+          legacy_id: toText_(item['STT']) || String(index + 1)
+        };
+        templateRecord.content_sha256 = contentHash_(templateRecord);
+        HrSheetStore.insert(TEMPLATES_, templateRecord, { context: context });
+      });
+    }, Number(HrConfig.get('LOCK_TIMEOUT_MS', 5000)));
   }
 
   function validateCode_(value, field) {
@@ -259,6 +371,7 @@ var HrProbationService = (function () {
 
   function listJobTemplates(query) {
     bootstrap_();
+    ensureLegacyTemplatesImported_();
     query = query || {};
     var keyword = normalize_(query.keyword);
     var status = trim_(query.status || query.template_status).toUpperCase();

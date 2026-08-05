@@ -7,6 +7,7 @@ var HrSchema = (function () {
 
   var TABLES = Object.freeze({
     EMPLOYEES: 'EMPLOYEES',
+    EMPLOYEE_LEAVE_ENTITLEMENTS: 'EMPLOYEE_LEAVE_ENTITLEMENTS',
     DEPARTMENTS: 'DEPARTMENTS',
     POSITIONS: 'POSITIONS',
     WORKING_CONDITIONS: 'WORKING_CONDITIONS',
@@ -103,7 +104,8 @@ var HrSchema = (function () {
 
   var SCHEMAS = {};
 
-  SCHEMAS[TABLES.EMPLOYEES] = mutableTable(TABLES.EMPLOYEES, 'employee_id', [
+  SCHEMAS[TABLES.EMPLOYEES] = table(TABLES.EMPLOYEES, 'employee_id', [
+    primaryKey('employee_id'),
     column('employee_code', 'CODE', { required: true, maxLength: 40 }),
     column('full_name', 'TEXT', { required: true, maxLength: 240 }),
     column('gender', 'ENUM', {
@@ -162,7 +164,10 @@ var HrSchema = (function () {
       enumValues: ['DRAFT', 'ACTIVE', 'INACTIVE']
     }),
     column('status_effective_date', 'DATE')
-  ], {
+  ].concat(commonMutableColumns(), [
+    column('leave_accrual_start_date', 'DATE')
+  ]), {
+    appendOnly: false,
     unique: [{ fields: ['employee_code'], caseInsensitive: true }]
   });
 
@@ -203,10 +208,11 @@ var HrSchema = (function () {
     ]
   });
 
-  SCHEMAS[TABLES.WORKING_CONDITIONS] = mutableTable(
+  SCHEMAS[TABLES.WORKING_CONDITIONS] = table(
     TABLES.WORKING_CONDITIONS,
     'working_condition_id',
     [
+      primaryKey('working_condition_id'),
       column('code', 'CODE', { required: true, maxLength: 80 }),
       column('name', 'TEXT', { required: true, maxLength: 240 }),
       column('description', 'TEXT', { maxLength: 2000 }),
@@ -216,11 +222,33 @@ var HrSchema = (function () {
         defaultValue: 'ACTIVE',
         enumValues: ['ACTIVE', 'INACTIVE']
       })
-    ],
+    ].concat(commonMutableColumns(), [
+      column('annual_leave_days_base', 'DECIMAL', { required: true, defaultValue: 12 })
+    ]),
     {
+      appendOnly: false,
       unique: [
         { fields: ['code'], caseInsensitive: true },
         { fields: ['name'], caseInsensitive: true }
+      ]
+    }
+  );
+
+  SCHEMAS[TABLES.EMPLOYEE_LEAVE_ENTITLEMENTS] = mutableTable(
+    TABLES.EMPLOYEE_LEAVE_ENTITLEMENTS,
+    'leave_entitlement_id',
+    [
+      column('employee_id', 'UUID', {
+        required: true,
+        reference: reference(TABLES.EMPLOYEES, 'employee_id')
+      }),
+      column('leave_year', 'INTEGER', { required: true }),
+      column('manual_override_days', 'DECIMAL'),
+      column('note', 'TEXT', { maxLength: 2000 })
+    ],
+    {
+      unique: [
+        { fields: ['employee_id', 'leave_year'] }
       ]
     }
   );

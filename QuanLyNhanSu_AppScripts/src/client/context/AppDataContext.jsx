@@ -244,7 +244,7 @@ export function AppDataProvider({ children }) {
     await bootstrap();
   }, [bootstrap, notify]);
 
-  const getMonthlyExportUrl = useCallback(() => hrRpc.getMonthlyExportUrl(), []);
+  const getMonthlyExportUrl = useCallback((leaveYear) => hrRpc.getMonthlyExportUrl(leaveYear), []);
 
   const saveCatalog = useCallback(async (catalogType, payload) => {
     const saved = await hrRpc.saveCatalog(catalogType, payload);

@@ -15,7 +15,15 @@ const TYPES = [
   { key: 'working-conditions', label: 'Điều kiện lao động' },
 ];
 
-const EMPTY_FORM = { code: '', name: '', description: '', sortOrder: 0, parentId: '', rowVersion: null };
+const EMPTY_FORM = {
+  code: '',
+  name: '',
+  description: '',
+  sortOrder: 0,
+  annualLeaveDaysBase: '12',
+  parentId: '',
+  rowVersion: null,
+};
 const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
 
 export default function HrCatalogs() {
@@ -90,6 +98,7 @@ export default function HrCatalogs() {
       name: item.name || '',
       description: item.description || '',
       sortOrder: item.sortOrder ?? 0,
+      annualLeaveDaysBase: item.annualLeaveDaysBase ?? '12',
       parentId: item.parentId || '',
       rowVersion: item.rowVersion ?? item.version,
     });
@@ -104,6 +113,9 @@ export default function HrCatalogs() {
       name: form.name.trim(),
       description: form.description.trim() || null,
       sortOrder: Number(form.sortOrder) || 0,
+      ...(type === 'working-conditions'
+        ? { annualLeaveDaysBase: form.annualLeaveDaysBase === '' ? null : Number(form.annualLeaveDaysBase) }
+        : {}),
       ...(type === 'departments' ? { parentId: form.parentId || null } : {}),
       ...(editingId ? { rowVersion: form.rowVersion } : {}),
     };
@@ -128,6 +140,7 @@ export default function HrCatalogs() {
         name: item.name,
         description: item.description || null,
         sortOrder: item.sortOrder ?? 0,
+        ...(type === 'working-conditions' ? { annualLeaveDaysBase: item.annualLeaveDaysBase ?? 12 } : {}),
         ...(type === 'departments' ? { parentId: item.parentId || null } : {}),
         status: 'INACTIVE',
         rowVersion: item.rowVersion ?? item.version,
@@ -175,17 +188,18 @@ export default function HrCatalogs() {
       <div className="hr-responsive-table hr-responsive-table--compact cfc-scrollbar overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full min-w-[980px] divide-y divide-gray-200">
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-            <tr><th className="px-5 py-4">Mã</th><th className="px-5 py-4">Tên danh mục</th><th className="hidden px-5 py-4 lg:table-cell">Mô tả / cấp trên</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4"></th></tr>
+            <tr><th className="px-5 py-4">Mã</th><th className="px-5 py-4">Tên danh mục</th><th className="hidden px-5 py-4 lg:table-cell">Mô tả / cấp trên</th><th className="px-5 py-4">Trạng thái</th><th className="px-5 py-4">Ngày phép nền</th><th className="px-5 py-4"></th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan="5" className="px-5 py-12 text-center text-sm text-gray-500">Đang tải danh mục...</td></tr>
+              <tr><td colSpan="6" className="px-5 py-12 text-center text-sm text-gray-500">Đang tải danh mục...</td></tr>
             ) : result.content.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50/70">
                 <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-emerald-700">{item.code}</td>
                 <td className="px-5 py-4"><p className="text-sm font-medium text-gray-900">{item.name}</p><p className="mt-1 text-xs text-gray-400 lg:hidden">{nonEmpty(item.parentName || item.description)}</p></td>
                 <td className="hidden max-w-sm px-5 py-4 text-sm text-gray-500 lg:table-cell">{nonEmpty(item.parentName || item.description)}</td>
                 <td className="px-5 py-4"><HrStatusBadge status={item.status} /></td>
+                <td className="px-5 py-4 text-sm text-gray-700">{type === 'working-conditions' ? nonEmpty(item.annualLeaveDaysBase) : '—'}</td>
                 <td className="px-5 py-4">
                   <div className="flex justify-end gap-2">
                     <Button type="button" size="sm" variant="secondary" onClick={() => openEdit(item)} aria-label={`Sửa ${item.name}`}><FilePenLine className="h-4 w-4" /></Button>
@@ -194,7 +208,7 @@ export default function HrCatalogs() {
                 </td>
               </tr>
             ))}
-            {!loading && result.content.length === 0 && <tr><td colSpan="5" className="p-5"><HrEmpty title="Chưa có danh mục phù hợp" /></td></tr>}
+            {!loading && result.content.length === 0 && <tr><td colSpan="6" className="p-5"><HrEmpty title="Chưa có danh mục phù hợp" /></td></tr>}
           </tbody>
         </table>
       </div>
@@ -213,6 +227,9 @@ export default function HrCatalogs() {
             </div>
             {nonEmpty(item.parentName || item.description) && (
               <p className="mt-2 text-xs text-gray-500">{item.parentName || item.description}</p>
+            )}
+            {type === 'working-conditions' && (
+              <p className="mt-2 text-xs font-medium text-emerald-700">Ngày phép nền: {nonEmpty(item.annualLeaveDaysBase)}</p>
             )}
             <div className="mt-3 flex gap-2">
               <Button type="button" className="flex-1" size="sm" variant="secondary" onClick={() => openEdit(item)}><FilePenLine className="mr-1 h-3.5 w-3.5" />Sửa</Button>
@@ -242,6 +259,20 @@ export default function HrCatalogs() {
                 ))}
               </select>
               {departmentOptionsError && <span className="text-xs text-red-600">{departmentOptionsError}</span>}
+            </label>
+          )}
+          {type === 'working-conditions' && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-gray-700">Ngày phép nền / năm</span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={form.annualLeaveDaysBase}
+                onChange={(event) => setForm((current) => ({ ...current, annualLeaveDaysBase: event.target.value }))}
+                className={INPUT_CLASS}
+              />
+              <span className="text-xs text-gray-500">Ví dụ: thường `12`, độc hại `14`.</span>
             </label>
           )}
           <label className="flex flex-col gap-1.5"><span className="text-sm font-medium text-gray-700">Thứ tự hiển thị</span><input type="number" min="0" value={form.sortOrder} onChange={(event) => setForm((current) => ({ ...current, sortOrder: event.target.value }))} className={INPUT_CLASS} /></label>

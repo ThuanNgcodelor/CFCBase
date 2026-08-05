@@ -121,6 +121,7 @@ var HrClientMapper = (function () {
       position: row.position_name || position.name || '',
       workingConditionId: row.working_condition_id || null,
       workingCondition: row.working_condition_name || condition.name || '',
+      leaveAccrualStartDate: row.leave_accrual_start_date || '',
       joinDate: row.hire_date || '',
       hireDate: row.hire_date || '',
       officialDate: row.official_date || '',
@@ -182,6 +183,7 @@ var HrClientMapper = (function () {
         'workingConditionId'
       ),
       hire_date: nullable_(payload.hireDate || payload.joinDate),
+      leave_accrual_start_date: nullable_(payload.leaveAccrualStartDate),
       official_date: nullable_(payload.officialDate),
       termination_date: nullable_(payload.terminationDate),
       contract_type_code: nullable_(payload.contractTypeCode || payload.contractType),
@@ -223,6 +225,9 @@ var HrClientMapper = (function () {
       code: item.code || '',
       name: item.name || '',
       description: item.description || '',
+      annualLeaveDaysBase: item.annual_leave_days_base === undefined || item.annual_leave_days_base === null
+        ? ''
+        : item.annual_leave_days_base,
       parentId: item.parent_department_id || null,
       sortOrder: item.sort_order || 0,
       status: item.catalog_status || item.status || 'ACTIVE',
@@ -486,6 +491,38 @@ var HrClientMapper = (function () {
     };
   }
 
+  function leaveEntitlement(row) {
+    row = row || {};
+    return {
+      id: row.leave_entitlement_id || null,
+      leaveEntitlementId: row.leave_entitlement_id || null,
+      employeeId: row.employee_id || null,
+      leaveYear: row.leave_year || null,
+      workingConditionId: row.working_condition_id || null,
+      workingConditionName: row.working_condition_name || '',
+      accrualStartDate: row.accrual_start_date || '',
+      baseDays: row.base_days === undefined || row.base_days === null ? '' : row.base_days,
+      seniorityBonusDays: row.seniority_bonus_days === undefined || row.seniority_bonus_days === null ? '' : row.seniority_bonus_days,
+      calculatedDays: row.calculated_days === undefined || row.calculated_days === null ? '' : row.calculated_days,
+      manualOverrideDays: row.manual_override_days === undefined ? null : row.manual_override_days,
+      finalDays: row.final_days === undefined || row.final_days === null ? '' : row.final_days,
+      note: row.note || '',
+      rowVersion: row.row_version === undefined ? null : row.row_version
+    };
+  }
+
+  function leaveEntitlementInput(payload) {
+    payload = payload || {};
+    return {
+      leave_year: payload.leaveYear === undefined ? payload.leave_year : payload.leaveYear,
+      manual_override_days: payload.manualOverrideDays === undefined
+        ? payload.manual_override_days
+        : numberOrNull_(payload.manualOverrideDays),
+      note: nullable_(payload.note),
+      row_version: payload.rowVersion === undefined ? payload.row_version : payload.rowVersion
+    };
+  }
+
   return Object.freeze({
     rawCatalogs: rawCatalogs_,
     employee: employee,
@@ -499,6 +536,8 @@ var HrClientMapper = (function () {
     movement: movement,
     movementInput: movementInput,
     roster: roster,
+    leaveEntitlement: leaveEntitlement,
+    leaveEntitlementInput: leaveEntitlementInput,
     overview: overview,
     audit: audit
   });

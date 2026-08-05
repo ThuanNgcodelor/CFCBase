@@ -2,6 +2,7 @@ package com.booking.system.hr.api;
 
 import com.booking.system.dto.ApiResponse;
 import com.booking.system.hr.api.dto.HrAuditEventResponse;
+import com.booking.system.hr.api.dto.HrLeaveEntitlementResponse;
 import com.booking.system.hr.api.dto.HrMovementImpactPreviewResponse;
 import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrPageResponse;
@@ -88,6 +89,17 @@ public class HrActivityController {
         return ResponseEntity.ok(ApiResponse.success(
                 queryService.rosterItems(rosterId, page, size),
                 "Lấy chi tiết danh sách nhân sự tháng thành công"
+        ));
+    }
+
+    @GetMapping("/employees/{employeeId}/leave-entitlement")
+    public ResponseEntity<ApiResponse<HrLeaveEntitlementResponse>> leaveEntitlement(
+            @PathVariable String employeeId,
+            @RequestParam int year
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                queryService.leaveEntitlement(employeeId, year),
+                "Lấy số ngày nghỉ phép năm thành công"
         ));
     }
 

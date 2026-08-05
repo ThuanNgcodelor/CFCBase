@@ -86,6 +86,9 @@ function hrCatalogInput_(payload) {
     code: payload.code,
     name: payload.name,
     description: payload.description || null,
+    annual_leave_days_base: payload.annualLeaveDaysBase === undefined
+      ? payload.annual_leave_days_base
+      : payload.annualLeaveDaysBase,
     parent_department_id: payload.parentId || payload.parent_department_id || null,
     sort_order: payload.sortOrder === undefined
       ? (payload.sort_order || 0)
@@ -257,6 +260,26 @@ function apiGetEmployee(employeeId) {
     return HrClientMapper.employee(
       HrEmployeeService.get(employeeId, { includeSensitive: true }),
       hrRawCatalogs_()
+    );
+  });
+}
+
+function apiGetLeaveEntitlement(employeeId, leaveYear) {
+  return hrRpc_(function () {
+    return HrClientMapper.leaveEntitlement(
+      HrLeaveService.get(employeeId, leaveYear)
+    );
+  });
+}
+
+function apiUpdateLeaveEntitlement(employeeId, payload) {
+  return hrRpc_(function (context) {
+    return HrClientMapper.leaveEntitlement(
+      HrLeaveService.update(
+        employeeId,
+        HrClientMapper.leaveEntitlementInput(payload),
+        { context: context }
+      )
     );
   });
 }
@@ -527,10 +550,14 @@ function apiCancelChange(movementId, reason) {
   return apiCancelMovement(movementId, reason);
 }
 
-function apiGetMonthlyExcelExportUrl() {
+function apiGetMonthlyExcelExportUrl(leaveYear) {
   return hrRpc_(function () {
+    var prepared = HrWorkbookExportService.prepareAnnualLeaveSheet(leaveYear);
     var spreadsheetId = HrConfig.openSpreadsheet().getId();
     return {
+      year: prepared.year,
+      sheetName: prepared.sheetName,
+      employeeCount: prepared.employeeCount,
       url: 'https://docs.google.com/spreadsheets/d/' +
         encodeURIComponent(spreadsheetId) +
         '/export?format=xlsx'

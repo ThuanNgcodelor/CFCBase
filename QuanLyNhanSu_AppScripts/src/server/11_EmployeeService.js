@@ -20,7 +20,7 @@ var HrEmployeeService = (function () {
     'employee_code', 'full_name', 'gender', 'date_of_birth',
     'ethnicity', 'religion', 'birth_place_original', 'birth_place_current',
     'department_id', 'position_id', 'working_condition_id',
-    'hire_date', 'official_date', 'termination_date',
+    'hire_date', 'leave_accrual_start_date', 'official_date', 'termination_date',
     'contract_type_code', 'base_salary', 'allowance', 'job_description',
     'legacy_identity_number', 'citizen_id', 'citizen_id_issued_date',
     'citizen_id_issued_place', 'identity_verification_status',
@@ -206,7 +206,7 @@ var HrEmployeeService = (function () {
       );
     }
 
-    ['date_of_birth', 'hire_date', 'official_date', 'termination_date',
+    ['date_of_birth', 'hire_date', 'leave_accrual_start_date', 'official_date', 'termination_date',
       'citizen_id_issued_date'].forEach(function (field) {
       if (result[field] !== undefined) result[field] = date_(result[field], field, false);
     });
@@ -304,6 +304,7 @@ var HrEmployeeService = (function () {
       working_condition_id: row.working_condition_id || null,
       working_condition_name: condition && condition.name,
       hire_date: row.hire_date || null,
+      leave_accrual_start_date: row.leave_accrual_start_date || null,
       row_version: row.row_version,
       record_status: row.record_status
     };

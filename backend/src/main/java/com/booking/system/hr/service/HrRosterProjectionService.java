@@ -57,6 +57,7 @@ public class HrRosterProjectionService {
     private final HrMonthlyRosterRepository rosterRepository;
     private final HrMonthlyRosterItemRepository rosterItemRepository;
     private final HrEmployeeMovementRepository movementRepository;
+    private final HrLeaveEntitlementService leaveEntitlementService;
 
     public HrPageResponse<HrRosterResponse> rosters(int page, int size) {
         Optional<HrMonthlyRoster> baseline = baselineRoster();
@@ -233,10 +234,21 @@ public class HrRosterProjectionService {
             }
         }
 
+        Map<String, HrLeaveEntitlementService.LeaveEntitlementSnapshot> leaveEntitlements =
+                leaveEntitlementService.resolveForEmployees(
+                        drafts.values().stream().map(RosterItemDraft::employee).toList(),
+                        normalizedPeriod.getYear()
+                );
         List<ProjectedRosterItem> projected = new ArrayList<>(drafts.size());
         int displayOrder = 1;
         for (RosterItemDraft draft : drafts.values()) {
-            projected.add(draft.toProjected(periodKey(normalizedPeriod), displayOrder++));
+            HrLeaveEntitlementService.LeaveEntitlementSnapshot leaveSnapshot =
+                    leaveEntitlements.get(draft.employee().getId());
+            projected.add(draft.toProjected(
+                    periodKey(normalizedPeriod),
+                    displayOrder++,
+                    leaveSnapshot == null ? draft.leaveDays() : leaveSnapshot.finalDays()
+            ));
         }
         return projected;
     }
@@ -445,7 +457,7 @@ public class HrRosterProjectionService {
             );
         }
 
-        ProjectedRosterItem toProjected(String periodKey, int displayOrder) {
+        ProjectedRosterItem toProjected(String periodKey, int displayOrder, BigDecimal resolvedLeaveDays) {
             return new ProjectedRosterItem(
                     periodKey + ":" + employee.getId(),
                     employee,
@@ -462,7 +474,7 @@ public class HrRosterProjectionService {
                     HrEmploymentStatus.ACTIVE,
                     hireDate,
                     null,
-                    leaveDays,
+                    resolvedLeaveDays,
                     inclusionReason,
                     sourceMovement,
                     createdAt,

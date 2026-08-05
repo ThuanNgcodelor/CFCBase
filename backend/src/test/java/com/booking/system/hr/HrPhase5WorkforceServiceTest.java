@@ -2,6 +2,7 @@ package com.booking.system.hr;
 
 import com.booking.system.config.LegacySchemaFilterProvider;
 import com.booking.system.hr.api.HrApiException;
+import com.booking.system.hr.api.dto.HrLeaveEntitlementUpdateRequest;
 import com.booking.system.hr.api.dto.HrMovementAdjustmentRequest;
 import com.booking.system.hr.api.dto.HrMovementCreateRequest;
 import com.booking.system.hr.entity.HrEmployee;
@@ -20,6 +21,7 @@ import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterRepository;
 import com.booking.system.hr.service.HrRosterProjectionService;
+import com.booking.system.hr.service.HrLeaveEntitlementService;
 import com.booking.system.hr.service.HrWorkforceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,11 +40,13 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.HexFormat;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,6 +66,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         HrImportJsonCodec.class,
         HrBaselineImportPersistence.class,
         HrBaselineImportService.class,
+        HrLeaveEntitlementService.class,
         HrRosterProjectionService.class,
         HrWorkforceService.class
 })
@@ -91,6 +96,7 @@ class HrPhase5WorkforceServiceTest {
     }
 
     @jakarta.annotation.Resource private HrBaselineImportService importService;
+    @jakarta.annotation.Resource private HrLeaveEntitlementService leaveEntitlementService;
     @jakarta.annotation.Resource private HrRosterProjectionService rosterProjectionService;
     @jakarta.annotation.Resource private HrWorkforceService workforceService;
     @jakarta.annotation.Resource private HrEmployeeRepository employeeRepository;
@@ -171,6 +177,62 @@ class HrPhase5WorkforceServiceTest {
         assertThat(rosterProjectionService.roster("period-2026-06-01").itemCount()).isEqualTo(329);
         assertThat(rosterProjectionService.roster("period-2026-07-01").itemCount()).isEqualTo(328);
         assertThat(rosterProjectionService.reconciliation().confirmedAdjustments()).isEqualTo(1);
+    }
+
+    @Test
+    void yearlyLeaveEntitlementUsesManualOverrideInLiveProjection() {
+        var uploaded = importService.uploadAndParse("baseline-values-2026.xlsx", WORKBOOK, MANAGER);
+        importService.validate(uploaded.batchId(), MANAGER);
+        importService.confirm(uploaded.batchId(), "phase7-leave-baseline", true, MANAGER);
+
+        HrEmployee employee = employeeRepository.findByEmploymentStatus(
+                HrEmploymentStatus.ACTIVE, PageRequest.of(0, 1)).getContent().getFirst();
+        String workingConditionId = employee.getEmployment() == null || employee.getEmployment().getWorkingCondition() == null
+                ? null
+                : employee.getEmployment().getWorkingCondition().getId();
+        if (workingConditionId == null) {
+            workingConditionId = UUID.randomUUID().toString();
+            jdbcTemplate.update("""
+                    INSERT INTO hr_working_conditions (
+                        id, code, name, description, status, sort_order, annual_leave_days_base,
+                        created_at, updated_at, created_by_actor, updated_by_actor, row_version
+                    ) VALUES (?, ?, ?, NULL, 'ACTIVE', 0, 14.00, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), ?, ?, 0)
+                    """,
+                    workingConditionId, "COND-LEAVE", "Điều kiện độc hại test", MANAGER.subject(), MANAGER.subject());
+            jdbcTemplate.update(
+                    "UPDATE hr_employee_employment SET working_condition_id = ? WHERE employee_id = ?",
+                    workingConditionId, employee.getId()
+            );
+        } else {
+            jdbcTemplate.update(
+                    "UPDATE hr_working_conditions SET annual_leave_days_base = 14.00 WHERE id = ?",
+                    workingConditionId
+            );
+        }
+        jdbcTemplate.update(
+                "UPDATE hr_employee_employment SET leave_accrual_start_date = DATE '2021-01-01' WHERE employee_id = ?",
+                employee.getId()
+        );
+
+        BigDecimal calculatedLeaveDays = rosterProjectionService.projectedItems(LocalDate.of(2026, 7, 1)).stream()
+                .filter(item -> item.employee().getId().equals(employee.getId()))
+                .findFirst()
+                .orElseThrow()
+                .leaveDays();
+        assertThat(calculatedLeaveDays).isEqualByComparingTo("15.00");
+
+        leaveEntitlementService.updateEntitlement(
+                employee.getId(),
+                new HrLeaveEntitlementUpdateRequest(2026, 0L, new BigDecimal("13.00"), "Điều chỉnh theo quyết định"),
+                MANAGER
+        );
+
+        BigDecimal overriddenLeaveDays = rosterProjectionService.projectedItems(LocalDate.of(2026, 7, 1)).stream()
+                .filter(item -> item.employee().getId().equals(employee.getId()))
+                .findFirst()
+                .orElseThrow()
+                .leaveDays();
+        assertThat(overriddenLeaveDays).isEqualByComparingTo("13.00");
     }
 
     @Test

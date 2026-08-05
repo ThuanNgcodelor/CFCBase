@@ -69,6 +69,7 @@ public class HrWorkforceService {
     private final HrAuditEventRepository auditRepository;
     private final HrImportJsonCodec jsonCodec;
     private final EntityManager entityManager;
+    private final HrLeaveEntitlementService leaveEntitlementService;
 
     @Transactional
     public HrMovementResponse createMovement(HrMovementCreateRequest request, HrImportActor actor) {
@@ -617,9 +618,17 @@ public class HrWorkforceService {
 
         List<HrMonthlyRosterItem> items = new ArrayList<>(snapshots.size());
         List<String> hashes = new ArrayList<>(snapshots.size());
+        Map<String, HrLeaveEntitlementService.LeaveEntitlementSnapshot> leaveEntitlements =
+                leaveEntitlementService.resolveForEmployees(
+                        snapshots.values().stream().map(SnapshotDraft::employee).toList(),
+                        roster.getPeriodStart().getYear()
+                );
         int displayOrder = 1;
         for (SnapshotDraft draft : snapshots.values()) {
-            Map<String, Object> payload = draft.payload(displayOrder);
+            HrLeaveEntitlementService.LeaveEntitlementSnapshot leaveSnapshot =
+                    leaveEntitlements.get(draft.employee().getId());
+            BigDecimal finalLeaveDays = leaveSnapshot == null ? draft.leaveDays() : leaveSnapshot.finalDays();
+            Map<String, Object> payload = draft.payload(displayOrder, finalLeaveDays);
             String snapshotJson = json(payload);
             String payloadHash = sha256(snapshotJson);
 
@@ -639,7 +648,7 @@ public class HrWorkforceService {
             item.setEmploymentStatus(HrEmploymentStatus.ACTIVE);
             item.setHireDate(draft.hireDate());
             item.setTerminationDate(null);
-            item.setLeaveDays(draft.leaveDays());
+            item.setLeaveDays(finalLeaveDays);
             item.setInclusionReason(draft.inclusionReason());
             item.setSourceMovement(draft.sourceMovement());
             item.setSnapshotSchemaVersion((short) 1);
@@ -882,7 +891,7 @@ public class HrWorkforceService {
             );
         }
 
-        Map<String, Object> payload(int displayOrder) {
+        Map<String, Object> payload(int displayOrder, BigDecimal leaveDays) {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("snapshotSchemaVersion", 1);
             payload.put("displayOrder", displayOrder);

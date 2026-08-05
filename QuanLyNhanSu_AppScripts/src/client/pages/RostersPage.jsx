@@ -58,17 +58,18 @@ export function RostersPage() {
 
   const exportRoster = async () => {
     try {
-      const result = await getMonthlyExportUrl();
+      const exportYear = year || String(new Date().getFullYear());
+      const result = await getMonthlyExportUrl(exportYear);
       const url = typeof result === 'string' ? result : result?.url;
       if (!url) {
         notify('Chưa có liên kết XLSX khả dụng để tải xuống.', 'info');
         return;
       }
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.click();
+      notify(`Đã làm mới sheet ${result?.sheetName || `PHEP_NAM_${exportYear}`} trước khi tải workbook.`, 'success');
+      const popup = globalThis.open(url, '_blank', 'noopener');
+      if (!popup) {
+        globalThis.location.assign(url);
+      }
     } catch (requestError) {
       notify(requestError.message || 'Không thể lấy liên kết XLSX.', 'error');
     }
@@ -78,7 +79,7 @@ export function RostersPage() {
     <section className="rosters-page">
       <PageHeader
         title="Danh sách nhân sự theo tháng"
-        description="Số liệu sống được chiếu từ baseline và các biến động đã xác nhận; không cần thao tác mở hoặc khóa tháng."
+        description="Số liệu sống được chiếu từ baseline và các biến động đã xác nhận; workbook export sẽ kèm sheet tổng hợp ngày phép của năm đang chọn."
         actions={latest ? (
           <Button onClick={exportRoster}>
             <Download aria-hidden="true" />Tải workbook XLSX

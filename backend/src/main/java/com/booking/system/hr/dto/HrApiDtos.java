@@ -247,6 +247,7 @@ public final class HrApiDtos {
             String description,
             HrCatalogStatus status,
             int sortOrder,
+            BigDecimal annualLeaveDaysBase,
             String parentId,
             String parentName,
             long rowVersion,
@@ -259,6 +260,7 @@ public final class HrApiDtos {
             @NotBlank @Size(max = 255) String name,
             @Size(max = 1000) String description,
             @PositiveOrZero Integer sortOrder,
+            @DecimalMin(value = "0.0") BigDecimal annualLeaveDaysBase,
             String parentId
     ) {
     }
@@ -269,6 +271,7 @@ public final class HrApiDtos {
             @NotBlank @Size(max = 255) String name,
             @Size(max = 1000) String description,
             @PositiveOrZero Integer sortOrder,
+            @DecimalMin(value = "0.0") BigDecimal annualLeaveDaysBase,
             String parentId,
             HrCatalogStatus status
     ) {

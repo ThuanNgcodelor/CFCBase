@@ -111,6 +111,16 @@ var HrCatalogService = (function () {
     return Math.trunc(parsed);
   }
 
+  function decimal_(value, field, fallback) {
+    if (value === null || value === undefined || value === '') return fallback;
+    var parsed = Number(value);
+    assert_(isFinite(parsed) && parsed >= 0,
+      'CATALOG_DECIMAL_INVALID',
+      'Giá trị số không hợp lệ.',
+      { field: field });
+    return Math.round(parsed * 100) / 100;
+  }
+
   function validateCode_(code) {
     assert_(code, 'CATALOG_CODE_REQUIRED', 'Mã danh mục là bắt buộc.');
     assert_(/^[A-Z0-9][A-Z0-9._-]{0,63}$/.test(code),
@@ -226,6 +236,13 @@ var HrCatalogService = (function () {
     record.name = name;
     record.description = trim_(payload.description) || null;
     record.sort_order = number_(payload.sort_order, 0);
+    if (info.kind === 'WORKING_CONDITION') {
+      record.annual_leave_days_base = decimal_(
+        payload.annual_leave_days_base,
+        'annual_leave_days_base',
+        12
+      );
+    }
     record.catalog_status = 'ACTIVE';
     record.record_status = 'ACTIVE';
     if (info.parentField) record[info.parentField] = trim_(payload[info.parentField]) || null;
@@ -265,6 +282,11 @@ var HrCatalogService = (function () {
     next.name = patch.name === undefined ? current.name : trim_(patch.name);
     next.description = patch.description === undefined ? current.description : (trim_(patch.description) || null);
     next.sort_order = patch.sort_order === undefined ? current.sort_order : number_(patch.sort_order, 0);
+    if (info.kind === 'WORKING_CONDITION') {
+      next.annual_leave_days_base = patch.annual_leave_days_base === undefined
+        ? current.annual_leave_days_base
+        : decimal_(patch.annual_leave_days_base, 'annual_leave_days_base', 12);
+    }
     if (info.parentField) {
       next[info.parentField] = patch[info.parentField] === undefined
         ? current[info.parentField]

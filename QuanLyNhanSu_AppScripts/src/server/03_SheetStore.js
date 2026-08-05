@@ -113,24 +113,43 @@ var HrSheetStore = (function () {
     return HrCore.normalizeString(value);
   }
 
+  function excelSerialToDate_(value) {
+    var numeric = typeof value === 'number' ? value : Number(value);
+    if (!isFinite(numeric)) return null;
+    var wholeDays = Math.floor(numeric);
+    if (wholeDays < 1 || wholeDays > 90000) return null;
+    var baseUtc = Date.UTC(1899, 11, 30);
+    var millis = baseUtc + Math.round(numeric * 86400000);
+    var parsed = new Date(millis);
+    if (isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  function normalizeDateValue_(value) {
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    var serialDate = excelSerialToDate_(value);
+    if (serialDate) return serialDate;
+    return String(value);
+  }
+
   function assertHeaders_(sheet, schema) {
     var expected = HrSchema.headers(schema.name);
     var lastColumn = sheet.getLastColumn();
-    HrCore.assert(
-      lastColumn >= expected.length,
-      'SHEET_HEADER_MISMATCH',
-      schema.name + ' has fewer columns than expected.'
-    );
-
-    var actual = sheet.getRange(HEADER_ROW, 1, 1, expected.length).getValues()[0]
-      .map(normalizeHeader_);
-    expected.forEach(function (header, index) {
+    var comparable = Math.min(lastColumn, expected.length);
+    var actual = (comparable > 0
+      ? sheet.getRange(HEADER_ROW, 1, 1, comparable).getValues()[0]
+      : []).map(normalizeHeader_);
+    expected.slice(0, comparable).forEach(function (header, index) {
       HrCore.assert(
         actual[index] === header,
         'SHEET_HEADER_MISMATCH',
         schema.name + ' has an invalid header at column ' + (index + 1) + '.'
       );
     });
+    if (lastColumn < expected.length) {
+      sheet.getRange(HEADER_ROW, lastColumn + 1, 1, expected.length - lastColumn)
+        .setValues([expected.slice(lastColumn)]);
+    }
     return expected;
   }
 
@@ -210,7 +229,7 @@ var HrSheetStore = (function () {
     }
     if (definition.type === 'BOOL') return value === true || String(value).toLowerCase() === 'true';
     if (definition.type === 'DATE') {
-      return value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
+      return normalizeDateValue_(value);
     }
     if (definition.type === 'DATETIME') {
       var date = value instanceof Date ? value : new Date(value);

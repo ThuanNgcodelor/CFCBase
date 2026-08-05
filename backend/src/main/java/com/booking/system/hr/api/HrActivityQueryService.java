@@ -3,6 +3,7 @@ package com.booking.system.hr.api;
 import com.booking.system.entity.User;
 import com.booking.system.hr.api.dto.HrAuditEventResponse;
 import com.booking.system.hr.api.dto.HrImportBatchResponse;
+import com.booking.system.hr.api.dto.HrLeaveEntitlementResponse;
 import com.booking.system.hr.api.dto.HrMovementImpactPreviewResponse;
 import com.booking.system.hr.api.dto.HrMovementResponse;
 import com.booking.system.hr.api.dto.HrPageResponse;
@@ -13,6 +14,7 @@ import com.booking.system.hr.api.dto.HrRosterResponse;
 import com.booking.system.hr.repository.HrAuditEventRepository;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrExcelImportBatchRepository;
+import com.booking.system.hr.service.HrLeaveEntitlementService;
 import com.booking.system.hr.service.HrRosterProjectionService;
 import com.booking.system.repository.UserRepository;
 import org.springframework.data.domain.Page;
@@ -39,19 +41,22 @@ public class HrActivityQueryService {
     private final HrExcelImportBatchRepository importBatchRepository;
     private final UserRepository userRepository;
     private final HrRosterProjectionService rosterProjectionService;
+    private final HrLeaveEntitlementService leaveEntitlementService;
 
     public HrActivityQueryService(
             HrEmployeeMovementRepository movementRepository,
             HrAuditEventRepository auditRepository,
             HrExcelImportBatchRepository importBatchRepository,
             UserRepository userRepository,
-            HrRosterProjectionService rosterProjectionService
+            HrRosterProjectionService rosterProjectionService,
+            HrLeaveEntitlementService leaveEntitlementService
     ) {
         this.movementRepository = movementRepository;
         this.auditRepository = auditRepository;
         this.importBatchRepository = importBatchRepository;
         this.userRepository = userRepository;
         this.rosterProjectionService = rosterProjectionService;
+        this.leaveEntitlementService = leaveEntitlementService;
     }
 
     public HrPageResponse<HrMovementResponse> movements(int page, int size) {
@@ -98,6 +103,10 @@ public class HrActivityQueryService {
 
     public HrRosterReconciliationResponse rosterReconciliation() {
         return rosterProjectionService.reconciliation();
+    }
+
+    public HrLeaveEntitlementResponse leaveEntitlement(String employeeId, int year) {
+        return leaveEntitlementService.entitlement(employeeId, year);
     }
 
     public HrPageResponse<HrAuditEventResponse> auditEvents(int page, int size) {
