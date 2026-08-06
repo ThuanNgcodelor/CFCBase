@@ -1,0 +1,10 @@
+{
+  "name": "quan-ly-ngay-phep-appscript",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build:all": "node scripts/build-all.mjs",
+    "verify": "node scripts/verify-dist.mjs"
+  }
+}
