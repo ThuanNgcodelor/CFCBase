@@ -22,6 +22,19 @@ public interface HrEmploymentContractRepository extends HrRepository<HrEmploymen
 
     long countByEmployee_Id(String employeeId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {
+            "employee",
+            "employee.employment",
+            "employee.employment.department",
+            "employee.employment.position",
+            "employee.identity",
+            "employee.contact",
+            "sourceProbationCandidate"
+    })
+    @Query("select contract from HrEmploymentContract contract where contract.id = :contractId")
+    Optional<HrEmploymentContract> findDocumentSourceByIdForUpdate(@Param("contractId") String contractId);
+
     @EntityGraph(attributePaths = {"employee", "sourceProbationCandidate"})
     @Query("""
             select contract from HrEmploymentContract contract

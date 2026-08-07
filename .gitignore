@@ -50,6 +50,7 @@ yarn-error.log*
 
 # HR workbooks contain employee PII and must remain local-only
 /docs/Danh sách nhân sự *.xlsx
+/backend/src/main/resources/hr/templates/HDLD.docx
 /docs/hr-normalized/
 /docs/hr-template/*
 !/docs/hr-template/README.md

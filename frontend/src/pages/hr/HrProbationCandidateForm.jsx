@@ -11,6 +11,11 @@ import {
 } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
+import {
+  HrCatalogSelect,
+  HrIssuingAuthoritySelect,
+  HrSearchableCatalogSelect,
+} from '../../components/hr/HrFormControls';
 import { HrError, HrLoading, HrPageHeader, HrPageShell } from '../../components/hr/HrUi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { hrProbationApi } from '../../api/hrProbationApi';
@@ -19,11 +24,6 @@ import { apiErrorMessage } from '../../utils/hr';
 const INPUT_CLASS = 'h-11 w-full rounded-lg border border-gray-300 px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:h-10 sm:text-sm';
 const TEXTAREA_CLASS = 'min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
 const CANDIDATE_LIST_PATH = '/manager/hr/probation';
-
-const ID_CARD_ISSUING_AUTHORITIES = [
-  'Bộ Công an',
-  'Cục cảnh sát QLHC về TTXH',
-];
 
 const EMPTY_CANDIDATE_FORM = {
   candidateCode: '',
@@ -135,12 +135,22 @@ function formFromCandidate(candidate) {
   };
 }
 
-function Field({ label, wide = false, children }) {
-  return (
-    <label className={`flex min-w-0 flex-col gap-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+function Field({ label, htmlFor, wide = false, children }) {
+  const content = (
+    <>
+      {htmlFor
+        ? <label htmlFor={htmlFor} className="text-sm font-medium text-gray-700">{label}</label>
+        : <span className="text-sm font-medium text-gray-700">{label}</span>}
       {children}
-    </label>
+    </>
+  );
+
+  if (htmlFor) {
+    return <div className={`flex min-w-0 flex-col gap-1.5 ${wide ? 'sm:col-span-2' : ''}`}>{content}</div>;
+  }
+
+  return (
+    <label className={`flex min-w-0 flex-col gap-1.5 ${wide ? 'sm:col-span-2' : ''}`}>{content}</label>
   );
 }
 
@@ -159,15 +169,6 @@ function FormSection({ icon: Icon, step, title, description, children }) {
       </div>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">{children}</div>
     </section>
-  );
-}
-
-function CatalogSelect({ value, onChange, items, placeholder = 'Chưa chọn' }) {
-  return (
-    <select value={value} onChange={(event) => onChange(event.target.value)} className={INPUT_CLASS}>
-      <option value="">{placeholder}</option>
-      {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select>
   );
 }
 
@@ -258,9 +259,6 @@ export default function HrProbationCandidateForm() {
     }
   };
 
-  const isLegacyIssuingPlace = form.citizenIdIssuedPlace
-    && !ID_CARD_ISSUING_AUTHORITIES.includes(form.citizenIdIssuedPlace);
-
   return (
     <HrPageShell size="readable">
       <SEOHead
@@ -303,12 +301,8 @@ export default function HrProbationCandidateForm() {
           <FormSection icon={IdCard} step="2" title="CCCD / định danh" description="Thông tin này được dùng để điền vào hợp đồng thử việc.">
             <Field label="Số CCCD"><input maxLength={32} value={form.citizenId} onChange={(event) => updateForm('citizenId', event.target.value)} className={INPUT_CLASS} /></Field>
             <Field label="Ngày cấp CCCD"><input type="date" value={form.citizenIdIssuedDate} onChange={(event) => updateForm('citizenIdIssuedDate', event.target.value)} className={INPUT_CLASS} /></Field>
-            <Field label="Nơi cấp CCCD" wide>
-              <select value={form.citizenIdIssuedPlace} onChange={(event) => updateForm('citizenIdIssuedPlace', event.target.value)} className={INPUT_CLASS}>
-                <option value="">Chọn nơi cấp CCCD</option>
-                {isLegacyIssuingPlace && <option value={form.citizenIdIssuedPlace}>Giá trị hồ sơ cũ: {form.citizenIdIssuedPlace}</option>}
-                {ID_CARD_ISSUING_AUTHORITIES.map((authority) => <option key={authority} value={authority}>{authority}</option>)}
-              </select>
+            <Field label="Nơi cấp CCCD" htmlFor="probation-issued-place" wide>
+              <HrIssuingAuthoritySelect id="probation-issued-place" value={form.citizenIdIssuedPlace} onChange={(value) => updateForm('citizenIdIssuedPlace', value)} />
               <span className="text-xs leading-5 text-[var(--cfc-muted)]">Chọn theo thông tin in trên CCCD để sinh hợp đồng chính xác.</span>
             </Field>
           </FormSection>
@@ -316,9 +310,9 @@ export default function HrProbationCandidateForm() {
           <FormSection icon={BriefcaseBusiness} step="3" title="Công việc thử việc" description="Chọn mẫu công việc để tự điền phòng ban, chức vụ, lương và nội dung công việc.">
             <Field label="Mẫu công việc"><select value={form.jobTemplateId} onChange={(event) => applyJobTemplate(event.target.value)} className={INPUT_CLASS}><option value="">Không dùng mẫu</option>{sortedTemplates.filter((item) => item.status !== 'INACTIVE').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
             <Field label="Loại hợp đồng thử việc"><input maxLength={100} value={form.probationContractType} onChange={(event) => updateForm('probationContractType', event.target.value)} className={INPUT_CLASS} /></Field>
-            <Field label="Phòng ban HR"><CatalogSelect value={form.departmentId} onChange={(value) => updateForm('departmentId', value)} items={catalogs.departments} /></Field>
-            <Field label="Chức vụ HR"><CatalogSelect value={form.positionId} onChange={(value) => updateForm('positionId', value)} items={catalogs.positions} /></Field>
-            <Field label="Điều kiện lao động"><CatalogSelect value={form.workingConditionId} onChange={(value) => updateForm('workingConditionId', value)} items={catalogs.conditions} /></Field>
+            <Field label="Phòng ban HR" htmlFor="probation-department"><HrSearchableCatalogSelect id="probation-department" value={form.departmentId} onChange={(value) => updateForm('departmentId', value)} items={catalogs.departments} placeholder="Tìm phòng ban theo tên hoặc mã" /></Field>
+            <Field label="Chức vụ HR" htmlFor="probation-position"><HrSearchableCatalogSelect id="probation-position" value={form.positionId} onChange={(value) => updateForm('positionId', value)} items={catalogs.positions} placeholder="Tìm chức vụ theo tên hoặc mã" /></Field>
+            <Field label="Điều kiện lao động" htmlFor="probation-condition"><HrCatalogSelect id="probation-condition" value={form.workingConditionId} onChange={(value) => updateForm('workingConditionId', value)} items={catalogs.conditions} /></Field>
             <Field label="Lương thử việc"><input type="number" min="0" step="1" value={form.baseSalary} onChange={(event) => updateForm('baseSalary', event.target.value)} className={INPUT_CLASS} /></Field>
             <Field label="Ngày bắt đầu"><input type="date" value={form.probationStartDate} onChange={(event) => updateForm('probationStartDate', event.target.value)} className={INPUT_CLASS} /></Field>
             <Field label="Ngày kết thúc"><input type="date" value={form.probationEndDate} onChange={(event) => updateForm('probationEndDate', event.target.value)} className={INPUT_CLASS} /></Field>

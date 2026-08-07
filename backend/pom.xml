@@ -161,6 +161,10 @@
 		<resources>
 			<resource>
 				<directory>src/main/resources</directory>
+				<excludes>
+					<!-- Local reference bundle contains real employee PII; only sanitized templates ship. -->
+					<exclude>hr/templates/HDLD.docx</exclude>
+				</excludes>
 			</resource>
 			<resource>
 				<directory>../frontend/dist</directory>

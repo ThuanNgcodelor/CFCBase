@@ -12,6 +12,8 @@ import {
   HrCatalogSelect,
   HrField,
   HrFormSection,
+  HrIssuingAuthoritySelect,
+  HrSearchableCatalogSelect,
 } from '../../components/hr/HrFormControls';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { hrOnboardingApi } from '../../api/hrOnboardingApi';
@@ -196,10 +198,10 @@ export default function HrGeneralLaborOnboarding() {
 
         <HrFormSection title="Công việc" description="Ngày vào làm được lấy theo ngày hợp đồng bắt đầu hiệu lực.">
           <HrField label="Phòng ban *" htmlFor="general-labor-department">
-            <HrCatalogSelect id="general-labor-department" required value={employee.employment.departmentId} onChange={(value) => update('employment', 'departmentId', value)} items={catalogs.departments} />
+            <HrSearchableCatalogSelect id="general-labor-department" required value={employee.employment.departmentId} onChange={(value) => update('employment', 'departmentId', value)} items={catalogs.departments} placeholder="Tìm phòng ban theo tên hoặc mã" />
           </HrField>
           <HrField label="Chức vụ *" htmlFor="general-labor-position">
-            <HrCatalogSelect id="general-labor-position" required value={employee.employment.positionId} onChange={(value) => update('employment', 'positionId', value)} items={catalogs.positions} />
+            <HrSearchableCatalogSelect id="general-labor-position" required value={employee.employment.positionId} onChange={(value) => update('employment', 'positionId', value)} items={catalogs.positions} placeholder="Tìm chức vụ theo tên hoặc mã" />
           </HrField>
           <HrField label="Điều kiện lao động" htmlFor="general-labor-condition">
             <HrCatalogSelect id="general-labor-condition" value={employee.employment.workingConditionId} onChange={(value) => update('employment', 'workingConditionId', value)} items={catalogs.conditions} />
@@ -216,7 +218,7 @@ export default function HrGeneralLaborOnboarding() {
           <HrField label="CMND cũ"><input inputMode="numeric" value={employee.identity.legacyIdentityNumber} onChange={(event) => update('identity', 'legacyIdentityNumber', event.target.value)} className={HR_INPUT_CLASS} /></HrField>
           <HrField label="CCCD"><input inputMode="numeric" value={employee.identity.citizenIdentityNumber} onChange={(event) => update('identity', 'citizenIdentityNumber', event.target.value)} className={HR_INPUT_CLASS} /></HrField>
           <HrField label="Ngày cấp"><input type="date" value={employee.identity.issuedDate} onChange={(event) => update('identity', 'issuedDate', event.target.value)} className={HR_INPUT_CLASS} /></HrField>
-          <HrField label="Nơi cấp"><input value={employee.identity.issuedPlace} onChange={(event) => update('identity', 'issuedPlace', event.target.value)} className={HR_INPUT_CLASS} /></HrField>
+          <HrField label="Nơi cấp" htmlFor="general-labor-issued-place"><HrIssuingAuthoritySelect id="general-labor-issued-place" value={employee.identity.issuedPlace} onChange={(value) => update('identity', 'issuedPlace', value)} /></HrField>
         </HrFormSection>
 
         <HrFormSection title="Bảo hiểm">

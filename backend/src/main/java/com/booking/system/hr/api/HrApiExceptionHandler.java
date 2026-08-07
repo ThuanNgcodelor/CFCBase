@@ -20,6 +20,7 @@ import java.util.Set;
 
 @RestControllerAdvice(assignableTypes = {
         HrActivityController.class,
+        HrEmploymentContractController.class,
         HrImportController.class,
         HrManagementController.class,
         HrOnboardingController.class,
