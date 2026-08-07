@@ -52,7 +52,7 @@ public class HrMonthlyRoster extends HrBaseEntity {
     @Column(name = "item_count", nullable = false)
     private int itemCount;
 
-    @Column(name = "roster_checksum", length = 64)
+    @Column(name = "roster_checksum", length = 64, columnDefinition = "char(64)")
     private String rosterChecksum;
 
     @Column(name = "opened_at")

@@ -6,6 +6,7 @@ import {
   CheckSquare,
   ContactRound,
   FileCheck2,
+  HardHat,
   Home,
   LayoutDashboard,
   Library,
@@ -22,7 +23,7 @@ export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistr
         { name: 'Trang chủ', path: '/', icon: Home, exact: true },
         { name: 'Phòng họp', path: '/rooms', icon: CalendarRange },
         { name: 'Xe công tác', path: '/cars', icon: CarFront },
-        { name: 'Thông báo', path: '/notifications', icon: Bell },
+        // { name: 'Thông báo', path: '/notifications', icon: Bell },
       ];
 
   const adminItems = [
@@ -41,6 +42,7 @@ export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistr
     { name: 'Tổng quan', path: '/manager/hr', icon: LayoutDashboard, exact: true },
     { name: 'Nhân sự', path: '/manager/hr/employees', icon: ContactRound },
     { name: 'Thử việc', path: '/manager/hr/probation', icon: UserPlus },
+    { name: 'LĐ phổ thông', path: '/manager/hr/general-labor', icon: HardHat },
     { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
@@ -89,6 +91,7 @@ export function getPageTitle(pathname, items) {
   const routeTitles = [
     ['/manager/hr/probation/templates/new', 'Thêm mẫu thử việc'],
     ['/manager/hr/probation/templates/', 'Mẫu thử việc'],
+    ['/manager/hr/general-labor/new', 'Thêm lao động phổ thông'],
     ['/manager/hr/employees/new', 'Thêm hồ sơ nhân sự'],
     ['/manager/hr/employees/', 'Chi tiết nhân sự'],
     ['/manager/hr/rosters/', 'Danh sách tháng'],
@@ -113,6 +116,7 @@ export function shouldHideMobileBottomNavigation(pathname) {
     '/manager/hr/employees/new',
     '/manager/hr/employees/',
     '/manager/hr/probation/templates/',
+    '/manager/hr/general-labor/new',
     '/admin/approvals/',
     '/admin/profile-approvals/',
   ].some((prefix) => pathname.startsWith(prefix));

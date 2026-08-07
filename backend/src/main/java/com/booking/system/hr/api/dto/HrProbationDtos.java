@@ -6,6 +6,7 @@ import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrProbationCandidateStatus;
 import com.booking.system.hr.enums.HrProbationContractStatus;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -127,6 +128,23 @@ public final class HrProbationDtos {
             @NotNull @PositiveOrZero Long rowVersion,
             @Size(max = 32) String employeeCode,
             LocalDate hireDate
+    ) {
+    }
+
+    public record CompleteOnboardingRequest(
+            @NotNull @PositiveOrZero Long rowVersion,
+            @NotBlank @Size(max = 100) String idempotencyKey,
+            @Size(max = 32) String employeeCode,
+            LocalDate hireDate,
+            @Valid @NotNull HrApiDtos.EmploymentContractInput contract
+    ) {
+    }
+
+    public record CompleteOnboardingResponse(
+            CandidateDetail candidate,
+            HrApiDtos.EmployeeDetail employee,
+            HrApiDtos.EmploymentContractSummary contract,
+            String nextAction
     ) {
     }
 

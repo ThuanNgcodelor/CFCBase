@@ -8,6 +8,7 @@ import com.booking.system.hr.entity.HrAuditEvent;
 import com.booking.system.hr.entity.HrCatalogEntity;
 import com.booking.system.hr.entity.HrDepartment;
 import com.booking.system.hr.entity.HrEmployee;
+import com.booking.system.hr.entity.HrEmploymentContract;
 import com.booking.system.hr.entity.HrPosition;
 import com.booking.system.hr.entity.HrProbationCandidate;
 import com.booking.system.hr.entity.HrProbationContract;
@@ -16,8 +17,10 @@ import com.booking.system.hr.entity.HrWorkingCondition;
 import com.booking.system.hr.enums.HrCatalogStatus;
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrIdentityVerificationStatus;
+import com.booking.system.hr.enums.HrOnboardingSource;
 import com.booking.system.hr.enums.HrProbationCandidateStatus;
 import com.booking.system.hr.enums.HrProbationContractStatus;
+import com.booking.system.hr.enums.HrWorkforceGroup;
 import com.booking.system.hr.importer.HrImportActor;
 import com.booking.system.hr.importer.HrImportJsonCodec;
 import com.booking.system.hr.repository.HrAuditEventRepository;
@@ -81,6 +84,7 @@ public class HrProbationService {
     private final HrPositionRepository positionRepository;
     private final HrWorkingConditionRepository workingConditionRepository;
     private final HrManagementService managementService;
+    private final HrEmploymentContractService employmentContractService;
     private final HrAuditEventRepository auditRepository;
     private final HrImportJsonCodec jsonCodec;
 
@@ -146,9 +150,8 @@ public class HrProbationService {
             HrImportActor actor
     ) {
         HrProbationCandidate candidate = lockedCandidate(candidateId);
-        if (candidate.getStatus() == HrProbationCandidateStatus.CONVERTED
-                || candidate.getStatus() == HrProbationCandidateStatus.FAILED
-                || candidate.getStatus() == HrProbationCandidateStatus.CANCELLED) {
+        if (candidate.getStatus() != HrProbationCandidateStatus.DRAFT
+                && candidate.getStatus() != HrProbationCandidateStatus.CONTRACT_CREATED) {
             throw HrApiException.conflict("PROBATION_CONTRACT_STATUS_INVALID",
                     "Trạng thái ứng viên hiện tại không thể tạo hợp đồng thử việc.");
         }
@@ -212,10 +215,9 @@ public class HrProbationService {
         HrProbationCandidate candidate = lockedCandidate(candidateId);
         requireVersion(candidate.getRowVersion(), request.rowVersion(), "STALE_PROBATION_CANDIDATE_VERSION",
                 "Ứng viên đã được cập nhật ở nơi khác. Vui lòng tải lại.");
-        if (candidate.getStatus() == HrProbationCandidateStatus.CONVERTED
-                || candidate.getStatus() == HrProbationCandidateStatus.FAILED
-                || candidate.getStatus() == HrProbationCandidateStatus.CANCELLED) {
-            throw HrApiException.conflict("PROBATION_STATUS_INVALID", "Không thể bắt đầu thử việc ở trạng thái hiện tại.");
+        if (candidate.getStatus() != HrProbationCandidateStatus.CONTRACT_CREATED) {
+            throw HrApiException.conflict("PROBATION_CONTRACT_REQUIRED",
+                    "Cần tạo hợp đồng thử việc trước khi bắt đầu thử việc.");
         }
         candidate.setStatus(HrProbationCandidateStatus.IN_PROBATION);
         candidate.setStatusReason(trimToNull(request.reason()));
@@ -235,9 +237,7 @@ public class HrProbationService {
         HrProbationCandidate candidate = lockedCandidate(candidateId);
         requireVersion(candidate.getRowVersion(), request.rowVersion(), "STALE_PROBATION_CANDIDATE_VERSION",
                 "Ứng viên đã được cập nhật ở nơi khác. Vui lòng tải lại.");
-        if (candidate.getStatus() == HrProbationCandidateStatus.CONVERTED
-                || candidate.getStatus() == HrProbationCandidateStatus.FAILED
-                || candidate.getStatus() == HrProbationCandidateStatus.CANCELLED) {
+        if (candidate.getStatus() != HrProbationCandidateStatus.IN_PROBATION) {
             throw HrApiException.conflict("PROBATION_STATUS_INVALID", "Không thể đánh dấu đạt ở trạng thái hiện tại.");
         }
         candidate.setStatus(HrProbationCandidateStatus.PASSED);
@@ -258,9 +258,9 @@ public class HrProbationService {
         HrProbationCandidate candidate = lockedCandidate(candidateId);
         requireVersion(candidate.getRowVersion(), request.rowVersion(), "STALE_PROBATION_CANDIDATE_VERSION",
                 "Ứng viên đã được cập nhật ở nơi khác. Vui lòng tải lại.");
-        if (candidate.getStatus() == HrProbationCandidateStatus.CONVERTED) {
-            throw HrApiException.conflict("PROBATION_CANDIDATE_CONVERTED",
-                    "Ứng viên đã chuyển thành hồ sơ nhân sự.");
+        if (candidate.getStatus() != HrProbationCandidateStatus.IN_PROBATION) {
+            throw HrApiException.conflict("PROBATION_STATUS_INVALID",
+                    "Chỉ ứng viên đang thử việc mới có thể được đánh dấu không đạt.");
         }
         candidate.setStatus(HrProbationCandidateStatus.FAILED);
         candidate.setStatusReason(requiredText(request.reason(), "Vui lòng nhập lý do không đạt thử việc."));
@@ -284,74 +284,122 @@ public class HrProbationService {
             throw HrApiException.conflict("PROBATION_NOT_PASSED",
                     "Chỉ ứng viên đã đạt thử việc mới được chuyển thành hồ sơ chờ chính thức.");
         }
+        throw HrApiException.conflict("EMPLOYMENT_CONTRACT_REQUIRED",
+                "Luồng văn phòng mới bắt buộc lập hợp đồng lao động chính thức trước khi tạo hồ sơ nhân sự nháp.");
+    }
 
+    @Transactional
+    public HrProbationDtos.CompleteOnboardingResponse completeOnboarding(
+            String candidateId,
+            HrProbationDtos.CompleteOnboardingRequest request,
+            HrImportActor actor
+    ) {
+        HrEmploymentContract replay = employmentContractService
+                .findByIdempotencyKey(request.idempotencyKey()).orElse(null);
+        if (replay != null) {
+            LocalDate requestedHireDate = request.hireDate() == null
+                    ? request.contract().effectiveFrom()
+                    : request.hireDate();
+            String requestedEmployeeCode = trimToNull(request.employeeCode()) == null
+                    ? replay.getSourceProbationCandidate() == null
+                        ? null
+                        : replay.getSourceProbationCandidate().getCandidateCode()
+                    : normalizeCode(request.employeeCode());
+            if (replay.getSourceProbationCandidate() == null
+                    || !Objects.equals(replay.getSourceProbationCandidate().getId(), candidateId)
+                    || !Objects.equals(requestedHireDate, request.contract().effectiveFrom())
+                    || !Objects.equals(replay.getEmployee().getEmployeeCode(), requestedEmployeeCode)
+                    || !employmentContractService.matchesInput(replay, request.contract())) {
+                throw HrApiException.conflict("ONBOARDING_IDEMPOTENCY_CONFLICT",
+                        "Khóa chống trùng đã được dùng cho một hồ sơ onboarding khác.");
+            }
+            HrProbationCandidate replayCandidate = candidateRepository.findDetailById(candidateId)
+                    .orElseThrow(() -> HrApiException.notFound("PROBATION_CANDIDATE_NOT_FOUND",
+                            "Không tìm thấy ứng viên thử việc."));
+            return completeResponse(replayCandidate, replay);
+        }
+
+        HrProbationCandidate candidate = lockedCandidate(candidateId);
+        requireVersion(candidate.getRowVersion(), request.rowVersion(), "STALE_PROBATION_CANDIDATE_VERSION",
+                "Ứng viên đã được cập nhật ở nơi khác. Vui lòng tải lại.");
+        if (candidate.getStatus() != HrProbationCandidateStatus.PASSED) {
+            throw HrApiException.conflict("PROBATION_NOT_PASSED",
+                    "Chỉ ứng viên đã đạt thử việc mới được lập hợp đồng lao động chính thức.");
+        }
+
+        LocalDate hireDate = request.hireDate() == null
+                ? request.contract().effectiveFrom()
+                : request.hireDate();
+        if (!Objects.equals(hireDate, request.contract().effectiveFrom())) {
+            throw HrApiException.badRequest("HIRE_DATE_CONTRACT_DATE_MISMATCH",
+                    "Ngày vào làm phải trùng ngày hợp đồng có hiệu lực.");
+        }
         String employeeCode = trimToNull(request.employeeCode()) == null
                 ? candidate.getCandidateCode()
                 : normalizeCode(request.employeeCode());
-        LocalDate hireDate = request.hireDate() != null
-                ? request.hireDate()
-                : candidate.getProbationEndDate() == null ? null : candidate.getProbationEndDate().plusDays(1);
 
-        HrApiDtos.EmployeeDetail employee = managementService.createEmployee(new HrApiDtos.CreateEmployeeRequest(
-                new HrApiDtos.PersonalInput(
-                        employeeCode,
-                        candidate.getFullName(),
-                        candidate.getGender(),
-                        candidate.getDateOfBirth(),
-                        null,
-                        null,
-                        candidate.getBirthPlace(),
-                        candidate.getBirthPlace(),
-                        null,
-                        null
-                ),
-                new HrApiDtos.EmploymentInput(
-                        id(candidate.getDepartment()),
-                        id(candidate.getPosition()),
-                        id(candidate.getWorkingCondition()),
-                        hireDate,
-                        null,
-                        null,
-                        "Chờ chính thức sau thử việc",
-                        latestContractNo(candidate),
-                        candidate.getBaseSalary(),
-                        null,
-                        candidate.getJobDescription()
-                ),
-                new HrApiDtos.IdentityInput(
-                        null,
-                        candidate.getCitizenId(),
-                        candidate.getCitizenIdIssuedDate(),
-                        candidate.getCitizenIdIssuedPlace(),
-                        HrIdentityVerificationStatus.UNVERIFIED
-                ),
-                null,
-                new HrApiDtos.ContactInput(
-                        candidate.getPermanentAddress(),
-                        null,
-                        candidate.getPhone(),
-                        null,
-                        normalizeEmail(candidate.getEmail()),
-                        null,
-                        null,
-                        null
-                )
-        ), actor);
-
-        HrEmployee employeeRef = employeeRepository.findById(employee.id())
+        HrApiDtos.EmployeeDetail employee = managementService.createEmployeeForOnboarding(
+                employeeRequest(candidate, employeeCode, hireDate),
+                HrWorkforceGroup.OFFICE,
+                HrOnboardingSource.PROBATION,
+                actor
+        );
+        HrEmployee employeeRef = employeeRepository.findDetailById(employee.id())
                 .orElseThrow(() -> HrApiException.notFound("EMPLOYEE_NOT_FOUND",
                         "Không tìm thấy hồ sơ nhân sự vừa tạo."));
+        HrEmploymentContract contract = employmentContractService.createReadyContract(
+                employeeRef, candidate, request.contract(), request.idempotencyKey(), actor);
+
         candidate.setConvertedEmployee(employeeRef);
         candidate.setConvertedAt(LocalDateTime.now(ZoneOffset.UTC));
         candidate.setConvertedByActor(actor.subject());
         candidate.setStatus(HrProbationCandidateStatus.CONVERTED);
-        candidate.setStatusReason("Đã chuyển thành hồ sơ chờ chính thức.");
+        candidate.setStatusReason("Đã lập hợp đồng chính thức và chuyển thành hồ sơ chờ tăng nhân sự.");
         touch(candidate, actor);
         candidateRepository.save(candidate);
-        audit(actor, "HR_PROBATION_CONVERTED_TO_EMPLOYEE_DRAFT", "HR_PROBATION_CANDIDATE", candidate.getId(),
-                List.of("status", "convertedEmployeeId"),
-                Map.of("employeeId", employee.id(), "employeeCode", employee.personal().employeeCode()));
-        return toDetail(candidateRepository.findDetailById(candidate.getId()).orElseThrow());
+        audit(actor, "HR_PROBATION_ONBOARDING_COMPLETED", "HR_PROBATION_CANDIDATE", candidate.getId(),
+                List.of("status", "convertedEmployeeId", "employmentContractId"),
+                Map.of("employeeId", employeeRef.getId(), "employmentContractId", contract.getId()));
+        return completeResponse(candidateRepository.findDetailById(candidate.getId()).orElseThrow(), contract);
+    }
+
+    private HrProbationDtos.CompleteOnboardingResponse completeResponse(
+            HrProbationCandidate candidate,
+            HrEmploymentContract contract
+    ) {
+        return new HrProbationDtos.CompleteOnboardingResponse(
+                toDetail(candidate),
+                managementService.getEmployee(contract.getEmployee().getId()),
+                employmentContractService.toSummary(contract),
+                "CREATE_INCREASE"
+        );
+    }
+
+    private static HrApiDtos.CreateEmployeeRequest employeeRequest(
+            HrProbationCandidate candidate,
+            String employeeCode,
+            LocalDate hireDate
+    ) {
+        return new HrApiDtos.CreateEmployeeRequest(
+                new HrApiDtos.PersonalInput(
+                        employeeCode, candidate.getFullName(), candidate.getGender(), candidate.getDateOfBirth(),
+                        null, null, candidate.getBirthPlace(), candidate.getBirthPlace(), null, null
+                ),
+                new HrApiDtos.EmploymentInput(
+                        id(candidate.getDepartment()), id(candidate.getPosition()), id(candidate.getWorkingCondition()),
+                        hireDate, null, null, "Chờ xác nhận hợp đồng chính thức", null,
+                        candidate.getBaseSalary(), null, candidate.getJobDescription()
+                ),
+                new HrApiDtos.IdentityInput(
+                        null, candidate.getCitizenId(), candidate.getCitizenIdIssuedDate(),
+                        candidate.getCitizenIdIssuedPlace(), HrIdentityVerificationStatus.UNVERIFIED
+                ),
+                null,
+                new HrApiDtos.ContactInput(
+                        candidate.getPermanentAddress(), null, candidate.getPhone(), null,
+                        normalizeEmail(candidate.getEmail()), null, null, null
+                )
+        );
     }
 
     @Transactional(readOnly = true)

@@ -22,6 +22,8 @@ import java.util.Set;
         HrActivityController.class,
         HrImportController.class,
         HrManagementController.class,
+        HrOnboardingController.class,
+        HrProbationController.class,
         HrWorkforceController.class
 })
 public class HrApiExceptionHandler {

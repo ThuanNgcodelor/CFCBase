@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, BriefcaseBusiness, CalendarDays, Contact, FilePenLine, Fingerprint, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarDays, Contact, FilePenLine, FileText, Fingerprint, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
+import { ContractExportPlaceholderButton } from '../../components/hr/HrEmploymentContractFields';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrActivityApi } from '../../api/hrActivityApi';
 import { apiErrorMessage, employmentStatusLabel, formatHrDate, formatHrDateTime, nonEmpty } from '../../utils/hr';
+import { contractTypeLabel } from '../../utils/hrOnboarding';
 
 const GENDER_LABELS = { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác', UNKNOWN: 'Chưa xác định' };
 const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
@@ -112,6 +114,13 @@ export default function HrEmployeeDetail() {
   const insurance = employee.insurance || {};
   const contact = employee.contact || employee.contacts || {};
   const employmentStatus = employee.employmentStatus || personal.employmentStatus || employee.status;
+  const currentContract = employee.currentContract;
+  const canDeleteDraft = employmentStatus === 'DRAFT' && employee.onboardingSource !== 'PROBATION';
+  const workforceLabel = employee.workforceGroup === 'OFFICE'
+    ? 'Khối văn phòng'
+    : employee.workforceGroup === 'GENERAL_LABOR'
+      ? 'Lao động phổ thông'
+      : 'Dữ liệu cũ chưa phân loại';
   const previewFinalDays = leaveForm.manualOverrideDays === ''
     ? leaveData?.calculatedDays
     : leaveForm.manualOverrideDays;
@@ -179,10 +188,11 @@ export default function HrEmployeeDetail() {
         actions={(
           <>
             <Button type="button" variant="secondary" onClick={() => navigate('/manager/hr/employees')}><ArrowLeft className="mr-1.5 h-4 w-4" />Danh sách</Button>
+            {currentContract && <ContractExportPlaceholderButton />}
             {employmentStatus === 'DRAFT' && (
               <Button type="button" onClick={() => navigate(`/manager/hr/employees/${id}/edit`)}><FilePenLine className="mr-1.5 h-4 w-4" />Chỉnh sửa bản nháp</Button>
             )}
-            {employmentStatus === 'DRAFT' && (
+            {canDeleteDraft && (
               <Button type="button" variant="danger" disabled={deleting} onClick={deleteDraft}><Trash2 className="mr-1.5 h-4 w-4" />Xóa bản nháp</Button>
             )}
           </>
@@ -227,6 +237,8 @@ export default function HrEmployeeDetail() {
         </DetailSection>
 
         <DetailSection icon={BriefcaseBusiness} title="Công việc">
+          <DetailItem label="Nhóm nhân sự" value={workforceLabel} />
+          <DetailItem label="Nguồn tiếp nhận" value={employee.onboardingSource} />
           <DetailItem label="Phòng ban" value={employment.departmentName || employment.department?.name} />
           <DetailItem label="Chức vụ" value={employment.positionName || employment.position?.name} />
           <DetailItem label="Điều kiện lao động" value={employment.workingConditionName || employment.workingCondition?.name} />
@@ -239,6 +251,20 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Phụ cấp" value={formatMoney(employment.allowance)} />
           <DetailItem label="Mô tả công việc" value={employment.jobDescription} wide />
         </DetailSection>
+
+        {currentContract && (
+          <DetailSection icon={FileText} title="Hợp đồng lao động chính thức" note="Hiện chỉ lưu thông tin hợp đồng; chưa sinh file Word/PDF.">
+            <DetailItem label="Loại hợp đồng" value={contractTypeLabel(currentContract.contractType)} />
+            <DetailItem label="Số hợp đồng" value={currentContract.contractNumber} />
+            <DetailItem label="Ngày ký" value={formatHrDate(currentContract.signDate)} />
+            <DetailItem label="Hiệu lực từ" value={formatHrDate(currentContract.effectiveFrom)} />
+            <DetailItem label="Hiệu lực đến" value={currentContract.effectiveUntil ? formatHrDate(currentContract.effectiveUntil) : 'Không xác định thời hạn'} />
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Trạng thái</dt>
+              <dd className="mt-1.5"><HrStatusBadge status={currentContract.status} label={currentContract.status === 'EFFECTIVE' ? 'Đang hiệu lực' : 'Chờ tăng nhân sự'} /></dd>
+            </div>
+          </DetailSection>
+        )}
 
         <DetailSection icon={CalendarDays} title="Ngày phép năm" note="Số cuối cùng sẽ được dùng cho export tháng và export năm.">
           <div>

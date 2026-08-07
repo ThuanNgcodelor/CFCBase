@@ -44,13 +44,13 @@ public class HrProbationContract extends HrBaseEntity {
     @Column(name = "template_file_name", nullable = false)
     private String templateFileName;
 
-    @Column(name = "template_sha256", nullable = false, length = 64)
+    @Column(name = "template_sha256", nullable = false, length = 64, columnDefinition = "char(64)")
     private String templateSha256;
 
     @Column(name = "generated_file_name", nullable = false)
     private String generatedFileName;
 
-    @Column(name = "generated_file_sha256", nullable = false, length = 64)
+    @Column(name = "generated_file_sha256", nullable = false, length = 64, columnDefinition = "char(64)")
     private String generatedFileSha256;
 
     @Lob

@@ -15,11 +15,21 @@ import {
 } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
-import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrDrawer, HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
+import HrEmploymentContractFields, { ContractExportPlaceholderButton } from '../../components/hr/HrEmploymentContractFields';
+import { HR_INPUT_CLASS, HrField } from '../../components/hr/HrFormControls';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { normalizePage } from '../../api/hrApiUtils';
+import { hrOnboardingApi } from '../../api/hrOnboardingApi';
 import { hrProbationApi } from '../../api/hrProbationApi';
 import { apiErrorMessage, formatHrDate, formatHrDateTime, nonEmpty, statusLabel } from '../../utils/hr';
+import {
+  addDaysIso,
+  contractPayload,
+  createContractForm,
+  newIdempotencyKey,
+  validateContractForm,
+} from '../../utils/hrOnboarding';
 
 const INPUT_CLASS = 'h-11 w-full rounded-lg border border-gray-300 px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:h-10 sm:text-sm';
 
@@ -86,6 +96,9 @@ export default function HrProbationCandidates() {
   const [optionsReloadKey, setOptionsReloadKey] = useState(0);
 
   const [busyAction, setBusyAction] = useState('');
+  const [onboardingCandidate, setOnboardingCandidate] = useState(null);
+  const [onboardingForm, setOnboardingForm] = useState(null);
+  const [onboardingIdempotencyKey, setOnboardingIdempotencyKey] = useState('');
 
   const sortedTemplates = useMemo(
     () => [...jobTemplates].sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0) || String(left.name).localeCompare(String(right.name), 'vi')),
@@ -181,11 +194,65 @@ export default function HrProbationCandidates() {
     setPage(0);
   };
 
+  const openOnboarding = (candidate) => {
+    const effectiveFrom = addDaysIso(candidate.probationEndDate) || todayInput();
+    setOnboardingCandidate(candidate);
+    setOnboardingForm({
+      employeeCode: candidate.candidateCode || '',
+      contract: createContractForm(effectiveFrom),
+    });
+    setOnboardingIdempotencyKey(newIdempotencyKey('office-onboarding'));
+  };
+
+  const closeOnboarding = () => {
+    if (busyAction === 'onboarding') return;
+    setOnboardingCandidate(null);
+    setOnboardingForm(null);
+    setOnboardingIdempotencyKey('');
+  };
+
+  const completeOnboarding = async (event) => {
+    event.preventDefault();
+    if (!onboardingCandidate || !onboardingForm) return;
+    const contractError = validateContractForm(onboardingForm.contract);
+    if (contractError) {
+      toast.error(contractError);
+      return;
+    }
+
+    setBusyAction('onboarding');
+    try {
+      const response = await hrOnboardingApi.completeProbationOnboarding(onboardingCandidate.id, {
+        rowVersion: onboardingCandidate.rowVersion,
+        idempotencyKey: onboardingIdempotencyKey,
+        employeeCode: onboardingForm.employeeCode.trim() || onboardingCandidate.candidateCode,
+        hireDate: onboardingForm.contract.effectiveFrom,
+        contract: contractPayload(onboardingForm.contract),
+      });
+      toast.success('Đã lập hợp đồng chính thức và tạo hồ sơ nhân sự nháp. Tiếp theo: tạo Tăng nhân sự.');
+      const params = new URLSearchParams({
+        create: 'increase',
+        employeeId: response?.employee?.id || '',
+        effectiveDate: onboardingForm.contract.effectiveFrom,
+      });
+      setOnboardingCandidate(null);
+      setOnboardingForm(null);
+      navigate(`/manager/hr/movements?${params.toString()}`);
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể hoàn tất hồ sơ sau thử việc.'));
+    } finally {
+      setBusyAction('');
+    }
+  };
+
   const runCandidateAction = async (candidate, action) => {
+    if (action === 'onboarding') {
+      openOnboarding(candidate);
+      return;
+    }
     if (action === 'generate' && !window.confirm(`Tạo hợp đồng thử việc cho ${candidate.fullName}?`)) return;
     if (action === 'start' && !window.confirm(`Chuyển ${candidate.fullName} sang trạng thái đang thử việc?`)) return;
     if (action === 'pass' && !window.confirm(`Đánh dấu ${candidate.fullName} đạt thử việc?`)) return;
-    if (action === 'convert' && !window.confirm(`Chuyển ${candidate.fullName} thành hồ sơ nhân sự nháp?`)) return;
     let reason = null;
     if (action === 'fail') {
       reason = window.prompt(`Nhập lý do ${candidate.fullName} không đạt thử việc`);
@@ -209,14 +276,6 @@ export default function HrProbationCandidates() {
       if (action === 'fail') {
         await hrProbationApi.markFailed(candidate.id, { rowVersion: candidate.rowVersion, reason: reason.trim() });
         toast.success('Đã đánh dấu không đạt thử việc');
-      }
-      if (action === 'convert') {
-        await hrProbationApi.convertToEmployeeDraft(candidate.id, {
-          rowVersion: candidate.rowVersion,
-          employeeCode: candidate.candidateCode,
-          hireDate: null,
-        });
-        toast.success('Đã chuyển thành hồ sơ nhân sự nháp');
       }
       setReloadKey((value) => value + 1);
     } catch (requestError) {
@@ -244,7 +303,7 @@ export default function HrProbationCandidates() {
       <SEOHead title="CFC Base | Ứng viên thử việc" url="https://cfcbooking.io.vn/manager/hr/probation" />
       <HrPageHeader
         title="Ứng viên thử việc"
-        description="Quản lý ứng viên từ lúc tiếp nhận, tạo hợp đồng Word đến khi chuyển thành hồ sơ nhân sự nháp."
+        description="Luồng văn phòng: tạo hợp đồng thử việc, bắt đầu thử việc, đánh giá đạt, chọn hợp đồng chính thức rồi chuyển thành hồ sơ nhân sự nháp chờ Tăng."
         actions={(
           <>
             <Button type="button" variant="secondary" onClick={() => selectTab('templates')}>
@@ -256,6 +315,48 @@ export default function HrProbationCandidates() {
           </>
         )}
       />
+
+      <HrDrawer
+        isOpen={Boolean(onboardingCandidate && onboardingForm)}
+        onClose={closeOnboarding}
+        title="Lập hợp đồng lao động chính thức"
+        description={onboardingCandidate ? `${onboardingCandidate.fullName} đã đạt thử việc. Chọn hợp đồng 1 năm hoặc không xác định thời hạn trước khi tạo hồ sơ nhân sự nháp.` : ''}
+        size="wide"
+      >
+        {onboardingCandidate && onboardingForm && (
+          <form onSubmit={completeOnboarding} className="flex min-h-full flex-col">
+            <div className="flex-1 space-y-6 px-5 py-6 sm:px-7">
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
+                Ngày vào làm của hồ sơ nhân sự và ngày hiệu lực hợp đồng được đồng bộ. Sau khi lưu, hồ sơ vẫn ở trạng thái nháp cho đến khi nghiệp vụ Tăng được xác nhận.
+              </div>
+              <HrField label="Mã nhân sự *" htmlFor="office-employee-code">
+                <input
+                  id="office-employee-code"
+                  required
+                  maxLength={32}
+                  disabled={busyAction === 'onboarding'}
+                  value={onboardingForm.employeeCode}
+                  onChange={(event) => setOnboardingForm((current) => ({ ...current, employeeCode: event.target.value.toUpperCase() }))}
+                  className={HR_INPUT_CLASS}
+                />
+              </HrField>
+              <HrEmploymentContractFields
+                compact
+                disabled={busyAction === 'onboarding'}
+                value={onboardingForm.contract}
+                onChange={(contract) => setOnboardingForm((current) => ({ ...current, contract }))}
+              />
+            </div>
+            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 bg-white/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:justify-end sm:px-7">
+              <ContractExportPlaceholderButton className="sm:mr-auto" />
+              <Button type="button" variant="secondary" disabled={busyAction === 'onboarding'} onClick={closeOnboarding}>Hủy</Button>
+              <Button type="submit" disabled={busyAction === 'onboarding'}>
+                <UserCheck className="mr-1.5 h-4 w-4" />{busyAction === 'onboarding' ? 'Đang lưu...' : 'Lưu và tạo hồ sơ nháp'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </HrDrawer>
 
       <nav className="mb-5 flex max-w-full gap-6 overflow-x-auto border-b border-[var(--cfc-border)]" aria-label="Khu vực thử việc">
         <button type="button" onClick={() => selectTab('candidates')} className={`relative whitespace-nowrap px-1 pb-3 text-sm font-semibold transition ${activeTab === 'candidates' ? 'text-emerald-700 after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-emerald-600' : 'text-[var(--cfc-muted)] hover:text-[var(--cfc-ink)]'}`}>
@@ -426,11 +527,11 @@ export default function HrProbationCandidates() {
 
 function CandidateRow({ candidate, busyAction, onEdit, onAction, onDownload }) {
   const latestContract = candidate.latestContract;
-  const canGenerate = !['FAILED', 'CONVERTED', 'CANCELLED'].includes(candidate.status);
-  const canStart = ['DRAFT', 'CONTRACT_CREATED'].includes(candidate.status);
+  const canGenerate = ['DRAFT', 'CONTRACT_CREATED'].includes(candidate.status);
+  const canStart = candidate.status === 'CONTRACT_CREATED';
   const canPass = candidate.status === 'IN_PROBATION';
-  const canFail = !['FAILED', 'CONVERTED', 'CANCELLED'].includes(candidate.status);
-  const canConvert = candidate.status === 'PASSED';
+  const canFail = candidate.status === 'IN_PROBATION';
+  const canOnboard = candidate.status === 'PASSED';
   const disabled = Boolean(busyAction);
 
   return (
@@ -469,11 +570,11 @@ function CandidateRow({ candidate, busyAction, onEdit, onAction, onDownload }) {
       <td className="px-5 py-4">
         <div className="flex flex-wrap gap-1.5">
           <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onEdit(candidate)}><PencilLine className="mr-1 h-3.5 w-3.5" />Sửa</Button>
-          {canGenerate && <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'generate')}><FileText className="mr-1 h-3.5 w-3.5" />Tạo HĐ</Button>}
+          {canGenerate && <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'generate')}><FileText className="mr-1 h-3.5 w-3.5" />HĐ thử việc</Button>}
           {canStart && <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'start')}><PlayCircle className="mr-1 h-3.5 w-3.5" />Bắt đầu</Button>}
           {canPass && <Button type="button" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'pass')}><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Đạt</Button>}
           {canFail && <Button type="button" size="sm" variant="danger" disabled={disabled} onClick={() => onAction(candidate, 'fail')}><XCircle className="mr-1 h-3.5 w-3.5" />Không đạt</Button>}
-          {canConvert && <Button type="button" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'convert')}><UserCheck className="mr-1 h-3.5 w-3.5" />Chuyển hồ sơ</Button>}
+          {canOnboard && <Button type="button" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'onboarding')}><UserCheck className="mr-1 h-3.5 w-3.5" />Lập HĐ chính thức</Button>}
           {candidate.convertedEmployeeId && <span className="inline-flex items-center whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500">{statusLabel('CONVERTED')}</span>}
         </div>
       </td>
@@ -483,11 +584,11 @@ function CandidateRow({ candidate, busyAction, onEdit, onAction, onDownload }) {
 
 function CandidateCard({ candidate, busyAction, onEdit, onAction, onDownload }) {
   const latestContract = candidate.latestContract;
-  const canGenerate = !['FAILED', 'CONVERTED', 'CANCELLED'].includes(candidate.status);
-  const canStart = ['DRAFT', 'CONTRACT_CREATED'].includes(candidate.status);
+  const canGenerate = ['DRAFT', 'CONTRACT_CREATED'].includes(candidate.status);
+  const canStart = candidate.status === 'CONTRACT_CREATED';
   const canPass = candidate.status === 'IN_PROBATION';
-  const canFail = !['FAILED', 'CONVERTED', 'CANCELLED'].includes(candidate.status);
-  const canConvert = candidate.status === 'PASSED';
+  const canFail = candidate.status === 'IN_PROBATION';
+  const canOnboard = candidate.status === 'PASSED';
   const disabled = Boolean(busyAction);
 
   return (
@@ -521,11 +622,11 @@ function CandidateCard({ candidate, busyAction, onEdit, onAction, onDownload }) 
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="secondary" disabled={disabled} onClick={() => onEdit(candidate)}><PencilLine className="mr-1 h-3.5 w-3.5" />Sửa</Button>
-        {canGenerate && <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'generate')}><FileText className="mr-1 h-3.5 w-3.5" />Tạo HĐ</Button>}
+        {canGenerate && <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'generate')}><FileText className="mr-1 h-3.5 w-3.5" />HĐ thử việc</Button>}
         {canStart && <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="secondary" disabled={disabled} onClick={() => onAction(candidate, 'start')}><PlayCircle className="mr-1 h-3.5 w-3.5" />Bắt đầu</Button>}
         {canPass && <Button type="button" className="flex-1 min-w-[90px]" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'pass')}><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Đạt</Button>}
         {canFail && <Button type="button" className="flex-1 min-w-[90px]" size="sm" variant="danger" disabled={disabled} onClick={() => onAction(candidate, 'fail')}><XCircle className="mr-1 h-3.5 w-3.5" />Không đạt</Button>}
-        {canConvert && <Button type="button" className="flex-1 min-w-[90px]" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'convert')}><UserCheck className="mr-1 h-3.5 w-3.5" />Chuyển</Button>}
+        {canOnboard && <Button type="button" className="flex-1 min-w-[110px]" size="sm" disabled={disabled} onClick={() => onAction(candidate, 'onboarding')}><UserCheck className="mr-1 h-3.5 w-3.5" />HĐ chính thức</Button>}
       </div>
     </div>
   );

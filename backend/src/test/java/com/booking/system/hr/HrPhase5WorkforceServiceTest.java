@@ -22,6 +22,7 @@ import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterRepository;
 import com.booking.system.hr.service.HrRosterProjectionService;
 import com.booking.system.hr.service.HrLeaveEntitlementService;
+import com.booking.system.hr.service.HrEmploymentContractService;
 import com.booking.system.hr.service.HrWorkforceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +69,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         HrBaselineImportService.class,
         HrLeaveEntitlementService.class,
         HrRosterProjectionService.class,
+        HrEmploymentContractService.class,
         HrWorkforceService.class
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

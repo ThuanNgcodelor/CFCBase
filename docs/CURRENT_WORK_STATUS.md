@@ -1,6 +1,6 @@
 # Trạng Thái Công Việc Hiện Tại
 
-Cập nhật lần cuối: 2026-07-27
+Cập nhật lần cuối: 2026-08-07
 
 ## Phạm Vi Sản Phẩm Hiện Tại
 
@@ -13,9 +13,9 @@ Cập nhật lần cuối: 2026-07-27
 Trạng thái roadmap HR:
 
 ```text
-Hoàn thành source/UI: Phase 0 -> Phase 9; Phase 10 có reconciliation read-only
-Hiện tại: Phase 10 — UAT, đối soát dữ liệu thật và rollout theo quyền vận hành
-Tiếp theo: Browser UAT và reconciliation read-only với số liệu TCHC
+Hoàn thành source/UI: Phase 0 -> Phase 9; Phase 10 có reconciliation read-only; Phase 11 có onboarding hai khối
+Hiện tại: Phase 10/11 — UAT, đối soát dữ liệu thật và rollout theo quyền vận hành
+Tiếp theo: Browser UAT Phase 11 và reconciliation read-only với số liệu TCHC
 Cuối cùng: Chỉ deploy/restart khi người dùng cho phép
 ```
 
@@ -315,7 +315,7 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Phase 7 đã hoàn thành source và UI đã xuất hiện trên runtime theo ảnh người dùng; formal UAT toàn flow bằng ứng viên giả chưa đóng.
 - Flow mới thêm `Ứng viên thử việc` trước `Hồ sơ chờ chính thức`/`Tăng nhân sự`.
 - Flow mới không đưa ứng viên thử việc vào `HrEmployee ACTIVE` hoặc roster chính thức.
-- Flow chuẩn: `Ứng viên thử việc -> tạo hợp đồng thử việc -> đạt thử việc -> chuyển thành HrEmployee DRAFT -> Tăng nhân sự -> chính thức vào danh sách tháng`.
+- Flow hiện hành sau Phase 11: `Ứng viên thử việc -> tạo hợp đồng thử việc -> bắt đầu thử việc -> đạt -> chọn HĐLĐ 12 tháng/không xác định thời hạn -> HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE`.
 - Đã phân tích file nguồn `docs/hrdocsthuviec/Mẫu Hợp đồng thử việc 2026.docx`: file có 10 hợp đồng đã điền dữ liệu thật, không có mail merge/content control, nên không dùng trực tiếp làm runtime template.
 - Đã tạo template sạch cho backend: `backend/src/main/resources/hr/templates/probation-contract-template.docx`.
 - Template backend còn một hợp đồng, có 22 placeholder `{{...}}`, không còn tên/CCCD mẫu đã kiểm tra; SHA-256 `34e2b4209ec0596a2003dadbe4ee98e33a9565a157383282cfe08ee84eb16f03`.
@@ -323,7 +323,7 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Đã thêm backend entity/repository/service/controller dưới `/api/v1/hr/probation/**`; file `.docx` generated lưu DB blob kèm checksum/snapshot placeholder.
 - Đã thêm `HrProbationJobTemplateSeeder`: tự tạo 9 mẫu công việc thử việc mặc định từ phần nội dung an toàn của file Word gốc, không seed dữ liệu cá nhân; không ghi đè mẫu đã tồn tại.
 - Đã thêm frontend API, route `/manager/hr/probation` và menu `Thử việc` cho `MANAGER`.
-- UI có 2 tab: `Ứng viên` và `Mẫu công việc thử việc`; hỗ trợ thêm/sửa ứng viên, tạo/tải hợp đồng, bắt đầu thử việc, đánh dấu đạt/không đạt và chuyển thành `HrEmployee DRAFT`.
+- UI có 2 tab: `Ứng viên` và `Mẫu công việc thử việc`; hỗ trợ thêm/sửa ứng viên, tạo/tải hợp đồng thử việc, bắt đầu thử việc, đánh dấu đạt/không đạt và lập hợp đồng chính thức trước khi tạo `HrEmployee DRAFT`.
 - Đã tạo/cập nhật plan triển khai: [HR Phase 7 — Ứng viên thử việc và hợp đồng Word](HR_PHASE_7_PROBATION_CONTRACTS.md).
 - Giao diện HR đã được hardening responsive ngày `2026-07-27`: toolbar theo chiều rộng content sau sidebar; bảng Nhân sự/Thử việc/Tăng-Giảm/Danh mục/Danh sách tháng/Nhật ký tự chuyển sang card khi không đủ chỗ.
 - Phase 7 đã hoàn thành source và gate ổn định UI ngày `2026-07-27`; formal runtime UAT dữ liệu thật được giữ ở gate vận hành.
@@ -351,6 +351,16 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - UAT case tăng/giảm cùng tháng, báo trễ, quyền, backward compatibility và Excel còn chờ runtime.
 - Hardening hiệu năng, EXPLAIN data thật, backup/restore và rollout theo gate còn chờ quyền vận hành.
 
+### Phase 11 — Hợp đồng chính thức và onboarding hai khối
+
+- Source/migration/API/UI và automated verification đã hoàn thành; chưa deploy, chưa chạy V6 production và chưa browser UAT.
+- Khối văn phòng bắt buộc hoàn tất thử việc và lập HĐLĐ 12 tháng/không xác định thời hạn trước khi tạo Employee `DRAFT`.
+- Khối lao động phổ thông có menu `LĐ phổ thông`, form thêm trực tiếp và cùng hai lựa chọn hợp đồng; không đi qua thử việc.
+- Cả hai luồng chuyển sang màn tạo `INCREASE`; chỉ khi xác nhận Tăng mới chuyển Employee `ACTIVE` và hợp đồng `EFFECTIVE`.
+- Employee legacy dùng policy version 1 nên không bị hồi tố bởi contract gate mới.
+- Nút xuất hợp đồng chính thức đã có nhưng chỉ báo defer; chưa có Word/PDF/API xuất file cho hai khối.
+- Chi tiết: [HR Phase 11 — Hợp đồng chính thức và onboarding hai khối](HR_PHASE_11_EMPLOYMENT_ONBOARDING.md).
+
 Plan chi tiết: [HR Phase 8–10 — Refactor danh sách nhân sự tháng](HR_PHASE_8_10_MONTHLY_ROSTER_REFACTOR.md).
 
 Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ sơ và ngày phép được chuyển về backlog sau Phase 10.
@@ -361,7 +371,16 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 - Frontend `npm run build`: pass; PWA/service worker build pass; main chunk khoảng 780,70 KB và còn chunk-size warning cũ.
 - Frontend `npm run lint`: pass, còn warning cũ/nhẹ ở `DashboardLayout.jsx` do icon import/commented nav và `CustomDateHeader.jsx`.
 - Backend target migration tests `HrPhase1MigrationTest,HrPhase2RetentionMigrationTest`: pass với Flyway V1/V2/V3.
-- Backend full `mvn test`: hiện fail do Mockito inline/ByteBuddy không self-attach được trên Java 25 Fedora; nhóm failure đếm migration đã được cập nhật và không còn xuất hiện.
+- Blocker Mockito inline/ByteBuddy từng ghi ở checkpoint Phase 7 không còn là trạng thái hiện tại; full regression Phase 11 đã pass.
+
+## Verification Phase 11
+
+- Backend full `./mvnw -q test`: `108` test chạy, `0` failure, `0` error, `1` skip theo điều kiện môi trường.
+- Frontend `npm run lint`: pass.
+- Frontend `npm run build`: pass; PWA/service worker build pass và còn chunk-size warning hiện hữu.
+- Migration V6, contract gate, idempotency, phân loại hai khối và flow thử việc được phủ bởi automated tests.
+- Browser UAT chưa chạy vì phiên làm việc không có browser được kết nối.
+- Không deploy/restart, không chạy migration và không sửa dữ liệu production trong lượt này.
 
 ## Dọn Dẹp Repo Ngày 2026-07-24
 
@@ -381,7 +400,7 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
 - Phase 5 và Phase 6 đã có source/UI runtime nhưng formal UAT chưa đóng; import sheet Tăng/Giảm hàng loạt từ workbook bất kỳ vẫn chưa triển khai.
 - Phase 7 ngày phép tự động hiện không còn trong source active; chỉ làm lại khi có công thức nghiệp vụ chính thức.
-- Phase 7 ứng viên thử việc đã có source schema/API/UI và UI runtime; còn thiếu UAT end-to-end bằng ứng viên giả.
+- Phase 7/11 đã có source schema/API/UI cho thử việc, hợp đồng chính thức và hai khối; còn thiếu UAT end-to-end bằng hồ sơ giả.
 - Cần test end-to-end HR/PWA trên nhiều thiết bị iOS/Android thật.
 - Có orphan `booking_adminer` container được Docker Compose cảnh báo; chưa xóa vì không liên quan runtime chính và tránh thao tác phá hủy ngoài yêu cầu.
 
@@ -398,18 +417,25 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 - `backend/src/main/java/com/booking/system/hr/service/HrWorkforceService.java`
 - `backend/src/main/java/com/booking/system/hr/service/HrExcelExportService.java`
 - `backend/src/main/java/com/booking/system/hr/service/HrProbationService.java`
+- `backend/src/main/java/com/booking/system/hr/service/HrEmploymentContractService.java`
+- `backend/src/main/java/com/booking/system/hr/service/HrOnboardingService.java`
 - `backend/src/main/java/com/booking/system/hr/api/HrWorkforceController.java`
 - `backend/src/main/java/com/booking/system/hr/api/HrProbationController.java`
+- `backend/src/main/java/com/booking/system/hr/api/HrOnboardingController.java`
 - `backend/src/main/resources/db/migration/V2__add_hr_import_payload_retention.sql`
 - `backend/src/main/resources/db/migration/V3__add_hr_probation_candidates.sql`
+- `backend/src/main/resources/db/migration/V6__add_hr_employment_onboarding.sql`
 - `docs/HR_PHASE_4_MANAGER_UI.md`
 - `docs/HR_PHASE_5_WORKFORCE_MONTHLY.md`
 - `docs/HR_PHASE_6_EXCEL_EXPORT.md`
 - `docs/HR_PHASE_7_PROBATION_CONTRACTS.md`
+- `docs/HR_PHASE_11_EMPLOYMENT_ONBOARDING.md`
 - `docs/HR_WORKFORCE_IMPORT_339.md`
 - `backend/src/main/resources/hr/templates/probation-contract-template.docx`
 - `frontend/src/api/hrProbationApi.js`
 - `frontend/src/pages/hr/HrProbationCandidates.jsx`
+- `frontend/src/pages/hr/HrGeneralLabor.jsx`
+- `frontend/src/pages/hr/HrGeneralLaborOnboarding.jsx`
 - `backend/src/main/java/com/booking/system/event/NotificationEventListener.java`
 - `frontend/src/api/authStorage.js`
 - `frontend/src/utils/notificationNavigation.js`
@@ -423,8 +449,8 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 
 ## Bước Tiếp Theo Gợi Ý
 
-1. Browser UAT: preview, điều chỉnh T6 sang T7 và export tháng/năm trên hồ sơ test.
-2. Chạy reconciliation read-only dữ liệu thật nếu được phép; đối chiếu với TCHC, không tự sửa số liệu.
-3. Phase 10: security/performance -> backup/restore -> rollout có kiểm soát.
-4. Không triển khai kho giấy tờ, báo cáo nâng cao hoặc ngày phép trước khi Phase 8–10 ổn định.
-6. Không tiếp tục bất kỳ Booking Phase 6–10 nào.
+1. Browser UAT Phase 11 bằng hồ sơ test cho cả văn phòng/lao động phổ thông và cả hai loại hợp đồng.
+2. Browser UAT preview, điều chỉnh T6 sang T7 và export tháng/năm trên hồ sơ test.
+3. Chạy reconciliation read-only dữ liệu thật nếu được phép; đối chiếu với TCHC, không tự sửa số liệu.
+4. Chỉ sau backup và xác nhận của người dùng mới chạy V6/deploy/rollout có kiểm soát.
+5. Chưa làm Word/PDF hợp đồng chính thức cho tới khi có file Word đã chốt; không tiếp tục bất kỳ Booking Phase 6–10 nào.

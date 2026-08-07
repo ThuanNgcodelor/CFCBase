@@ -29,6 +29,8 @@ const HrEmployeeForm = lazy(() => import('./pages/hr/HrEmployeeForm'));
 const HrProbationCandidates = lazy(() => import('./pages/hr/HrProbationCandidates'));
 const HrProbationCandidateForm = lazy(() => import('./pages/hr/HrProbationCandidateForm'));
 const HrProbationJobTemplateForm = lazy(() => import('./pages/hr/HrProbationJobTemplateForm'));
+const HrGeneralLabor = lazy(() => import('./pages/hr/HrGeneralLabor'));
+const HrGeneralLaborOnboarding = lazy(() => import('./pages/hr/HrGeneralLaborOnboarding'));
 const HrCatalogs = lazy(() => import('./pages/hr/HrCatalogs'));
 const HrImports = lazy(() => import('./pages/hr/HrImports'));
 const HrMovements = lazy(() => import('./pages/hr/HrMovements'));
@@ -180,6 +182,8 @@ function App() {
         <Route path="manager/hr/probation/candidates/:id/edit" element={<HrRoute><HrProbationCandidateForm /></HrRoute>} />
         <Route path="manager/hr/probation/templates/new" element={<HrRoute><HrProbationJobTemplateForm /></HrRoute>} />
         <Route path="manager/hr/probation/templates/:id/edit" element={<HrRoute><HrProbationJobTemplateForm /></HrRoute>} />
+        <Route path="manager/hr/general-labor" element={<HrRoute><HrGeneralLabor /></HrRoute>} />
+        <Route path="manager/hr/general-labor/new" element={<HrRoute><HrGeneralLaborOnboarding /></HrRoute>} />
         <Route path="manager/hr/catalogs" element={<HrRoute><HrCatalogs /></HrRoute>} />
         <Route path="manager/hr/imports" element={<HrRoute><HrImports /></HrRoute>} />
         <Route path="manager/hr/movements" element={<HrRoute><HrMovements /></HrRoute>} />

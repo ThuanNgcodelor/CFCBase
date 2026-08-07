@@ -2,6 +2,7 @@ package com.booking.system.hr.repository;
 
 import com.booking.system.hr.entity.HrEmployee;
 import com.booking.system.hr.enums.HrEmploymentStatus;
+import com.booking.system.hr.enums.HrWorkforceGroup;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +44,7 @@ public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
               and (:departmentId is null or department.id = :departmentId)
               and (:positionId is null or position.id = :positionId)
               and (:workingConditionId is null or workingCondition.id = :workingConditionId)
+              and (:workforceGroup is null or employee.workforceGroup = :workforceGroup)
             """,
             countQuery = """
             select count(employee) from HrEmployee employee
@@ -57,6 +59,7 @@ public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
               and (:departmentId is null or department.id = :departmentId)
               and (:positionId is null or position.id = :positionId)
               and (:workingConditionId is null or workingCondition.id = :workingConditionId)
+              and (:workforceGroup is null or employee.workforceGroup = :workforceGroup)
             """)
     Page<HrEmployee> search(
             @Param("keyword") String keyword,
@@ -64,6 +67,7 @@ public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
             @Param("departmentId") String departmentId,
             @Param("positionId") String positionId,
             @Param("workingConditionId") String workingConditionId,
+            @Param("workforceGroup") HrWorkforceGroup workforceGroup,
             Pageable pageable
     );
 

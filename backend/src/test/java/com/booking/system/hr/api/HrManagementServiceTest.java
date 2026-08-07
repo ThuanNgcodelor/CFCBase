@@ -7,6 +7,8 @@ import com.booking.system.hr.entity.HrEmployeeEmployment;
 import com.booking.system.hr.entity.HrEmployeeIdentity;
 import com.booking.system.hr.entity.HrEmployeeInsurance;
 import com.booking.system.hr.enums.HrEmployeeGender;
+import com.booking.system.hr.enums.HrEmploymentContractStatus;
+import com.booking.system.hr.enums.HrEmploymentContractType;
 import com.booking.system.hr.enums.HrEmploymentStatus;
 import com.booking.system.hr.enums.HrIdentityVerificationStatus;
 import com.booking.system.hr.enums.HrInsuranceStatus;
@@ -24,6 +26,7 @@ import com.booking.system.hr.repository.HrMonthlyRosterRepository;
 import com.booking.system.hr.repository.HrPositionRepository;
 import com.booking.system.hr.repository.HrWorkingConditionRepository;
 import com.booking.system.hr.service.HrManagementService;
+import com.booking.system.hr.service.HrEmploymentContractService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +45,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,6 +65,7 @@ class HrManagementServiceTest {
     @Mock private HrMonthlyRosterRepository rosterRepository;
     @Mock private HrAuditEventRepository auditRepository;
     @Mock private EntityManager entityManager;
+    @Mock private HrEmploymentContractService employmentContractService;
 
     private HrManagementService service;
     private HrEmployee employee;
@@ -80,7 +85,8 @@ class HrManagementServiceTest {
                 rosterRepository,
                 auditRepository,
                 new HrImportJsonCodec(),
-                entityManager
+                entityManager,
+                employmentContractService
         );
 
         employee = new HrEmployee();
@@ -132,8 +138,9 @@ class HrManagementServiceTest {
                 eq("department-1"),
                 eq("position-1"),
                 eq("condition-1"),
+                isNull(),
                 same(pageable)
-        )).thenReturn(new PageImpl<>(List.of(employee), pageable, 1));
+        )).thenReturn(new PageImpl<>(List.of(employee), pageable, 41));
 
         var result = service.searchEmployees(
                 " NV001 ",
@@ -141,18 +148,20 @@ class HrManagementServiceTest {
                 "department-1",
                 "position-1",
                 "condition-1",
+                null,
                 pageable
         );
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().getFirst().employeeCode()).isEqualTo("NV001");
-        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getTotalElements()).isEqualTo(41);
         verify(employeeRepository).search(
                 "%nv001%",
                 HrEmploymentStatus.ACTIVE,
                 "department-1",
                 "position-1",
                 "condition-1",
+                null,
                 pageable
         );
     }
@@ -198,6 +207,31 @@ class HrManagementServiceTest {
                     assertThat(apiError.status().value()).isEqualTo(409);
                     assertThat(apiError.code()).isEqualTo("EMPLOYEE_NOT_DRAFT");
                 });
+    }
+
+    @Test
+    void updatePolicyTwoDraftRejectsHireDateDifferentFromFormalContract() {
+        employee.setOnboardingPolicyVersion((short) 2);
+        when(employeeRepository.findDetailById(employee.getId())).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByEmployeeCode("NV001")).thenReturn(Optional.of(employee));
+        when(employmentContractService.currentContract(employee.getId())).thenReturn(
+                new HrApiDtos.EmploymentContractSummary(
+                        "contract-1",
+                        HrEmploymentContractType.INDEFINITE,
+                        "002/HDLD/2026",
+                        LocalDate.of(2026, 8, 10),
+                        LocalDate.of(2026, 8, 15),
+                        null,
+                        HrEmploymentContractStatus.READY,
+                        0L
+                )
+        );
+
+        assertThatThrownBy(() -> service.updateEmployee(
+                employee.getId(), updateRequest(employee.getRowVersion()), managerActor()))
+                .isInstanceOf(HrApiException.class)
+                .satisfies(error -> assertThat(((HrApiException) error).code())
+                        .isEqualTo("HIRE_DATE_CONTRACT_DATE_MISMATCH"));
     }
 
     private static HrApiDtos.UpdateEmployeeRequest updateRequest(long rowVersion) {

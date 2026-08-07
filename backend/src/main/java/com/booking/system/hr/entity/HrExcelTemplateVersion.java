@@ -36,7 +36,7 @@ public class HrExcelTemplateVersion extends HrBaseEntity {
     @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @Column(name = "file_sha256", nullable = false, length = 64)
+    @Column(name = "file_sha256", nullable = false, length = 64, columnDefinition = "char(64)")
     private String fileSha256;
 
     @Column(name = "sheet_contract", nullable = false, columnDefinition = "json")

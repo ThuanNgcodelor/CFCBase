@@ -52,11 +52,6 @@ export const hrProbationApi = {
     return unwrapApiData(response);
   },
 
-  convertToEmployeeDraft: async (id, payload) => {
-    const response = await baseApi.post(`/hr/probation/candidates/${id}/convert-to-employee-draft`, payload);
-    return unwrapApiData(response);
-  },
-
   getJobTemplates: async (params = {}, options = {}) => {
     const response = await baseApi.get('/hr/probation/job-templates', {
       params: { ...params, size: Math.min(Number(params?.size) || 20, 50) },

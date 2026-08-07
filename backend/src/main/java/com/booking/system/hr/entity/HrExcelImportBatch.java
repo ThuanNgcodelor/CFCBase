@@ -48,7 +48,7 @@ public class HrExcelImportBatch extends HrBaseEntity {
     @Column(name = "source_file_name", nullable = false)
     private String sourceFileName;
 
-    @Column(name = "file_sha256", nullable = false, length = 64)
+    @Column(name = "file_sha256", nullable = false, length = 64, columnDefinition = "char(64)")
     private String fileSha256;
 
     @Column(name = "file_size", nullable = false)

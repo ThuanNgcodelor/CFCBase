@@ -6,6 +6,7 @@ import com.booking.system.hr.api.dto.HrPageResponse;
 import com.booking.system.hr.dto.HrApiDtos;
 import com.booking.system.hr.enums.HrCatalogStatus;
 import com.booking.system.hr.enums.HrEmploymentStatus;
+import com.booking.system.hr.enums.HrWorkforceGroup;
 import com.booking.system.hr.service.HrManagementService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -71,10 +72,11 @@ public class HrManagementController {
             @RequestParam(required = false) String departmentId,
             @RequestParam(required = false) String positionId,
             @RequestParam(required = false) String workingConditionId,
+            @RequestParam(required = false) HrWorkforceGroup workforceGroup,
             @RequestParam(defaultValue = "employeeCode,asc") String sort
     ) {
         Page<HrApiDtos.EmployeeListItem> result = managementService.searchEmployees(
-                keyword, status, departmentId, positionId, workingConditionId,
+                keyword, status, departmentId, positionId, workingConditionId, workforceGroup,
                 pageRequest(page, size, sort, EMPLOYEE_SORTS, "employeeCode"));
         return ResponseEntity.ok(ApiResponse.success(
                 HrPageResponse.from(result, Function.identity()), "Lấy danh sách nhân sự thành công"));

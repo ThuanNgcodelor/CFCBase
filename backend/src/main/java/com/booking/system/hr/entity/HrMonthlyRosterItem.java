@@ -112,7 +112,7 @@ public class HrMonthlyRosterItem {
     @Column(name = "snapshot_payload", nullable = false, columnDefinition = "json")
     private String snapshotPayload;
 
-    @Column(name = "payload_sha256", nullable = false, length = 64)
+    @Column(name = "payload_sha256", nullable = false, length = 64, columnDefinition = "char(64)")
     private String payloadSha256;
 
     @Column(name = "created_at", nullable = false, updatable = false)

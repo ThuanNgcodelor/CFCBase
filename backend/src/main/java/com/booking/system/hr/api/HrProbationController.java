@@ -172,6 +172,17 @@ public class HrProbationController {
                 "Đã chuyển ứng viên thành hồ sơ chờ chính thức"));
     }
 
+    @PostMapping("/candidates/{candidateId}/complete-onboarding")
+    public ResponseEntity<ApiResponse<HrProbationDtos.CompleteOnboardingResponse>> completeOnboarding(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String candidateId,
+            @Valid @RequestBody HrProbationDtos.CompleteOnboardingRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                probationService.completeOnboarding(candidateId, request, actorResolver.fromPrincipal(principal)),
+                "Đã lập hợp đồng chính thức và tạo hồ sơ chờ tăng nhân sự"));
+    }
+
     @GetMapping("/job-templates")
     public ResponseEntity<ApiResponse<HrPageResponse<HrProbationDtos.JobTemplateSummary>>> jobTemplates(
             @RequestParam(defaultValue = "0") int page,

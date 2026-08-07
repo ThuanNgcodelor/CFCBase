@@ -10,6 +10,7 @@ import com.booking.system.hr.entity.HrCatalogEntity;
 import com.booking.system.hr.entity.HrEmployee;
 import com.booking.system.hr.entity.HrEmployeeEmployment;
 import com.booking.system.hr.entity.HrEmployeeMovement;
+import com.booking.system.hr.entity.HrEmploymentContract;
 import com.booking.system.hr.entity.HrMonthlyRoster;
 import com.booking.system.hr.entity.HrMonthlyRosterItem;
 import com.booking.system.hr.enums.HrEmploymentStatus;
@@ -26,6 +27,7 @@ import com.booking.system.hr.repository.HrEmployeeRepository;
 import com.booking.system.hr.repository.HrExcelImportRowRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterRepository;
+import com.booking.system.hr.repository.HrProbationCandidateRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -66,10 +68,12 @@ public class HrWorkforceService {
     private final HrMonthlyRosterRepository rosterRepository;
     private final HrMonthlyRosterItemRepository rosterItemRepository;
     private final HrExcelImportRowRepository importRowRepository;
+    private final HrProbationCandidateRepository probationCandidateRepository;
     private final HrAuditEventRepository auditRepository;
     private final HrImportJsonCodec jsonCodec;
     private final EntityManager entityManager;
     private final HrLeaveEntitlementService leaveEntitlementService;
+    private final HrEmploymentContractService employmentContractService;
 
     @Transactional
     public HrMovementResponse createMovement(HrMovementCreateRequest request, HrImportActor actor) {
@@ -114,6 +118,7 @@ public class HrWorkforceService {
                 throw HrApiException.conflict("INCREASE_REQUIRES_DRAFT_EMPLOYEE",
                         "Tăng nhân sự chỉ áp dụng cho hồ sơ nhân sự nháp.");
             }
+            employmentContractService.requireReadyForIncrease(employee, request.effectiveDate());
             movement.setFromEmployeeStatus(HrEmploymentStatus.DRAFT);
             movement.setToEmployeeStatus(HrEmploymentStatus.ACTIVE);
             movement.setToDepartment(employment == null ? null : employment.getDepartment());
@@ -247,6 +252,7 @@ public class HrWorkforceService {
     private HrMovementResponse confirmStandardMovement(HrEmployeeMovement movement, HrImportActor actor) {
         HrEmployee employee = lockedEmployee(movement.getEmployee().getId());
         HrEmployeeEmployment employment = employee.getEmployment();
+        HrEmploymentContract activationContract = null;
         if (employee.getStatusEffectiveDate() != null
                 && movement.getEffectiveDate().isBefore(employee.getStatusEffectiveDate())) {
             throw HrApiException.conflict("MOVEMENT_BEFORE_CURRENT_STATUS",
@@ -258,6 +264,8 @@ public class HrWorkforceService {
                 throw HrApiException.conflict("INCREASE_REQUIRES_DRAFT_EMPLOYEE",
                         "Hồ sơ không còn ở trạng thái nháp để xác nhận tăng.");
             }
+            activationContract = employmentContractService.requireReadyForIncrease(
+                    employee, movement.getEffectiveDate());
             employee.setEmploymentStatus(HrEmploymentStatus.ACTIVE);
             employee.setStatusEffectiveDate(movement.getEffectiveDate());
             if (employment != null) {
@@ -285,6 +293,8 @@ public class HrWorkforceService {
             throw HrApiException.badRequest("MOVEMENT_TYPE_NOT_SUPPORTED",
                     "Phase 5 chỉ hỗ trợ xác nhận Tăng và Giảm nhân sự.");
         }
+
+        employmentContractService.markEffective(activationContract, actor);
 
         confirmMovementAudit(movement, employee, actor, "HR_MOVEMENT_CONFIRMED", Map.of(
                 "movementType", movement.getMovementType().name(), "employeeId", employee.getId()));
@@ -422,9 +432,10 @@ public class HrWorkforceService {
         requireVersion(employee.getRowVersion(), rowVersion, "Hồ sơ đã được cập nhật ở nơi khác.");
         if (movementRepository.countByEmployee_Id(employeeId) > 0
                 || rosterItemRepository.countByEmployee_Id(employeeId) > 0
-                || importRowRepository.countByEmployee_Id(employeeId) > 0) {
+                || importRowRepository.countByEmployee_Id(employeeId) > 0
+                || probationCandidateRepository.existsByConvertedEmployee_Id(employeeId)) {
             throw HrApiException.conflict("EMPLOYEE_HAS_REFERENCES",
-                    "Hồ sơ đã có biến động, snapshot hoặc dữ liệu import tham chiếu.");
+                    "Hồ sơ đã có ứng viên nguồn, biến động, snapshot hoặc dữ liệu import tham chiếu.");
         }
         audit(actor, "HR_EMPLOYEE_DRAFT_DELETED", "HR_EMPLOYEE", employeeId,
                 List.of("deleted"), Map.of("employeeCode", employee.getEmployeeCode()));

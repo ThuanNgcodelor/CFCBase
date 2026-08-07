@@ -297,7 +297,17 @@ Chi tiết hồ sơ HR trả đầy đủ CCCD/CMND, BHXH/BHYT, liên hệ và l
 Ứng viên thử việc:
 
 1. Ứng viên thử việc chưa phải `HrEmployee ACTIVE` và không được tính vào roster chính thức.
-2. Flow hiện tại: `Ứng viên thử việc -> tạo hợp đồng thử việc -> bắt đầu thử việc -> đạt thử việc -> chuyển thành HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE`.
-3. Không tự tạo `Tăng nhân sự` khi ứng viên đạt; Manager vẫn phải xác nhận chính thức ở màn `Tăng / Giảm`.
+2. Flow văn phòng hiện tại: `Ứng viên thử việc -> tạo hợp đồng thử việc -> bắt đầu thử việc -> đạt thử việc -> chọn HĐLĐ 12 tháng/không xác định thời hạn -> HrEmployee DRAFT -> tạo Tăng nhân sự -> xác nhận -> ACTIVE`.
+3. API chuyển thẳng ứng viên đạt sang Employee nháp không còn được frontend sử dụng và backend trả `EMPLOYMENT_CONTRACT_REQUIRED` để chặn bypass.
 4. Template Word sạch đã đặt tại `backend/src/main/resources/hr/templates/probation-contract-template.docx`.
-5. Source đã có Flyway V3, API `/api/v1/hr/probation/**`, UI `/manager/hr/probation` và tab `Mẫu công việc thử việc`; chưa deploy/UAT runtime.
+5. Source có Flyway V3/V6, API `/api/v1/hr/probation/**`, UI `/manager/hr/probation` và tab `Mẫu công việc thử việc`; Phase 11 chưa deploy/UAT runtime.
+
+Lao động phổ thông:
+
+1. Manager mở mục `LĐ phổ thông` tại `/manager/hr/general-labor` và thêm mới tại `/manager/hr/general-labor/new`.
+2. Flow đi thẳng: `Nhập hồ sơ -> chọn HĐLĐ 12 tháng/không xác định thời hạn -> HrEmployee DRAFT -> tạo Tăng nhân sự -> xác nhận -> ACTIVE`; không qua thử việc.
+3. Hai flow dùng chung contract gate: onboarding mới phải có hợp đồng `READY`, ngày hiệu lực Tăng trùng ngày bắt đầu hợp đồng; confirm Tăng chuyển hợp đồng sang `EFFECTIVE`.
+4. Employee legacy giữ policy version 1 và không bị hồi tố bởi gate mới.
+5. Nút xuất hợp đồng chính thức hiện chỉ là placeholder; chưa sinh Word/PDF cho văn phòng hoặc lao động phổ thông.
+
+Chi tiết Phase 11: `docs/HR_PHASE_11_EMPLOYMENT_ONBOARDING.md`.

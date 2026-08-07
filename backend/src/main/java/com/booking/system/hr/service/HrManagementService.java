@@ -16,9 +16,12 @@ import com.booking.system.hr.entity.HrPosition;
 import com.booking.system.hr.entity.HrWorkingCondition;
 import com.booking.system.hr.enums.HrCatalogStatus;
 import com.booking.system.hr.enums.HrEmployeeGender;
+import com.booking.system.hr.enums.HrEmploymentContractType;
 import com.booking.system.hr.enums.HrEmploymentStatus;
 import com.booking.system.hr.enums.HrIdentityVerificationStatus;
 import com.booking.system.hr.enums.HrInsuranceStatus;
+import com.booking.system.hr.enums.HrOnboardingSource;
+import com.booking.system.hr.enums.HrWorkforceGroup;
 import com.booking.system.hr.importer.HrImportActor;
 import com.booking.system.hr.importer.HrImportJsonCodec;
 import com.booking.system.hr.repository.HrAuditEventRepository;
@@ -68,6 +71,7 @@ public class HrManagementService {
     private final HrAuditEventRepository auditRepository;
     private final HrImportJsonCodec jsonCodec;
     private final EntityManager entityManager;
+    private final HrEmploymentContractService employmentContractService;
 
     @Transactional(readOnly = true)
     public HrApiDtos.OverviewResponse overview() {
@@ -103,11 +107,12 @@ public class HrManagementService {
             String departmentId,
             String positionId,
             String workingConditionId,
+            HrWorkforceGroup workforceGroup,
             Pageable pageable
     ) {
         return employeeRepository.search(
                 likePattern(keyword), status, blankToNull(departmentId), blankToNull(positionId),
-                blankToNull(workingConditionId), pageable
+                blankToNull(workingConditionId), workforceGroup, pageable
         ).map(this::toListItem);
     }
 
@@ -121,6 +126,31 @@ public class HrManagementService {
             HrApiDtos.CreateEmployeeRequest request,
             HrImportActor actor
     ) {
+        return createEmployeeInternal(
+                request, actor, HrWorkforceGroup.LEGACY_UNKNOWN, HrOnboardingSource.MANUAL, (short) 1);
+    }
+
+    @Transactional
+    public HrApiDtos.EmployeeDetail createEmployeeForOnboarding(
+            HrApiDtos.CreateEmployeeRequest request,
+            HrWorkforceGroup workforceGroup,
+            HrOnboardingSource onboardingSource,
+            HrImportActor actor
+    ) {
+        if (workforceGroup == null || onboardingSource == null) {
+            throw HrApiException.badRequest("ONBOARDING_CLASSIFICATION_REQUIRED",
+                    "Khối nhân sự và nguồn onboarding là bắt buộc.");
+        }
+        return createEmployeeInternal(request, actor, workforceGroup, onboardingSource, (short) 2);
+    }
+
+    private HrApiDtos.EmployeeDetail createEmployeeInternal(
+            HrApiDtos.CreateEmployeeRequest request,
+            HrImportActor actor,
+            HrWorkforceGroup workforceGroup,
+            HrOnboardingSource onboardingSource,
+            short onboardingPolicyVersion
+    ) {
         String employeeCode = normalizeCode(request.personal().employeeCode());
         requireUniqueEmployeeCode(employeeCode, null);
         validatePersonal(request.personal());
@@ -132,6 +162,9 @@ public class HrManagementService {
         employee.setEmployeeCode(employeeCode);
         employee.setEmploymentStatus(HrEmploymentStatus.DRAFT);
         employee.setStatusEffectiveDate(null);
+        employee.setWorkforceGroup(workforceGroup);
+        employee.setOnboardingSource(onboardingSource);
+        employee.setOnboardingPolicyVersion(onboardingPolicyVersion);
         setCreatedAudit(employee, actor);
         employee = employeeRepository.save(employee);
 
@@ -142,7 +175,12 @@ public class HrManagementService {
 
         audit(actor, "HR_EMPLOYEE_CREATED", "HR_EMPLOYEE", employee.getId(),
                 List.of("personal", "employment", "identity", "insurance", "contact"),
-                Map.of("employmentStatus", HrEmploymentStatus.DRAFT.name()));
+                Map.of(
+                        "employmentStatus", HrEmploymentStatus.DRAFT.name(),
+                        "workforceGroup", workforceGroup.name(),
+                        "onboardingSource", onboardingSource.name(),
+                        "onboardingPolicyVersion", onboardingPolicyVersion
+                ));
         entityManager.flush();
         return toDetail(employeeRepository.findDetailById(employee.getId()).orElseThrow());
     }
@@ -166,7 +204,8 @@ public class HrManagementService {
         String employeeCode = normalizeCode(request.personal().employeeCode());
         requireUniqueEmployeeCode(employeeCode, employeeId);
         validatePersonal(request.personal());
-        validateEmployment(request.employment());
+        HrApiDtos.EmploymentInput employmentInput = contractBackedEmploymentInput(employee, request.employment());
+        validateEmployment(employmentInput);
         validateInsurance(request.insurance());
 
         copyPersonal(employee, request.personal());
@@ -174,7 +213,7 @@ public class HrManagementService {
         touch(employee, actor);
         employeeRepository.save(employee);
 
-        if (request.employment() != null) upsertEmployment(employee, request.employment(), actor);
+        if (employmentInput != null) upsertEmployment(employee, employmentInput, actor);
         if (request.identity() != null) upsertIdentity(employee, request.identity(), actor);
         if (request.insurance() != null) upsertInsurance(employee, request.insurance(), actor);
         if (request.contact() != null) upsertContact(employee, request.contact(), actor);
@@ -335,6 +374,32 @@ public class HrManagementService {
         }
     }
 
+    private HrApiDtos.EmploymentInput contractBackedEmploymentInput(
+            HrEmployee employee,
+            HrApiDtos.EmploymentInput input
+    ) {
+        if (input == null || employee.getOnboardingPolicyVersion() < 2) {
+            return input;
+        }
+        HrApiDtos.EmploymentContractSummary contract = employmentContractService.currentContract(employee.getId());
+        if (contract == null) {
+            throw HrApiException.conflict("EMPLOYMENT_CONTRACT_REQUIRED",
+                    "Hồ sơ onboarding mới phải có hợp đồng lao động hiện hành hoặc đang chờ hiệu lực.");
+        }
+        if (input.hireDate() != null && !Objects.equals(input.hireDate(), contract.effectiveFrom())) {
+            throw HrApiException.badRequest("HIRE_DATE_CONTRACT_DATE_MISMATCH",
+                    "Ngày vào làm phải trùng ngày hợp đồng có hiệu lực.");
+        }
+        return new HrApiDtos.EmploymentInput(
+                input.departmentId(), input.positionId(), input.workingConditionId(),
+                contract.effectiveFrom(), input.leaveAccrualStartDate(), input.terminationDate(),
+                contract.contractType() == HrEmploymentContractType.INDEFINITE
+                        ? "Hợp đồng không xác định thời hạn"
+                        : "Hợp đồng xác định thời hạn 12 tháng",
+                contract.contractNumber(), input.baseSalary(), input.allowance(), input.jobDescription()
+        );
+    }
+
     private void upsertEmployment(HrEmployee employee, HrApiDtos.EmploymentInput input, HrImportActor actor) {
         HrEmployeeEmployment employment = employee.getEmployment();
         boolean created = employment == null;
@@ -468,6 +533,7 @@ public class HrManagementService {
                 code(employment == null ? null : employment.getWorkingCondition()),
                 name(employment == null ? null : employment.getWorkingCondition()),
                 employment == null ? null : employment.getHireDate(),
+                employee.getWorkforceGroup(), employee.getOnboardingSource(), employee.getOnboardingPolicyVersion(),
                 employee.getRowVersion(), employee.getUpdatedAt()
         );
     }
@@ -480,6 +546,7 @@ public class HrManagementService {
         return new HrApiDtos.EmployeeDetail(
                 employee.getId(), employee.getEmploymentStatus(), employee.getStatusEffectiveDate(),
                 employee.getRowVersion(), employee.getCreatedAt(), employee.getUpdatedAt(),
+                employee.getWorkforceGroup(), employee.getOnboardingSource(), employee.getOnboardingPolicyVersion(),
                 new HrApiDtos.PersonalDetails(
                         employee.getEmployeeCode(), employee.getFullName(), employee.getGender(),
                         employee.getDateOfBirth(), employee.getEthnicity(), employee.getReligion(),
@@ -506,7 +573,8 @@ public class HrManagementService {
                         contact.getPhone(), contact.getWorkEmail(),
                         contact.getPersonalEmail(), contact.getEmergencyContactName(),
                         contact.getEmergencyContactPhone(),
-                        contact.getEmergencyContactRelation())
+                        contact.getEmergencyContactRelation()),
+                employmentContractService.currentContract(employee.getId())
         );
     }
 

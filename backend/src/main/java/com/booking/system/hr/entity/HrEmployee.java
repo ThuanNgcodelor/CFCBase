@@ -2,6 +2,8 @@ package com.booking.system.hr.entity;
 
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrEmploymentStatus;
+import com.booking.system.hr.enums.HrOnboardingSource;
+import com.booking.system.hr.enums.HrWorkforceGroup;
 import jakarta.persistence.Column;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -71,6 +73,17 @@ public class HrEmployee extends HrBaseEntity {
 
     @Column(name = "status_effective_date")
     private LocalDate statusEffectiveDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "workforce_group", nullable = false, length = 32)
+    private HrWorkforceGroup workforceGroup = HrWorkforceGroup.LEGACY_UNKNOWN;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "onboarding_source", nullable = false, length = 32)
+    private HrOnboardingSource onboardingSource = HrOnboardingSource.LEGACY;
+
+    @Column(name = "onboarding_policy_version", nullable = false)
+    private short onboardingPolicyVersion = 1;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_import_batch_id", foreignKey = @ForeignKey(name = "fk_hr_employee_source_batch"))

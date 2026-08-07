@@ -1,7 +1,7 @@
 # Kế Hoạch Triển Khai Phân Hệ Quản Lý Nhân Sự
 
-Cập nhật: 2026-07-27
-Trạng thái: **Phase 7 đã hoàn thành source và gate ổn định UI. Phase 8 đang triển khai source theo rule mới: danh sách tháng là số liệu sống theo ngày hiệu lực, không còn flow chốt/mở tháng trên UI.**
+Cập nhật: 2026-08-07
+Trạng thái: **Phase 0–9 và Phase 11 đã hoàn thành source/automated verification; Phase 10 reconciliation read-only đã có source. UAT runtime, migration/deploy và rollout còn chờ quyền vận hành.**
 
 ## Quyết định phạm vi từ ngày 2026-07-27
 
@@ -291,7 +291,7 @@ Trạng thái: **đã hoàn thành source schema/API/UI và gate ổn định gi
 - UI đặt tại `/manager/hr/probation`, menu Manager là `Thử việc`.
 - Có tab `Mẫu công việc thử việc` để tự điền phòng ban/chức vụ/điều kiện/lương/mô tả khi nhập ứng viên.
 - Có seeder mẫu công việc mặc định từ file Word gốc: chỉ seed dữ liệu nghiệp vụ an toàn và không ghi đè template Manager đã chỉnh.
-- Flow chuẩn: `Ứng viên thử việc -> hợp đồng thử việc -> đạt -> HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE/roster chính thức`.
+- Flow sau Phase 11: `Ứng viên thử việc -> hợp đồng thử việc -> bắt đầu thử việc -> đạt -> HĐLĐ 12 tháng/không xác định thời hạn -> HrEmployee DRAFT -> Tăng nhân sự -> ACTIVE/roster chính thức`.
 - Không đưa ứng viên thử việc vào roster chính thức.
 - Không tự tạo `Tăng nhân sự` khi ứng viên đạt; Manager vẫn phải xác nhận ở màn `Tăng / Giảm`.
 - Ngày phép tự động không còn thuộc Phase 7 hiện tại; nếu làm lại sẽ là phase riêng sau khi có rule TCHC.
@@ -332,6 +332,23 @@ Trạng thái: **đã hoàn thành source read-only reconciliation và automated
 - Chỉ đóng Phase 10 khi có bằng chứng runtime và TCHC xác nhận số liệu.
 
 Chi tiết Phase 8–10: [Refactor danh sách nhân sự tháng](HR_PHASE_8_10_MONTHLY_ROSTER_REFACTOR.md).
+
+### Phase 11 — Hợp đồng chính thức và onboarding hai khối
+
+Trạng thái: **hoàn thành source/migration/API/UI và automated verification; chưa deploy, chưa chạy V6 production và chưa UAT runtime**.
+
+- Thêm `HrEmploymentContract`, phân loại `OFFICE`, `GENERAL_LABOR`, nguồn onboarding và policy version để không hồi tố hồ sơ legacy.
+- Văn phòng chỉ tạo Employee `DRAFT` sau khi ứng viên có hợp đồng thử việc, đã bắt đầu thử việc, được đánh dấu đạt và đã nhập HĐLĐ chính thức.
+- Lao động phổ thông có menu/route riêng và tạo Employee `DRAFT` trực tiếp kèm HĐLĐ; không đi qua thử việc.
+- Cả hai khối chọn `FIXED_TERM_12_MONTHS` hoặc `INDEFINITE`, sau đó chuyển sang tạo `INCREASE` đã được tự điền Employee/ngày hiệu lực.
+- `INCREASE` policy version 2 bắt buộc hợp đồng `READY`; confirm chuyển Employee `ACTIVE` và hợp đồng `EFFECTIVE` trong cùng transaction.
+- Flyway V6 chỉ mở rộng HR, đặt default legacy an toàn và không chạm Booking.
+- API mới: `POST /api/v1/hr/probation/candidates/{id}/complete-onboarding` và `POST /api/v1/hr/onboarding/general-labor`.
+- Frontend mới: `/manager/hr/general-labor`, `/manager/hr/general-labor/new`; navbar có `LĐ phổ thông` ngay sau `Thử việc`.
+- Nút xuất hợp đồng chính thức có sẵn dưới dạng placeholder; chưa sinh Word/PDF và chưa có download API theo quyết định phạm vi hiện tại.
+- Backend full regression: `108` test chạy, `0` failure/error, `1` skip; frontend lint/build pass.
+
+Chi tiết: [HR Phase 11 — Hợp đồng chính thức và onboarding hai khối](HR_PHASE_11_EMPLOYMENT_ONBOARDING.md).
 
 ### Backlog chưa xếp phase
 
@@ -410,8 +427,15 @@ Phase 7 đã đóng gate source cơ bản:
 - Đã verify không còn tên/CCCD mẫu trong `probation-contract-template.docx`.
 - Đã có Flyway V3, entity/repository/service/controller, API client và trang `/manager/hr/probation`.
 - Backend compile pass; frontend build/lint pass; migration target tests pass với V1/V2/V3.
-- Full backend regression hiện bị chặn bởi Mockito inline/ByteBuddy self-attach trên JDK 25 Fedora, không phải failure migration/source Phase 7.
+- Blocker Mockito inline/ByteBuddy ở checkpoint Phase 7 không còn là trạng thái hiện tại; full regression Phase 11 đã pass.
 - Tính ngày phép tự động đã gỡ khỏi backend/frontend; cột/schema `leave_days` vẫn giữ để không mất dữ liệu đã import hoặc snapshot cũ.
+
+Phase 11 đã đóng gate source/automated:
+
+- Flyway V6 bảo toàn employee legacy và thêm contract gate cho onboarding policy version 2.
+- Hai flow văn phòng/lao động phổ thông, hai loại hợp đồng, idempotency conflict và activation khi confirm Tăng đã có test.
+- Backend full regression đạt `108` test chạy, `0` failure/error, `1` skip; frontend lint/build đạt.
+- Chưa deploy/restart, chưa chạy V6 trên production, chưa sửa dữ liệu runtime và chưa browser UAT do không có browser được kết nối.
 
 Do người dùng đã xác nhận migration/import được thực hiện, bước tiếp theo không phải chạy lại initialization hoặc baseline. Trước UAT ghi Phase 5 cần backup, đối chiếu read-only đúng runtime và dùng hồ sơ test riêng.
 

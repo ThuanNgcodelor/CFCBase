@@ -15,6 +15,8 @@ import java.util.Optional;
 public interface HrProbationCandidateRepository extends HrRepository<HrProbationCandidate, String> {
     Optional<HrProbationCandidate> findByCandidateCode(String candidateCode);
 
+    boolean existsByConvertedEmployee_Id(String employeeId);
+
     @EntityGraph(attributePaths = {"department", "position", "workingCondition", "jobTemplate", "convertedEmployee"})
     @Query("""
             select candidate from HrProbationCandidate candidate

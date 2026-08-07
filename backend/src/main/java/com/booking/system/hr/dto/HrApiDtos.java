@@ -3,10 +3,14 @@ package com.booking.system.hr.dto;
 import com.booking.system.hr.enums.HrCatalogStatus;
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrEmploymentStatus;
+import com.booking.system.hr.enums.HrEmploymentContractStatus;
+import com.booking.system.hr.enums.HrEmploymentContractType;
 import com.booking.system.hr.enums.HrIdentityVerificationStatus;
 import com.booking.system.hr.enums.HrImportBatchStatus;
 import com.booking.system.hr.enums.HrInsuranceStatus;
+import com.booking.system.hr.enums.HrOnboardingSource;
 import com.booking.system.hr.enums.HrRosterStatus;
+import com.booking.system.hr.enums.HrWorkforceGroup;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -76,6 +80,9 @@ public final class HrApiDtos {
             String workingConditionCode,
             String workingConditionName,
             LocalDate hireDate,
+            HrWorkforceGroup workforceGroup,
+            HrOnboardingSource onboardingSource,
+            short onboardingPolicyVersion,
             long rowVersion,
             LocalDateTime updatedAt
     ) {
@@ -88,11 +95,15 @@ public final class HrApiDtos {
             long rowVersion,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
+            HrWorkforceGroup workforceGroup,
+            HrOnboardingSource onboardingSource,
+            short onboardingPolicyVersion,
             PersonalDetails personal,
             EmploymentDetails employment,
             IdentityDetails identity,
             InsuranceDetails insurance,
-            ContactDetails contact
+            ContactDetails contact,
+            EmploymentContractSummary currentContract
     ) {
     }
 
@@ -156,6 +167,27 @@ public final class HrApiDtos {
             String emergencyContactName,
             String emergencyContactPhone,
             String emergencyContactRelation
+    ) {
+    }
+
+    public record EmploymentContractInput(
+            @NotNull HrEmploymentContractType contractType,
+            @NotBlank @Size(max = 100) String contractNumber,
+            @NotNull LocalDate signDate,
+            @NotNull LocalDate effectiveFrom,
+            LocalDate effectiveUntil
+    ) {
+    }
+
+    public record EmploymentContractSummary(
+            String id,
+            HrEmploymentContractType contractType,
+            String contractNumber,
+            LocalDate signDate,
+            LocalDate effectiveFrom,
+            LocalDate effectiveUntil,
+            HrEmploymentContractStatus status,
+            long rowVersion
     ) {
     }
 

@@ -66,7 +66,7 @@ public class HrExcelImportRow {
     @Column(name = "normalized_payload", columnDefinition = "json")
     private String normalizedPayload;
 
-    @Column(name = "payload_sha256", nullable = false, length = 64)
+    @Column(name = "payload_sha256", nullable = false, length = 64, columnDefinition = "char(64)")
     private String payloadSha256;
 
     @Column(name = "issue_codes", columnDefinition = "json")

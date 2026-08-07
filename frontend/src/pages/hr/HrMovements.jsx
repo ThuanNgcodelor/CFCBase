@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, FilePenLine, Plus, Search, Trash2, UserPlus, XCircle } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
@@ -62,6 +62,7 @@ function MovementTypeBadge({ type }) {
 
 export default function HrMovements() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(0);
   const [result, setResult] = useState(normalizePage(null));
   const [loading, setLoading] = useState(true);
@@ -78,6 +79,52 @@ export default function HrMovements() {
   const [confirmPreview, setConfirmPreview] = useState(null);
   const [adjustmentTarget, setAdjustmentTarget] = useState(null);
   const [adjustmentForm, setAdjustmentForm] = useState(null);
+
+  const prefillEmployeeId = searchParams.get('create') === 'increase'
+    ? searchParams.get('employeeId')
+    : '';
+  const prefillEffectiveDate = searchParams.get('effectiveDate') || '';
+
+  useEffect(() => {
+    if (!prefillEmployeeId) return undefined;
+    const controller = new AbortController();
+    setShowForm(true);
+    setForm((current) => ({
+      ...current,
+      movementType: 'INCREASE',
+      effectiveDate: prefillEffectiveDate || current.effectiveDate,
+      idempotencyKey: newIdempotencyKey(),
+    }));
+    setSearching(true);
+    hrEmployeeApi.getEmployee(prefillEmployeeId, { signal: controller.signal })
+      .then((employee) => {
+        const selected = {
+          id: employee.id,
+          employeeCode: employee.personal?.employeeCode,
+          fullName: employee.personal?.fullName,
+          employmentStatus: employee.employmentStatus,
+          departmentName: employee.employment?.department?.name,
+          positionName: employee.employment?.position?.name,
+          hireDate: employee.employment?.hireDate,
+        };
+        setSelectedEmployee(selected);
+        setEmployeeKeyword(`${selected.employeeCode || ''} ${selected.fullName || ''}`.trim());
+        const next = new URLSearchParams(searchParams);
+        next.delete('create');
+        next.delete('employeeId');
+        next.delete('effectiveDate');
+        setSearchParams(next, { replace: true });
+      })
+      .catch((requestError) => {
+        if (!controller.signal.aborted) {
+          toast.error(apiErrorMessage(requestError, 'Không thể nạp hồ sơ vừa onboarding để tạo Tăng nhân sự.'));
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSearching(false);
+      });
+    return () => controller.abort();
+  }, [prefillEffectiveDate, prefillEmployeeId, searchParams, setSearchParams]);
 
   useEffect(() => {
     const controller = new AbortController();
