@@ -74,14 +74,14 @@ Employee list/detail trả thêm `workforceGroup`, `onboardingSource`, `onboardi
 - Sau khi hoàn tất onboarding ở cả hai luồng, UI chuyển sang màn Tăng/Giảm và tự điền Employee/ngày hiệu lực từ hợp đồng.
 - Màn chi tiết Employee hiển thị phân loại khối, nguồn onboarding và hợp đồng hiện tại.
 
-## 5. Xuất hợp đồng chính thức được defer
+## 5. Xuất hợp đồng chính thức
 
-Phase này **không sinh Word/PDF hợp đồng lao động chính thức** cho cả văn phòng và lao động phổ thông theo quyết định của người dùng.
+Phần export từng được defer ở Phase 11 đã được triển khai trong Phase 12 sau khi nhận file Word chính thức.
 
-- UI đã có nút `Xuất hợp đồng` để cố định vị trí/flow tương lai.
-- Nút chỉ thông báo chức năng chưa triển khai và không gọi API giả.
-- Ba ảnh hợp đồng lao động phổ thông chỉ là nguồn tham khảo nghiệp vụ, không đủ ổn định để dùng trực tiếp làm template production.
-- Khi có file Word chính thức đã làm sạch, phase sau mới chuẩn hóa placeholder, version template, checksum, snapshot và download API.
+- Có mẫu sạch riêng cho `OFFICE` và `GENERAL_LABOR`.
+- Có API sinh/tải DOCX, checksum, snapshot bất biến và audit.
+- UI onboarding có `Lưu và xuất hợp đồng`; trang chi tiết Employee có thể xuất lại.
+- Chi tiết: [HR Phase 12 — Xuất hợp đồng lao động hai khối](HR_PHASE_12_EMPLOYMENT_CONTRACT_EXPORT.md).
 
 Hợp đồng **thử việc** Word hiện hữu không thay đổi và vẫn dùng template riêng `probation-contract-template.docx`.
 

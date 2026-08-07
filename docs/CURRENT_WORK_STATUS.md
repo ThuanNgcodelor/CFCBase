@@ -358,8 +358,17 @@ Do MySQL ENUM cũ không tự nhận enum Java mới:
 - Khối lao động phổ thông có menu `LĐ phổ thông`, form thêm trực tiếp và cùng hai lựa chọn hợp đồng; không đi qua thử việc.
 - Cả hai luồng chuyển sang màn tạo `INCREASE`; chỉ khi xác nhận Tăng mới chuyển Employee `ACTIVE` và hợp đồng `EFFECTIVE`.
 - Employee legacy dùng policy version 1 nên không bị hồi tố bởi contract gate mới.
-- Nút xuất hợp đồng chính thức đã có nhưng chỉ báo defer; chưa có Word/PDF/API xuất file cho hai khối.
+- Phase 12 đã thay nút defer bằng export DOCX thật cho cả hai khối; onboarding có `Lưu và xuất hợp đồng`, trang chi tiết Employee có thể xuất lại.
 - Chi tiết: [HR Phase 11 — Hợp đồng chính thức và onboarding hai khối](HR_PHASE_11_EMPLOYMENT_ONBOARDING.md).
+
+### Phase 12 — Xuất hợp đồng lao động hai khối
+
+- Hai template sạch riêng cho `OFFICE` và `GENERAL_LABOR`, được distill từ tài liệu tham chiếu nhưng không chứa PII nguồn.
+- Flyway V7 lưu mỗi lần sinh thành snapshot DOCX bất biến với template/generated checksum, payload và actor.
+- API sinh/tải file và UI onboarding/chi tiết Employee đã nối hoàn chỉnh; dữ liệu thiếu trường bắt buộc bị chặn trước khi sinh.
+- Phòng ban/Chức vụ có tìm kiếm theo tên/mã không dấu; Nơi cấp CCCD LĐ phổ thông dùng cùng hai lựa chọn với thử việc.
+- Backend full regression `111` test chạy, `0` failure/error, `1` skip; frontend lint/build pass.
+- Chi tiết: [HR Phase 12 — Xuất hợp đồng lao động hai khối](HR_PHASE_12_EMPLOYMENT_CONTRACT_EXPORT.md).
 
 Plan chi tiết: [HR Phase 8–10 — Refactor danh sách nhân sự tháng](HR_PHASE_8_10_MONTHLY_ROSTER_REFACTOR.md).
 
@@ -375,7 +384,7 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 
 ## Verification Phase 11
 
-- Backend full `./mvnw -q test`: `108` test chạy, `0` failure, `0` error, `1` skip theo điều kiện môi trường.
+- Backend full `./mvnw test` sau Phase 12: `111` test chạy, `0` failure, `0` error, `1` skip theo điều kiện môi trường.
 - Frontend `npm run lint`: pass.
 - Frontend `npm run build`: pass; PWA/service worker build pass và còn chunk-size warning hiện hữu.
 - Migration V6, contract gate, idempotency, phân loại hai khối và flow thử việc được phủ bởi automated tests.
@@ -400,7 +409,7 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 - Frontend main chunk còn lớn; cần route-level code splitting khi tối ưu tiếp.
 - Phase 5 và Phase 6 đã có source/UI runtime nhưng formal UAT chưa đóng; import sheet Tăng/Giảm hàng loạt từ workbook bất kỳ vẫn chưa triển khai.
 - Phase 7 ngày phép tự động hiện không còn trong source active; chỉ làm lại khi có công thức nghiệp vụ chính thức.
-- Phase 7/11 đã có source schema/API/UI cho thử việc, hợp đồng chính thức và hai khối; còn thiếu UAT end-to-end bằng hồ sơ giả.
+- Phase 7/11/12 đã có source schema/API/UI cho thử việc, hợp đồng chính thức, onboarding hai khối và export DOCX; còn thiếu UAT end-to-end bằng hồ sơ giả.
 - Cần test end-to-end HR/PWA trên nhiều thiết bị iOS/Android thật.
 - Có orphan `booking_adminer` container được Docker Compose cảnh báo; chưa xóa vì không liên quan runtime chính và tránh thao tác phá hủy ngoài yêu cầu.
 
@@ -453,4 +462,4 @@ Kho giấy tờ nhân sự, báo cáo tổng hợp nâng cao, cảnh báo hồ s
 2. Browser UAT preview, điều chỉnh T6 sang T7 và export tháng/năm trên hồ sơ test.
 3. Chạy reconciliation read-only dữ liệu thật nếu được phép; đối chiếu với TCHC, không tự sửa số liệu.
 4. Chỉ sau backup và xác nhận của người dùng mới chạy V6/deploy/rollout có kiểm soát.
-5. Chưa làm Word/PDF hợp đồng chính thức cho tới khi có file Word đã chốt; không tiếp tục bất kỳ Booking Phase 6–10 nào.
+5. Export Word hợp đồng chính thức đã có ở Phase 12; vẫn không tiếp tục bất kỳ Booking Phase 6–10 nào.

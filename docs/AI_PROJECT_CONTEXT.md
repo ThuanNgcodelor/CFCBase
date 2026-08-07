@@ -263,7 +263,7 @@ Approval:
 - Transition 339 là flow khóa cứng theo file/kỳ/chênh lệch, không phải generic bulk import/export của Phase 6. Tính ngày phép và đơn nghỉ tiếp tục defer vì chưa có rule TCHC.
 - Phase 7 là ứng viên thử việc và hợp đồng Word thử việc. Phase 11 nối flow văn phòng: `Ứng viên -> HĐ thử việc -> bắt đầu -> đạt -> HĐLĐ chính thức -> Employee DRAFT -> Tăng -> ACTIVE`.
 - Phase 11 có thêm flow độc lập cho lao động phổ thông: `Nhập trực tiếp + HĐLĐ chính thức -> Employee DRAFT -> Tăng -> ACTIVE`, menu `/manager/hr/general-labor`.
-- Cả hai flow chọn HĐLĐ 12 tháng hoặc không xác định thời hạn. Nút xuất hợp đồng chính thức chỉ là placeholder; chưa có Word/PDF/API xuất file theo phạm vi đã chốt.
+- Cả hai flow chọn HĐLĐ 12 tháng hoặc không xác định thời hạn. Phase 12 đã có mẫu Word sạch riêng cho `OFFICE`/`GENERAL_LABOR`, API sinh/tải, snapshot bất biến và nút xuất thật ở onboarding/chi tiết Employee.
 - Phase 8–9 và source reconciliation Phase 10 đã có; Phase 10/11 còn runtime UAT, migration/deploy và rollout có kiểm soát.
 
 ## Trạng Thái PWA Hiện Tại
@@ -301,7 +301,7 @@ Approval:
 - `git diff --check`: pass, chỉ có warning LF/CRLF Windows.
 
 Backend test:
-- Full backend hiện có `108` test chạy, `0` failure/error và `1` skip theo môi trường; frontend lint/build pass.
+- Full backend hiện có `111` test chạy, `0` failure/error và `1` skip theo môi trường; frontend lint/build pass.
 - Case import khóa `T6-26 = 339`, 339 active/339 lịch sử và không có `T7-26` tự sinh.
 - Runtime production và database người dùng chưa được agent UAT lại sau thay đổi Phase 5.
 

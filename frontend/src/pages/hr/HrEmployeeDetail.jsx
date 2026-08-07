@@ -6,10 +6,12 @@ import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
-import { ContractExportPlaceholderButton } from '../../components/hr/HrEmploymentContractFields';
+import { ContractExportButton } from '../../components/hr/HrEmploymentContractFields';
+import { hrEmploymentContractApi } from '../../api/hrEmploymentContractApi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrActivityApi } from '../../api/hrActivityApi';
 import { apiErrorMessage, employmentStatusLabel, formatHrDate, formatHrDateTime, nonEmpty } from '../../utils/hr';
+import { downloadResponseBlob } from '../../utils/downloadResponseBlob';
 import { contractTypeLabel } from '../../utils/hrOnboarding';
 
 const GENDER_LABELS = { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác', UNKNOWN: 'Chưa xác định' };
@@ -55,6 +57,7 @@ export default function HrEmployeeDetail() {
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [exportingContract, setExportingContract] = useState(false);
   const [leaveYear, setLeaveYear] = useState(currentYear);
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [leaveError, setLeaveError] = useState('');
@@ -158,6 +161,21 @@ export default function HrEmployeeDetail() {
     }
   };
 
+  const exportEmploymentContract = async () => {
+    if (!currentContract?.id) return;
+    setExportingContract(true);
+    try {
+      const document = await hrEmploymentContractApi.generateDocument(currentContract.id);
+      const response = await hrEmploymentContractApi.downloadDocument(document.id);
+      downloadResponseBlob(response, document.generatedFileName || `hop-dong-lao-dong-${employee.employeeCode || personal.employeeCode || 'nhan-su'}.docx`);
+      toast.success('Đã tải hợp đồng lao động chính thức.');
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể xuất hợp đồng lao động.'));
+    } finally {
+      setExportingContract(false);
+    }
+  };
+
   const saveLeaveEntitlement = async (event) => {
     event.preventDefault();
     if (!leaveData) return;
@@ -188,7 +206,9 @@ export default function HrEmployeeDetail() {
         actions={(
           <>
             <Button type="button" variant="secondary" onClick={() => navigate('/manager/hr/employees')}><ArrowLeft className="mr-1.5 h-4 w-4" />Danh sách</Button>
-            {currentContract && <ContractExportPlaceholderButton />}
+            {currentContract && (
+              <ContractExportButton disabled={exportingContract} loading={exportingContract} onClick={exportEmploymentContract} />
+            )}
             {employmentStatus === 'DRAFT' && (
               <Button type="button" onClick={() => navigate(`/manager/hr/employees/${id}/edit`)}><FilePenLine className="mr-1.5 h-4 w-4" />Chỉnh sửa bản nháp</Button>
             )}
@@ -253,7 +273,7 @@ export default function HrEmployeeDetail() {
         </DetailSection>
 
         {currentContract && (
-          <DetailSection icon={FileText} title="Hợp đồng lao động chính thức" note="Hiện chỉ lưu thông tin hợp đồng; chưa sinh file Word/PDF.">
+          <DetailSection icon={FileText} title="Hợp đồng lao động chính thức" note="Mỗi lần xuất tạo một bản DOCX lưu vết riêng, không ghi đè bản đã sinh trước đó.">
             <DetailItem label="Loại hợp đồng" value={contractTypeLabel(currentContract.contractType)} />
             <DetailItem label="Số hợp đồng" value={currentContract.contractNumber} />
             <DetailItem label="Ngày ký" value={formatHrDate(currentContract.signDate)} />

@@ -1,4 +1,3 @@
-import toast from 'react-hot-toast';
 import { CalendarClock, FileOutput, Infinity as InfinityIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { HR_INPUT_CLASS, HrField, HrFormSection } from './HrFormControls';
@@ -8,14 +7,10 @@ import {
   updateContractForm,
 } from '../../utils/hrOnboarding';
 
-export function ContractExportPlaceholderButton({ className = '', size = 'md' }) {
-  const showPlaceholder = () => {
-    toast('Chức năng xuất hợp đồng chưa được cấu hình mẫu Word.', { icon: 'ℹ️' });
-  };
-
+export function ContractExportButton({ className = '', size = 'md', loading = false, children, ...props }) {
   return (
-    <Button type="button" size={size} variant="secondary" className={className} onClick={showPlaceholder}>
-      <FileOutput className="h-4 w-4" />Xuất hợp đồng
+    <Button type="button" size={size} variant="secondary" className={className} {...props}>
+      <FileOutput className="h-4 w-4" />{children || (loading ? 'Đang xuất...' : 'Xuất hợp đồng')}
     </Button>
   );
 }
@@ -97,7 +92,7 @@ export default function HrEmploymentContractFields({ value, onChange, disabled =
 
   if (compact) return <div className="grid gap-4 sm:grid-cols-2">{content}</div>;
   return (
-    <HrFormSection title="Hợp đồng lao động" description="Chỉ lưu metadata hợp đồng. Mẫu Word sẽ được cấu hình ở phase sau.">
+    <HrFormSection title="Hợp đồng lao động" description="Thông tin này được dùng để lưu hồ sơ và sinh file Word hợp đồng chính thức.">
       {content}
     </HrFormSection>
   );

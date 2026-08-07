@@ -345,10 +345,22 @@ Trạng thái: **hoàn thành source/migration/API/UI và automated verification
 - Flyway V6 chỉ mở rộng HR, đặt default legacy an toàn và không chạm Booking.
 - API mới: `POST /api/v1/hr/probation/candidates/{id}/complete-onboarding` và `POST /api/v1/hr/onboarding/general-labor`.
 - Frontend mới: `/manager/hr/general-labor`, `/manager/hr/general-labor/new`; navbar có `LĐ phổ thông` ngay sau `Thử việc`.
-- Nút xuất hợp đồng chính thức có sẵn dưới dạng placeholder; chưa sinh Word/PDF và chưa có download API theo quyết định phạm vi hiện tại.
-- Backend full regression: `108` test chạy, `0` failure/error, `1` skip; frontend lint/build pass.
+- Export hợp đồng chính thức đã được hoàn thiện ở Phase 12 với hai mẫu DOCX, API sinh/tải, snapshot/checksum bất biến và nút thật ở onboarding/chi tiết Employee.
+- Backend full regression sau Phase 12: `111` test chạy, `0` failure/error, `1` skip; frontend lint/build pass.
 
 Chi tiết: [HR Phase 11 — Hợp đồng chính thức và onboarding hai khối](HR_PHASE_11_EMPLOYMENT_ONBOARDING.md).
+
+### Phase 12 — Xuất hợp đồng lao động hai khối
+
+Trạng thái: **hoàn thành source/migration/API/UI và automated verification; chưa deploy, chưa chạy V7 production và chưa UAT runtime**.
+
+- Template sạch riêng cho `OFFICE`/`GENERAL_LABOR`; file tham chiếu nhiều PII không được đóng gói runtime.
+- Mỗi lần sinh tạo document snapshot riêng, lưu DOCX, checksum, payload, actor và audit qua Flyway V7.
+- Onboarding hai khối hỗ trợ `Lưu và xuất hợp đồng`, sau đó vẫn điều hướng sang tạo `INCREASE`; chi tiết Employee hỗ trợ xuất lại.
+- Chặn sinh file khi thiếu dữ liệu bắt buộc của hợp đồng.
+- Phòng ban/Chức vụ có tìm kiếm; Nơi cấp CCCD LĐ phổ thông đồng bộ với thử việc.
+
+Chi tiết: [HR Phase 12 — Xuất hợp đồng lao động hai khối](HR_PHASE_12_EMPLOYMENT_CONTRACT_EXPORT.md).
 
 ### Backlog chưa xếp phase
 
@@ -436,6 +448,13 @@ Phase 11 đã đóng gate source/automated:
 - Hai flow văn phòng/lao động phổ thông, hai loại hợp đồng, idempotency conflict và activation khi confirm Tăng đã có test.
 - Backend full regression đạt `108` test chạy, `0` failure/error, `1` skip; frontend lint/build đạt.
 - Chưa deploy/restart, chưa chạy V6 trên production, chưa sửa dữ liệu runtime và chưa browser UAT do không có browser được kết nối.
+
+Phase 12 đã đóng gate source/automated:
+
+- Flyway V7, hai template sạch, API sinh/tải, document snapshot bất biến và nút xuất thật cho hai khối đã hoàn thành.
+- Test renderer phủ OFFICE 12 tháng, GENERAL_LABOR không xác định thời hạn và dữ liệu bắt buộc.
+- Backend full regression đạt `111` test chạy, `0` failure/error, `1` skip; frontend lint/build đạt.
+- Chưa deploy/restart, chưa chạy V7 production và chưa UAT runtime.
 
 Do người dùng đã xác nhận migration/import được thực hiện, bước tiếp theo không phải chạy lại initialization hoặc baseline. Trước UAT ghi Phase 5 cần backup, đối chiếu read-only đúng runtime và dùng hồ sơ test riêng.
 

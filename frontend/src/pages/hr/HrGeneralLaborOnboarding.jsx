@@ -5,7 +5,7 @@ import { ArrowLeft, HardHat, Save } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrError, HrPageHeader, HrPageShell, HrReadOnlyNotice } from '../../components/hr/HrUi';
-import HrEmploymentContractFields, { ContractExportPlaceholderButton } from '../../components/hr/HrEmploymentContractFields';
+import HrEmploymentContractFields, { ContractExportButton } from '../../components/hr/HrEmploymentContractFields';
 import {
   HR_INPUT_CLASS,
   HR_TEXTAREA_CLASS,
@@ -16,7 +16,9 @@ import {
   HrSearchableCatalogSelect,
 } from '../../components/hr/HrFormControls';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
+import { hrEmploymentContractApi } from '../../api/hrEmploymentContractApi';
 import { hrOnboardingApi } from '../../api/hrOnboardingApi';
+import { downloadResponseBlob } from '../../utils/downloadResponseBlob';
 import { apiErrorMessage } from '../../utils/hr';
 import {
   contractPayload,
@@ -63,6 +65,19 @@ function sectionPayload(section) {
   return Object.fromEntries(Object.entries(section).map(([key, value]) => [key, nullable(value)]));
 }
 
+function exportDataError(employee) {
+  const missing = [];
+  if (!employee.personal.dateOfBirth) missing.push('ngày sinh');
+  if (!employee.personal.birthPlaceCurrent.trim()) missing.push('nơi sinh');
+  if (!employee.contact.permanentAddress.trim()) missing.push('địa chỉ thường trú');
+  if (!(employee.identity.citizenIdentityNumber || employee.identity.legacyIdentityNumber).trim()) missing.push('số CCCD/CMND');
+  if (!employee.identity.issuedDate) missing.push('ngày cấp CCCD');
+  if (!employee.identity.issuedPlace.trim()) missing.push('nơi cấp CCCD');
+  if (!employee.employment.jobDescription.trim()) missing.push('mô tả công việc');
+  if (employee.employment.baseSalary === '') missing.push('lương cơ bản');
+  return missing.length ? `Chưa đủ dữ liệu để xuất hợp đồng: ${missing.join(', ')}.` : '';
+}
+
 export default function HrGeneralLaborOnboarding() {
   const navigate = useNavigate();
   const idempotencyKey = useRef(newIdempotencyKey('general-labor'));
@@ -97,6 +112,7 @@ export default function HrGeneralLaborOnboarding() {
 
   const submit = async (event) => {
     event.preventDefault();
+    const exportRequested = event.nativeEvent.submitter?.value === 'export';
     const contractError = validateContractForm(contract);
     if (contractError) {
       setError(contractError);
@@ -108,6 +124,14 @@ export default function HrGeneralLaborOnboarding() {
       setError(message);
       toast.error(message);
       return;
+    }
+    if (exportRequested) {
+      const documentError = exportDataError(employee);
+      if (documentError) {
+        setError(documentError);
+        toast.error(documentError);
+        return;
+      }
     }
 
     const payload = {
@@ -140,6 +164,16 @@ export default function HrGeneralLaborOnboarding() {
       const response = await hrOnboardingApi.createGeneralLabor(payload);
       const savedEmployee = response?.employee;
       toast.success('Đã tạo hồ sơ nháp và lưu thông tin hợp đồng. Tiếp theo: tạo Tăng nhân sự.');
+      if (exportRequested) {
+        try {
+          const document = await hrEmploymentContractApi.generateDocument(response?.contract?.id);
+          const file = await hrEmploymentContractApi.downloadDocument(document.id);
+          downloadResponseBlob(file, document.generatedFileName || `hop-dong-lao-dong-${savedEmployee?.employeeCode || 'ldpt'}.docx`);
+          toast.success('Đã tải hợp đồng lao động phổ thông.');
+        } catch (exportError) {
+          toast.error(apiErrorMessage(exportError, 'Hồ sơ đã được lưu nhưng chưa thể xuất file hợp đồng. Bạn có thể xuất lại tại chi tiết nhân sự.'));
+        }
+      }
       const params = new URLSearchParams({
         create: 'increase',
         employeeId: savedEmployee?.id || '',
@@ -171,7 +205,7 @@ export default function HrGeneralLaborOnboarding() {
       <div className="mb-4">
         <HrReadOnlyNotice>
           <span className="inline-flex items-center gap-2 font-medium"><HardHat className="h-4 w-4" />Luồng này chỉ dành cho lao động phổ thông và không đi qua thử việc.</span>
-          <span className="mt-1 block">Nút xuất hợp đồng đã có sẵn nhưng chưa sinh file vì chưa có mẫu Word chính thức.</span>
+          <span className="mt-1 block">Có thể lưu hồ sơ và xuất ngay hợp đồng Word, sau đó tiếp tục tạo Tăng nhân sự.</span>
         </HrReadOnlyNotice>
       </div>
       {catalogError && <div className="mb-4"><HrError message={catalogError} onRetry={() => setCatalogReloadKey((value) => value + 1)} /></div>}
@@ -240,7 +274,9 @@ export default function HrGeneralLaborOnboarding() {
         </HrFormSection>
 
         <div className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-xl border border-gray-200 bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg backdrop-blur sm:flex-row sm:justify-end">
-          <ContractExportPlaceholderButton className="sm:mr-auto" />
+          <ContractExportButton type="submit" name="submitIntent" value="export" disabled={saving} loading={saving} className="sm:mr-auto">
+            {saving ? 'Đang lưu và xuất...' : 'Lưu và xuất hợp đồng'}
+          </ContractExportButton>
           <Button type="button" variant="secondary" disabled={saving} onClick={() => navigate('/manager/hr/general-labor')}>Hủy</Button>
           <Button type="submit" disabled={saving}><Save className="mr-1.5 h-4 w-4" />{saving ? 'Đang lưu...' : 'Lưu và tạo Tăng nhân sự'}</Button>
         </div>

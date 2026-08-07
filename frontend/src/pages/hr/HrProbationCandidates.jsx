@@ -16,13 +16,15 @@ import {
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrDrawer, HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
-import HrEmploymentContractFields, { ContractExportPlaceholderButton } from '../../components/hr/HrEmploymentContractFields';
+import HrEmploymentContractFields, { ContractExportButton } from '../../components/hr/HrEmploymentContractFields';
 import { HR_INPUT_CLASS, HrField } from '../../components/hr/HrFormControls';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
+import { hrEmploymentContractApi } from '../../api/hrEmploymentContractApi';
 import { normalizePage } from '../../api/hrApiUtils';
 import { hrOnboardingApi } from '../../api/hrOnboardingApi';
 import { hrProbationApi } from '../../api/hrProbationApi';
 import { apiErrorMessage, formatHrDate, formatHrDateTime, nonEmpty, statusLabel } from '../../utils/hr';
+import { downloadResponseBlob } from '../../utils/downloadResponseBlob';
 import {
   addDaysIso,
   contractPayload,
@@ -213,6 +215,7 @@ export default function HrProbationCandidates() {
 
   const completeOnboarding = async (event) => {
     event.preventDefault();
+    const exportRequested = event.nativeEvent.submitter?.value === 'export';
     if (!onboardingCandidate || !onboardingForm) return;
     const contractError = validateContractForm(onboardingForm.contract);
     if (contractError) {
@@ -230,6 +233,16 @@ export default function HrProbationCandidates() {
         contract: contractPayload(onboardingForm.contract),
       });
       toast.success('Đã lập hợp đồng chính thức và tạo hồ sơ nhân sự nháp. Tiếp theo: tạo Tăng nhân sự.');
+      if (exportRequested) {
+        try {
+          const document = await hrEmploymentContractApi.generateDocument(response?.contract?.id);
+          const file = await hrEmploymentContractApi.downloadDocument(document.id);
+          downloadResponseBlob(file, document.generatedFileName || `hop-dong-lao-dong-${onboardingForm.employeeCode || 'van-phong'}.docx`);
+          toast.success('Đã tải hợp đồng lao động khối văn phòng.');
+        } catch (exportError) {
+          toast.error(apiErrorMessage(exportError, 'Hồ sơ đã được lưu nhưng chưa thể xuất file hợp đồng. Bạn có thể xuất lại tại chi tiết nhân sự.'));
+        }
+      }
       const params = new URLSearchParams({
         create: 'increase',
         employeeId: response?.employee?.id || '',
@@ -348,7 +361,16 @@ export default function HrProbationCandidates() {
               />
             </div>
             <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 bg-white/95 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:justify-end sm:px-7">
-              <ContractExportPlaceholderButton className="sm:mr-auto" />
+              <ContractExportButton
+                type="submit"
+                name="submitIntent"
+                value="export"
+                disabled={busyAction === 'onboarding'}
+                loading={busyAction === 'onboarding'}
+                className="sm:mr-auto"
+              >
+                {busyAction === 'onboarding' ? 'Đang lưu và xuất...' : 'Lưu và xuất hợp đồng'}
+              </ContractExportButton>
               <Button type="button" variant="secondary" disabled={busyAction === 'onboarding'} onClick={closeOnboarding}>Hủy</Button>
               <Button type="submit" disabled={busyAction === 'onboarding'}>
                 <UserCheck className="mr-1.5 h-4 w-4" />{busyAction === 'onboarding' ? 'Đang lưu...' : 'Lưu và tạo hồ sơ nháp'}

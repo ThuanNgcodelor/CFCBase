@@ -3,7 +3,7 @@ import { Check, ChevronDown, Search, X } from 'lucide-react';
 
 export const HR_INPUT_CLASS = 'h-11 w-full rounded-lg border border-gray-300 px-3 text-base outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:h-10 sm:text-sm';
 export const HR_TEXTAREA_CLASS = 'min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-base outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
-export const ID_CARD_ISSUING_AUTHORITIES = [
+const ID_CARD_ISSUING_AUTHORITIES = [
   'Bộ Công an',
   'Cục cảnh sát QLHC về TTXH',
 ];
@@ -53,7 +53,7 @@ export function HrCatalogSelect({ value, onChange, items, placeholder = 'Chưa c
   );
 }
 
-export function normalizeCatalogSearch(value) {
+function normalizeCatalogSearch(value) {
   return String(value ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -63,7 +63,7 @@ export function normalizeCatalogSearch(value) {
     .trim();
 }
 
-export function filterCatalogItems(items, query) {
+function filterCatalogItems(items, query) {
   const normalizedQuery = normalizeCatalogSearch(query);
   if (!normalizedQuery) return items;
   return items.filter((item) => normalizeCatalogSearch(`${item.name ?? ''} ${item.code ?? ''}`).includes(normalizedQuery));
@@ -96,7 +96,11 @@ export function HrSearchableCatalogSelect({
       }
     };
     document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
+    document.addEventListener('focusin', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('focusin', handlePointerDown);
+    };
   }, []);
 
   useEffect(() => {

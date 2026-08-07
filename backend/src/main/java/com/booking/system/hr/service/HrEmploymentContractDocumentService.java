@@ -157,6 +157,8 @@ public class HrEmploymentContractDocumentService {
         if (baseSalary == null && candidate != null) {
             baseSalary = candidate.getBaseSalary();
         }
+        validateRequiredDocumentData(employee, employment, identity, contact, candidate, baseSalary,
+                departmentName, positionName);
 
         LinkedHashMap<String, String> values = new LinkedHashMap<>();
         values.put("{{CONTRACT_NUMBER}}", text(contract.getContractNumber()));
@@ -332,10 +334,54 @@ public class HrEmploymentContractDocumentService {
     }
 
     private static String salary(BigDecimal value) {
-        if (value == null) return "";
+        if (value == null) return "Không có";
         DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(Locale.US);
         DecimalFormat format = new DecimalFormat("#,###.##", symbols);
-        return format.format(value).replace(',', '.');
+        return format.format(value).replace(',', '.') + " đồng";
+    }
+
+    private static void validateRequiredDocumentData(
+            HrEmployee employee,
+            HrEmployeeEmployment employment,
+            HrEmployeeIdentity identity,
+            HrEmployeeContact contact,
+            HrProbationCandidate candidate,
+            BigDecimal baseSalary,
+            String departmentName,
+            String positionName
+    ) {
+        List<String> missing = new ArrayList<>();
+        require(missing, employee.getFullName(), "họ tên");
+        if (employee.getDateOfBirth() == null) missing.add("ngày sinh");
+        require(missing, firstText(employee.getBirthPlaceCurrent(), employee.getBirthPlaceOriginal(),
+                candidate == null ? null : candidate.getBirthPlace()), "nơi sinh");
+        require(missing, firstText(contact == null ? null : contact.getPermanentAddress(),
+                candidate == null ? null : candidate.getPermanentAddress()), "địa chỉ thường trú");
+        require(missing, firstText(identity == null ? null : identity.getCitizenIdentityNumber(),
+                candidate == null ? null : candidate.getCitizenId(),
+                identity == null ? null : identity.getLegacyIdentityNumber()), "số CCCD/CMND");
+        if (firstDate(identity == null ? null : identity.getIssuedDate(),
+                candidate == null ? null : candidate.getCitizenIdIssuedDate()) == null) {
+            missing.add("ngày cấp CCCD");
+        }
+        require(missing, firstText(identity == null ? null : identity.getIssuedPlace(),
+                candidate == null ? null : candidate.getCitizenIdIssuedPlace()), "nơi cấp CCCD");
+        require(missing, departmentName, "phòng ban");
+        require(missing, positionName, "chức vụ");
+        require(missing, firstText(employment == null ? null : employment.getJobDescription(),
+                candidate == null ? null : candidate.getJobDescription()), "mô tả công việc");
+        if (baseSalary == null) missing.add("lương cơ bản");
+
+        if (!missing.isEmpty()) {
+            throw HrApiException.badRequest(
+                    "EMPLOYMENT_CONTRACT_DOCUMENT_DATA_INCOMPLETE",
+                    "Chưa đủ dữ liệu để xuất hợp đồng lao động: " + String.join(", ", missing) + "."
+            );
+        }
+    }
+
+    private static void require(List<String> missing, String value, String label) {
+        if (trimToNull(value) == null) missing.add(label);
     }
 
     private static String date(LocalDate value) {

@@ -308,6 +308,6 @@ Lao động phổ thông:
 2. Flow đi thẳng: `Nhập hồ sơ -> chọn HĐLĐ 12 tháng/không xác định thời hạn -> HrEmployee DRAFT -> tạo Tăng nhân sự -> xác nhận -> ACTIVE`; không qua thử việc.
 3. Hai flow dùng chung contract gate: onboarding mới phải có hợp đồng `READY`, ngày hiệu lực Tăng trùng ngày bắt đầu hợp đồng; confirm Tăng chuyển hợp đồng sang `EFFECTIVE`.
 4. Employee legacy giữ policy version 1 và không bị hồi tố bởi gate mới.
-5. Nút xuất hợp đồng chính thức hiện chỉ là placeholder; chưa sinh Word/PDF cho văn phòng hoặc lao động phổ thông.
+5. Phase 12 đã nối nút xuất HĐLĐ chính thức cho cả văn phòng và lao động phổ thông; mỗi lần xuất lưu DOCX/checksum/snapshot riêng và vẫn tiếp tục sang màn Tăng nhân sự.
 
-Chi tiết Phase 11: `docs/HR_PHASE_11_EMPLOYMENT_ONBOARDING.md`.
+Chi tiết Phase 11–12: `docs/HR_PHASE_11_EMPLOYMENT_ONBOARDING.md`, `docs/HR_PHASE_12_EMPLOYMENT_CONTRACT_EXPORT.md`.
