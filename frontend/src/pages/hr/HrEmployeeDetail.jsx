@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, BriefcaseBusiness, CalendarDays, Contact, FilePenLine, FileText, Fingerprint, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarDays, Contact, FilePenLine, FileText, Fingerprint, FolderOpen, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
 import { ContractExportButton } from '../../components/hr/HrEmploymentContractFields';
+import { HrEmployeeDocumentsSection } from '../../components/hr/HrEmployeeDocumentsSection';
 import { hrEmploymentContractApi } from '../../api/hrEmploymentContractApi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrActivityApi } from '../../api/hrActivityApi';
@@ -206,6 +207,9 @@ export default function HrEmployeeDetail() {
         actions={(
           <>
             <Button type="button" variant="secondary" onClick={() => navigate('/manager/hr/employees')}><ArrowLeft className="mr-1.5 h-4 w-4" />Danh sách</Button>
+            <Button type="button" variant="secondary" onClick={() => document.getElementById('documents-section')?.scrollIntoView({ behavior: 'smooth' })}>
+              <FolderOpen className="mr-1.5 h-4 w-4" />Hồ sơ đính kèm
+            </Button>
             {currentContract && (
               <ContractExportButton disabled={exportingContract} loading={exportingContract} onClick={exportEmploymentContract} />
             )}
@@ -354,6 +358,13 @@ export default function HrEmployeeDetail() {
           <DetailItem label="Tạo lúc" value={formatHrDateTime(employee.createdAt)} />
           <DetailItem label="Hiệu lực trạng thái" value={formatHrDate(personal.statusEffectiveDate || employee.statusEffectiveDate)} />
         </DetailSection>
+      </div>
+
+      <div className="mt-5">
+        <HrEmployeeDocumentsSection
+          employeeId={id}
+          employeeName={personal.fullName}
+        />
       </div>
 
       <Modal isOpen={leaveModalOpen} onClose={closeLeaveModal} title={`Ngày phép ${personal.fullName || ''} - ${leaveYear}`}>
