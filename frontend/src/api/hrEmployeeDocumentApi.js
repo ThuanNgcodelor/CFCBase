@@ -19,6 +19,16 @@ export const hrEmployeeDocumentApi = {
     return unwrapApiData(response);
   },
 
+  uploadDocumentsBatch: async (employeeId, formData) => {
+    if (!employeeId) throw new Error('Employee id is required');
+    const response = await baseApi.post(
+      `/hr/employees/${employeeId}/documents/batch`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return unwrapApiData(response);
+  },
+
   getDocument: async (documentId) => {
     if (!documentId) throw new Error('Document id is required');
     const response = await baseApi.get(`/hr/employee-documents/${documentId}`);

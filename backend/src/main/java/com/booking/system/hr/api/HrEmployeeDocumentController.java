@@ -83,6 +83,22 @@ public class HrEmployeeDocumentController {
         return ResponseEntity.ok(ApiResponse.success(result, "Tải lên hồ sơ nhân sự thành công"));
     }
 
+    @PostMapping(value = "/employees/{employeeId}/documents/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<List<HrEmployeeDocumentDtos.DocumentSummary>>> uploadDocumentsBatch(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String employeeId,
+            @RequestPart("files") List<MultipartFile> files,
+            @RequestParam(value = "documentCategory", required = false) HrDocumentCategory documentCategory
+    ) {
+        List<HrEmployeeDocumentDtos.DocumentSummary> results = documentService.uploadDocumentsBatch(
+                employeeId,
+                files,
+                documentCategory,
+                actorResolver.fromPrincipal(principal)
+        );
+        return ResponseEntity.ok(ApiResponse.success(results, "Tải lên danh sách hồ sơ nhân sự thành công"));
+    }
+
     @GetMapping("/employee-documents/{documentId}")
     public ResponseEntity<ApiResponse<HrEmployeeDocumentDtos.DocumentSummary>> getDocument(
             @PathVariable String documentId

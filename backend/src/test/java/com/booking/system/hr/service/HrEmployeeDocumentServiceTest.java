@@ -206,4 +206,35 @@ class HrEmployeeDocumentServiceTest {
         verify(auditRepository).save(auditCaptor.capture());
         assertThat(auditCaptor.getValue().getAction()).isEqualTo("HR_EMPLOYEE_DOCUMENT_DELETED");
     }
+
+    @Test
+    void uploadDocumentsBatchSucceedsWithMultiplePdfs() {
+        HrEmployee employee = new HrEmployee();
+        employee.setId("emp-1");
+        when(employeeRepository.findById("emp-1")).thenReturn(Optional.of(employee));
+        when(documentRepository.save(any())).thenAnswer(invocation -> {
+            HrEmployeeDocument doc = invocation.getArgument(0);
+            doc.setId("batch-doc-" + System.nanoTime());
+            return doc;
+        });
+
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "Bang_Dai_Hoc.pdf", "application/pdf", "%PDF-1.4\nfile1".getBytes(StandardCharsets.UTF_8)
+        );
+        MockMultipartFile file2 = new MockMultipartFile(
+                "files", "Chung_Chi_IELTS.pdf", "application/pdf", "%PDF-1.4\nfile2".getBytes(StandardCharsets.UTF_8)
+        );
+
+        List<HrEmployeeDocumentDtos.DocumentSummary> results = service.uploadDocumentsBatch(
+                "emp-1",
+                List.of(file1, file2),
+                HrDocumentCategory.DEGREE_CERTIFICATE,
+                actor
+        );
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).documentName()).isEqualTo("Bang Dai Hoc");
+        assertThat(results.get(0).documentCategory()).isEqualTo(HrDocumentCategory.DEGREE_CERTIFICATE);
+        assertThat(results.get(1).documentName()).isEqualTo("Chung Chi IELTS");
+    }
 }

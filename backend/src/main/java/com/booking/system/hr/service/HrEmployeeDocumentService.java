@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,6 +85,70 @@ public class HrEmployeeDocumentService {
         ));
 
         return toSummary(document);
+    }
+
+    @Transactional
+    public List<HrEmployeeDocumentDtos.DocumentSummary> uploadDocumentsBatch(
+            String employeeId,
+            List<MultipartFile> files,
+            HrDocumentCategory defaultCategory,
+            HrImportActor actor
+    ) {
+        HrEmployee employee = requireEmployee(employeeId);
+        if (files == null || files.isEmpty()) {
+            throw HrApiException.badRequest("FILES_REQUIRED", "Danh sách file đính kèm là bắt buộc.");
+        }
+        if (files.size() > 20) {
+            throw HrApiException.badRequest("TOO_MANY_FILES", "Mỗi lần tải lên tối đa 20 file.");
+        }
+
+        HrDocumentCategory category = defaultCategory != null ? defaultCategory : HrDocumentCategory.OTHER;
+        List<HrEmployeeDocumentDtos.DocumentSummary> results = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            byte[] fileBytes = validateAndExtractPdfFile(file);
+            String originalFilename = file.getOriginalFilename();
+            String fallbackName = originalFilename != null
+                    ? originalFilename.replaceAll("(?i)\\.pdf$", "").replace('_', ' ').replace('-', ' ').trim()
+                    : "Tài liệu";
+            if (fallbackName.isBlank()) fallbackName = "Tài liệu";
+            String sanitizedFilename = sanitizeFileName(originalFilename, fallbackName);
+            String sha256 = calculateSha256(fileBytes);
+
+            HrEmployeeDocument document = new HrEmployeeDocument();
+            document.setEmployee(employee);
+            document.setDocumentCategory(category);
+            document.setDocumentName(fallbackName);
+            document.setFileName(sanitizedFilename);
+            document.setFileType("application/pdf");
+            document.setFileSizeBytes(fileBytes.length);
+            document.setFileSha256(sha256);
+            document.setFileData(fileBytes);
+            setCreatedAudit(document, actor);
+
+            document = documentRepository.save(document);
+
+            audit(actor, "HR_EMPLOYEE_DOCUMENT_UPLOADED", document, List.of("file", "metadata"), Map.of(
+                    "employeeId", employee.getId(),
+                    "documentCategory", document.getDocumentCategory().name(),
+                    "documentName", document.getDocumentName(),
+                    "fileName", document.getFileName(),
+                    "fileSizeBytes", document.getFileSizeBytes(),
+                    "fileSha256", document.getFileSha256(),
+                    "batch", true
+            ));
+
+            results.add(toSummary(document));
+        }
+
+        if (results.isEmpty()) {
+            throw HrApiException.badRequest("NO_VALID_FILES", "Không có file hợp lệ nào để tải lên.");
+        }
+
+        return results;
     }
 
     @Transactional(readOnly = true)

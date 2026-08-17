@@ -155,4 +155,27 @@ class HrEmployeeDocumentControllerTest {
                 .contains("file-download.pdf");
         assertThat(response.getBody()).isEqualTo(pdfBytes);
     }
+
+    @Test
+    void uploadDocumentsBatchUsesPrincipalActor() {
+        MockMultipartFile file1 = new MockMultipartFile(
+                "files", "doc1.pdf", "application/pdf", "%PDF-1.4\n1".getBytes(StandardCharsets.UTF_8)
+        );
+
+        controller.uploadDocumentsBatch(
+                manager,
+                "emp-1",
+                List.of(file1),
+                HrDocumentCategory.DEGREE_CERTIFICATE
+        );
+
+        ArgumentCaptor<HrImportActor> actorCaptor = ArgumentCaptor.forClass(HrImportActor.class);
+        verify(documentService).uploadDocumentsBatch(
+                eq("emp-1"),
+                eq(List.of(file1)),
+                eq(HrDocumentCategory.DEGREE_CERTIFICATE),
+                actorCaptor.capture()
+        );
+        assertThat(actorCaptor.getValue().subject()).isEqualTo("USER:manager-123");
+    }
 }
