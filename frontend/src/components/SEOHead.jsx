@@ -9,37 +9,46 @@ import { Helmet } from 'react-helmet-async';
  * @param {string} noIndex - Nếu true, yêu cầu Google không index trang này
  */
 export default function SEOHead({
-  title = 'CFC Base | Hệ thống đặt phòng họp & xe nội bộ',
-  description = 'CFC Base - Hệ thống đặt phòng họp và xe công nội bộ của CFC. Đặt lịch nhanh chóng, tiện lợi, quản lý tập trung.',
-  image = 'https://cfcbooking.io.vn/og-image-20260717.png',
-  url = 'https://cfcbooking.io.vn/',
+  title = 'Hệ thống quản lý nội bộ',
+  description = 'CFC Base - Hệ thống điều phối nội bộ và quản trị nhân sự.',
+  image,
+  url,
   noIndex = false,
 }) {
-  const fullTitle = title.includes('CFC Base')
-    ? title
-    : `${title} | CFC Base`;
+  const fullTitle = !title
+    ? 'CFC Base'
+    : (title.includes('CFC Base') ? title : `${title} | CFC Base`);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://cfcbooking.io.vn';
+  const canonicalUrl = url
+    ? (url.startsWith('http') ? url : `${origin}${url.startsWith('/') ? '' : '/'}${url}`)
+    : (typeof window !== 'undefined' ? window.location.href : 'https://cfcbooking.io.vn');
+
+  const ogImage = image
+    ? (image.startsWith('http') ? image : `${origin}${image.startsWith('/') ? '' : '/'}${image}`)
+    : `${origin}/og-image-20260717.png`;
 
   return (
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
-      <link rel="canonical" href={url} />
+      <link rel="canonical" href={canonicalUrl} />
 
       {/* Open Graph */}
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      <meta property="og:image" content={image} />
-      <meta property="og:image:secure_url" content={image} />
+      <meta property="og:image" content={ogImage} />
+      <meta property="og:image:secure_url" content={ogImage} />
       <meta property="og:image:type" content="image/png" />
       <meta property="og:image:width" content="1024" />
       <meta property="og:image:height" content="1024" />
-      <meta property="og:url" content={url} />
+      <meta property="og:url" content={canonicalUrl} />
 
       {/* Twitter */}
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={image} />
+      <meta name="twitter:image" content={ogImage} />
     </Helmet>
   );
 }

@@ -1,7 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, BriefcaseBusiness, CalendarDays, Contact, FilePenLine, FileText, Fingerprint, FolderOpen, HeartPulse, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import {
+  ArrowLeft,
+  BriefcaseBusiness,
+  CalendarDays,
+  Contact,
+  FilePenLine,
+  FileText,
+  Fingerprint,
+  FolderOpen,
+  HeartPulse,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -105,13 +118,14 @@ export default function HrEmployeeDetail() {
       })
       .catch((requestError) => {
         if (!controller.signal.aborted) {
+          setLeaveError(apiErrorMessage(requestError, 'Không thể tải ngày nghỉ phép năm.'));
           setLeaveData(null);
-          setLeaveError(apiErrorMessage(requestError, `Không thể tải ngày phép năm ${leaveYear}.`));
         }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLeaveLoading(false);
       });
+
     return () => controller.abort();
   }, [employee?.id, leaveYear]);
 
@@ -131,29 +145,37 @@ export default function HrEmployeeDetail() {
     );
   }
 
-  const personal = employee.personalProfile || {};
-  const employment = employee.employmentProfile || {};
-  const identity = employee.identityProfile || {};
-  const insurance = employee.insuranceProfile || {};
-  const contact = employee.contactProfile || {};
-  const currentContract = employment.currentEmploymentContract;
-  const workingCondition = employment.workingCondition;
-  const employmentStatus = employee.status || personal.status || 'ACTIVE';
-  const workforceLabel = employment.workforceType === 'OFFICE' ? 'Khối Văn phòng' : employment.workforceType === 'FACTORY' ? 'Khối Nhà máy' : (employment.workforceType || '—');
-  const canDeleteDraft = employmentStatus === 'DRAFT';
-  const entitlementDisplay = leaveData?.entitlement;
-  const previewFinalDays = leaveForm.manualOverrideDays === '' ? (leaveData?.calculatedDays ?? '—') : leaveForm.manualOverrideDays;
+  const personal = employee.personal || employee;
+  const employment = employee.employment || employee;
+  const identity = employee.identity || {};
+  const insurance = employee.insurance || {};
+  const contact = employee.contact || employee.contacts || {};
+  const employmentStatus = employee.employmentStatus || personal.employmentStatus || employee.status;
+  const currentContract = employee.currentContract;
+  const canDeleteDraft = employmentStatus === 'DRAFT' && employee.onboardingSource !== 'PROBATION';
+  const workforceLabel = employee.workforceGroup === 'OFFICE'
+    ? 'Khối văn phòng'
+    : employee.workforceGroup === 'GENERAL_LABOR'
+      ? 'Lao động phổ thông'
+      : (employee.workforceType === 'OFFICE' ? 'Khối văn phòng' : employee.workforceType === 'FACTORY' ? 'Khối nhà máy' : '—');
+  const previewFinalDays = leaveForm.manualOverrideDays === ''
+    ? leaveData?.calculatedDays
+    : leaveForm.manualOverrideDays;
 
   const openLeaveModal = () => {
-    if (!leaveData) return;
+    if (!leaveData) {
+      toast.error('Chưa có dữ liệu ngày phép để chỉnh.');
+      return;
+    }
     setLeaveForm({
       manualOverrideDays: leaveData.manualOverrideDays ?? '',
-      note: leaveData.note ?? '',
+      note: leaveData.note || '',
     });
     setLeaveModalOpen(true);
   };
 
   const closeLeaveModal = () => {
+    if (leaveSaving) return;
     setLeaveModalOpen(false);
     setLeaveForm({ manualOverrideDays: '', note: '' });
   };
@@ -211,10 +233,10 @@ export default function HrEmployeeDetail() {
 
   return (
     <HrPageShell size="standard">
-      <SEOHead title={`CFC Base | ${personal.fullName || 'Chi tiết nhân sự'}`} url={`https://cfcbooking.io.vn/manager/hr/employees/${id}`} />
+      <SEOHead title={personal.fullName || 'Chi tiết nhân sự'} />
       <HrPageHeader
         title={personal.fullName || 'Chi tiết nhân sự'}
-        description={`Mã nhân sự: ${employee.employeeCode || personal.employeeCode || '—'}`}
+        description={`Mã nhân sự: ${personal.employeeCode || employee.employeeCode || '—'}`}
         actions={(
           <>
             <Button type="button" variant="secondary" onClick={() => navigate('/manager/hr/employees')}><ArrowLeft className="mr-1.5 h-4 w-4" />Danh sách</Button>
@@ -252,7 +274,9 @@ export default function HrEmployeeDetail() {
             <p className="font-semibold text-gray-900">{personal.fullName}</p>
             <HrStatusBadge status={employmentStatus} label={employmentStatusLabel(employmentStatus)} />
           </div>
-          <p className="mt-1 text-sm text-gray-500">{employment.departmentName || employment.department?.name || 'Chưa có phòng ban'} · {employment.positionName || employment.position?.name || 'Chưa có chức vụ'}</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {employment.department?.name || employment.departmentName || 'Chưa có phòng ban'} · {employment.position?.name || employment.positionName || 'Chưa có chức vụ'}
+          </p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
           <ShieldCheck className="h-4 w-4" />Đang hiển thị đầy đủ cho Manager
@@ -318,31 +342,35 @@ export default function HrEmployeeDetail() {
 
             <DetailSection icon={BriefcaseBusiness} title="Công việc">
               <DetailItem label="Nhóm nhân sự" value={workforceLabel} />
-              <DetailItem label="Khối" value={employment.divisionName || employment.division?.name} />
-              <DetailItem label="Phòng ban" value={employment.departmentName || employment.department?.name} />
-              <DetailItem label="Bộ phận" value={employment.sectionName || employment.section?.name} />
-              <DetailItem label="Tổ / Nhóm" value={employment.groupName || employment.group?.name} />
-              <DetailItem label="Chức vụ" value={employment.positionName || employment.position?.name} />
-              <DetailItem label="Địa điểm làm việc" value={employment.workLocationName || employment.workLocation?.name} />
-              <DetailItem label="Đơn vị tính lương" value={employment.payrollCostCenterName || employment.payrollCostCenter?.name} />
-              <DetailItem label="Tình trạng làm việc" value={employmentStatusLabel(employmentStatus)} />
+              <DetailItem label="Nguồn tiếp nhận" value={employee.onboardingSource} />
+              <DetailItem label="Phòng ban" value={employment.department?.name || employment.departmentName} />
+              <DetailItem label="Chức vụ" value={employment.position?.name || employment.positionName} />
+              <DetailItem label="Điều kiện lao động" value={employment.workingCondition?.name || employment.workingConditionName} />
               <DetailItem label="Ngày vào làm" value={formatHrDate(employment.hireDate)} />
-              <DetailItem label="Ngày chính thức" value={formatHrDate(employment.officialStartDate)} />
-              <DetailItem label="Ngày nghỉ việc" value={formatHrDate(employment.resignationDate)} />
+              <DetailItem label="Mốc tính phép" value={formatHrDate(employment.leaveAccrualStartDate)} />
+              <DetailItem label="Ngày nghỉ việc" value={formatHrDate(employment.terminationDate)} />
+              <DetailItem label="Loại hợp đồng" value={employment.contractTypeLabel} />
+              <DetailItem label="Số hợp đồng" value={employment.contractNumber} />
+              <DetailItem label="Lương cơ bản" value={formatMoney(employment.baseSalary)} />
+              <DetailItem label="Phụ cấp" value={formatMoney(employment.allowance)} />
+              <DetailItem label="Mô tả công việc" value={employment.jobDescription} wide />
             </DetailSection>
 
-            <DetailSection icon={FileText} title="Hợp đồng lao động">
-              <DetailItem label="Mã hợp đồng" value={currentContract?.contractCode} />
-              <DetailItem label="Loại hợp đồng" value={contractTypeLabel(currentContract?.contractType)} />
-              <DetailItem label="Trạng thái HĐ" value={currentContract?.contractStatus} />
-              <DetailItem label="Ngày hiệu lực" value={formatHrDate(currentContract?.startDate)} />
-              <DetailItem label="Ngày hết hạn" value={formatHrDate(currentContract?.endDate)} />
-              <DetailItem label="Lương cơ bản" value={formatMoney(currentContract?.baseSalary)} />
-              <DetailItem label="Tỷ lệ lương" value={currentContract?.salaryRate ? `${currentContract.salaryRate}%` : null} />
-              <DetailItem label="Lương đóng BH" value={formatMoney(currentContract?.insuranceSalary)} />
-            </DetailSection>
+            {currentContract && (
+              <DetailSection icon={FileText} title="Hợp đồng lao động chính thức" note="Mỗi lần xuất tạo một bản DOCX lưu vết riêng, không ghi đè bản đã sinh trước đó.">
+                <DetailItem label="Loại hợp đồng" value={contractTypeLabel(currentContract.contractType)} />
+                <DetailItem label="Số hợp đồng" value={currentContract.contractNumber} />
+                <DetailItem label="Ngày ký" value={formatHrDate(currentContract.signDate)} />
+                <DetailItem label="Hiệu lực từ" value={formatHrDate(currentContract.effectiveFrom)} />
+                <DetailItem label="Hiệu lực đến" value={currentContract.effectiveUntil ? formatHrDate(currentContract.effectiveUntil) : 'Không xác định thời hạn'} />
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Trạng thái</dt>
+                  <dd className="mt-1.5"><HrStatusBadge status={currentContract.status} label={currentContract.status === 'EFFECTIVE' ? 'Đang hiệu lực' : 'Chờ tăng nhân sự'} /></dd>
+                </div>
+              </DetailSection>
+            )}
 
-            <DetailSection icon={CalendarDays} title="Nghỉ phép">
+            <DetailSection icon={CalendarDays} title="Ngày phép năm" note="Số cuối cùng sẽ được dùng cho export tháng và export năm.">
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Năm áp dụng</dt>
                 <dd className="mt-1.5">
@@ -356,41 +384,52 @@ export default function HrEmployeeDetail() {
                   />
                 </dd>
               </div>
-              <DetailItem label="Điều kiện LĐ" value={workingCondition?.name} />
-              <DetailItem label="Phép năm hiện tại" value={entitlementDisplay ? `${entitlementDisplay.finalDays} ngày` : 'Chưa thiết lập'} />
-              <DetailItem label="Phép nền" value={entitlementDisplay ? `${entitlementDisplay.baseDays} ngày` : null} />
-              <DetailItem label="Thâm niên" value={entitlementDisplay ? `+${entitlementDisplay.seniorityBonusDays} ngày` : null} />
-              <DetailItem label="Ghi chú phép" value={entitlementDisplay?.note} />
-              <div className="sm:col-span-2 pt-2">
-                <Button type="button" variant="secondary" size="sm" onClick={openLeaveModal} disabled={leaveLoading}>
-                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />{leaveLoading ? 'Đang tải...' : `Thiết lập ngày phép năm ${leaveYear}`}
-                </Button>
-                {leaveError && <p className="mt-1 text-xs text-rose-600">{leaveError}</p>}
+              <DetailItem label="Điều kiện lao động" value={leaveLoading ? 'Đang tải...' : leaveData?.workingConditionName} />
+              <DetailItem label="Ngày phép nền" value={leaveLoading ? 'Đang tải...' : leaveData?.baseDays} />
+              <DetailItem label="Thâm niên cộng thêm" value={leaveLoading ? 'Đang tải...' : leaveData?.seniorityBonusDays} />
+              <DetailItem label="Tự tính" value={leaveLoading ? 'Đang tải...' : leaveData?.calculatedDays} />
+              <DetailItem label="Số cuối cùng" value={leaveLoading ? 'Đang tải...' : leaveData?.finalDays} />
+              <DetailItem label="Chỉnh tay" value={leaveLoading ? 'Đang tải...' : (leaveData?.manualOverrideDays ?? 'Không')} />
+              <DetailItem label="Ghi chú" value={leaveLoading ? 'Đang tải...' : leaveData?.note} wide />
+              <div className="sm:col-span-2">
+                {leaveError ? (
+                  <HrError message={leaveError} onRetry={() => setLeaveYear((value) => value)} />
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                    <p className="text-sm text-emerald-800">
+                      Hệ thống tự lấy ngày phép nền từ điều kiện lao động và cộng thâm niên mỗi 5 năm. Nếu cần, bạn có thể chỉnh tay cho riêng nhân sự này.
+                    </p>
+                    <Button type="button" onClick={openLeaveModal} disabled={leaveLoading || !leaveData}>
+                      Sửa ngày phép năm
+                    </Button>
+                  </div>
+                )}
               </div>
             </DetailSection>
 
-            <DetailSection icon={Fingerprint} title="Định danh & Thuế">
-              <DetailItem label="Số CCCD / CMND" value={identity.citizenIdMasked || identity.citizenId} />
-              <DetailItem label="Ngày cấp CCCD" value={formatHrDate(identity.citizenIdIssueDate)} />
-              <DetailItem label="Nơi cấp CCCD" value={identity.citizenIdIssuePlace} />
-              <DetailItem label="Mã số thuế cá nhân" value={identity.taxCodeMasked || identity.taxCode} />
+            <DetailSection icon={Fingerprint} title="Định danh" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
+              <DetailItem label="CMND cũ" value={identity.legacyIdentityNumber} />
+              <DetailItem label="CCCD" value={identity.citizenIdentityNumber} />
+              <DetailItem label="Ngày cấp" value={formatHrDate(identity.issuedDate)} />
+              <DetailItem label="Nơi cấp" value={identity.issuedPlace} />
             </DetailSection>
 
-            <DetailSection icon={HeartPulse} title="Bảo hiểm & Y tế">
-              <DetailItem label="Số sổ BHXH" value={insurance.socialInsuranceNumberMasked || insurance.socialInsuranceNumber} />
-              <DetailItem label="Mã KCB ban đầu" value={insurance.hospitalCode} />
-              <DetailItem label="Nơi KCB ban đầu" value={insurance.hospitalName} wide />
+            <DetailSection icon={HeartPulse} title="Bảo hiểm" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
+              <DetailItem label="Số BHXH" value={insurance.socialInsuranceNumber} />
+              <DetailItem label="Số BHYT" value={insurance.healthInsuranceNumber} />
+              <DetailItem label="Hiệu lực từ" value={formatHrDate(insurance.validFrom)} />
+              <DetailItem label="Hiệu lực đến" value={formatHrDate(insurance.validUntil)} />
             </DetailSection>
 
             <DetailSection icon={Contact} title="Liên hệ" note="Hiển thị đầy đủ để Manager đối chiếu hồ sơ.">
-              <DetailItem label="Điện thoại" value={contact.phoneMasked || contact.phone} />
-              <DetailItem label="Email công việc" value={contact.workEmailMasked || contact.workEmail} />
-              <DetailItem label="Email cá nhân" value={contact.personalEmailMasked || contact.personalEmail} />
-              <DetailItem label="Địa chỉ thường trú" value={contact.permanentAddressMasked || contact.permanentAddress} wide />
-              <DetailItem label="Địa chỉ hiện tại" value={contact.currentAddressMasked || contact.currentAddress} wide />
+              <DetailItem label="Điện thoại" value={contact.phone} />
+              <DetailItem label="Email công việc" value={contact.workEmail} />
+              <DetailItem label="Email cá nhân" value={contact.personalEmail} />
+              <DetailItem label="Địa chỉ thường trú" value={contact.permanentAddress} wide />
+              <DetailItem label="Địa chỉ hiện tại" value={contact.currentAddress} wide />
               <DetailItem label="Liên hệ khẩn cấp" value={contact.emergencyContactName} />
               <DetailItem label="Quan hệ" value={contact.emergencyContactRelation} />
-              <DetailItem label="SĐT khẩn cấp" value={contact.emergencyContactPhoneMasked || contact.emergencyContactPhone} />
+              <DetailItem label="SĐT khẩn cấp" value={contact.emergencyContactPhone} />
             </DetailSection>
 
             <DetailSection icon={FilePenLine} title="Theo dõi thay đổi">
@@ -460,7 +499,7 @@ export default function HrEmployeeDetail() {
             </div>
           </form>
         ) : (
-          <HrLoading label="Đang tải dữ liệu ngày phép..." />
+          <div className="py-8 text-center text-sm text-gray-500">Chưa có dữ liệu ngày phép.</div>
         )}
       </Modal>
     </HrPageShell>
