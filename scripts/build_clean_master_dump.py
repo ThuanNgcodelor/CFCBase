@@ -71,7 +71,7 @@ def calculate_leave_days(hire_date_str, working_condition):
 
 def slugify(text):
     text = text.strip().upper()
-    for src, dst in [('Đ', 'D'), (' ', '_'), ('.', ''), ('/', '_'), ('-', '_')]:
+    for src, dst in [('Đ', 'D'), (' ', '_'), ('.', ''), ('&', '_'), ('(', ''), (')', ''), ('/', '_'), ('-', '_')]:
         text = text.replace(src, dst)
     return "".join(c for c in text if c.isalnum() or c == '_')[:32]
 
@@ -132,13 +132,11 @@ def build_master_dump():
     # 1. Parse Excel Master
     sheets = read_excel_data()
     t8_rows = sheets.get("T8-26", [])
-    tang_rows = sheets.get("TĂNG", [])
-    giam_rows = sheets.get("GIAM") or sheets.get("GIẢM") or []
 
     active_employees = []
-    departments_dict = {}
-    positions_dict = {}
-    working_cond_dict = {}
+    departments_by_code = {}
+    positions_by_code = {}
+    working_cond_by_code = {}
 
     for row_idx, cells in t8_rows:
         stt = cells.get("A", "").strip()
@@ -180,20 +178,20 @@ def build_master_dump():
             pos_code = slugify(pos_name)
             cond_code = slugify(cond_name)
 
-            if dept_name not in departments_dict:
-                departments_dict[dept_name] = {
+            if dept_code not in departments_by_code:
+                departments_by_code[dept_code] = {
                     "id": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"dept-{dept_code}")),
                     "code": dept_code,
                     "name": dept_name
                 }
-            if pos_name not in positions_dict:
-                positions_dict[pos_name] = {
+            if pos_code not in positions_by_code:
+                positions_by_code[pos_code] = {
                     "id": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"pos-{pos_code}")),
                     "code": pos_code,
                     "name": pos_name
                 }
-            if cond_name not in working_cond_dict:
-                working_cond_dict[cond_name] = {
+            if cond_code not in working_cond_by_code:
+                working_cond_by_code[cond_code] = {
                     "id": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"cond-{cond_code}")),
                     "code": cond_code,
                     "name": cond_name,
@@ -205,15 +203,15 @@ def build_master_dump():
                 "stt": int(stt),
                 "code": code,
                 "name": name,
-                "dept_id": departments_dict[dept_name]["id"],
+                "dept_id": departments_by_code[dept_code]["id"],
                 "dept_code": dept_code,
-                "dept_name": dept_name,
-                "pos_id": positions_dict[pos_name]["id"],
+                "dept_name": departments_by_code[dept_code]["name"],
+                "pos_id": positions_by_code[pos_code]["id"],
                 "pos_code": pos_code,
-                "pos_name": pos_name,
-                "cond_id": working_cond_dict[cond_name]["id"],
+                "pos_name": positions_by_code[pos_code]["name"],
+                "cond_id": working_cond_by_code[cond_code]["id"],
                 "cond_code": cond_code,
-                "cond_name": cond_name,
+                "cond_name": working_cond_by_code[cond_code]["name"],
                 "dob": dob,
                 "hire_date": hire_date,
                 "gender": gender,
@@ -241,12 +239,12 @@ def build_master_dump():
             active_employees.append(emp_obj)
 
     print(f"✅ Đã nạp {len(active_employees)} nhân sự T8-26 từ Excel.")
+    print(f"✅ Đã chuẩn hóa {len(departments_by_code)} phòng ban duy nhất.")
 
-    # 2. Read existing non-HR tables from sql.txt (Users, Bookings, Push, Notifications, Rooms, Cars)
+    # 2. Read existing non-HR tables from sql.txt
     with open(SQL_INPUT_PATH, "r", encoding="utf-8", errors="ignore") as f:
         sql_lines = f.readlines()
 
-    # Tables to extract as-is from sql.txt:
     preserved_tables = [
         "approval_steps", "booking_cars", "booking_rooms", "departments", "flyway_schema_history",
         "notifications", "profile_update_requests", "push_subscriptions", "rooms", "users",
@@ -279,7 +277,6 @@ def build_master_dump():
             collecting = current_table in preserved_tables
         
         if collecting:
-            # Filter out Thuannn if in any preserved table
             if "TV-2607270642282" not in line and "Thuậnnn" not in line:
                 table_buffer.append(line)
         
@@ -332,7 +329,6 @@ def build_master_dump():
   UNIQUE KEY `uk_hr_probation_candidate_code` (`candidate_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;""")
 
-    # Insert 3 candidates from sql.txt
     out_sql.append("""INSERT INTO `hr_probation_candidates` VALUES
 ('a05f11e9-4e78-43d9-ab70-13f56b0a8848', 'TV-260814031002', 'Lê Huy Hào', 'Ông', 'MALE', '2000-08-15', 'Cần Thơ', 'Việt Nam', '092200001234', '2021-05-10', 'Cục Cảnh sát QLHC về TTXH', '123 Đường 30/4, P. Hưng Lợi, Q. Ninh Kiều, TP. Cần Thơ', '123 Đường 30/4, P. Hưng Lợi, Q. Ninh Kiều, TP. Cần Thơ', '0930015043', NULL, 'hao.lehuy@example.com', 'Kinh', 'Không', 'Đại học', 'Kỹ thuật hóa học', 'IN_PROGRESS', '0450534c-6878-4ea7-9a4f-561b0cba0a0f', 'fe7a5e5a-f101-4475-8025-a503e9112469', '1406e232-a548-4389-bc55-e41ee6c3fc42', '4143fcfa-1c69-42b7-a36c-2f9543e527d9', '2026-04-23', '2026-06-22', 8000000.00, '09/2026', NULL, 'Hồ sơ thử việc tạo từ giao diện', NOW(6), NOW(6), 'USER:37a9a237-bf1a-4231-ad33-6862d8e44439', 'USER:37a9a237-bf1a-4231-ad33-6862d8e44439', 0),
 ('b16f22f0-5f89-54ea-bc81-24f67c1b9959', 'TV-260814032152', 'Nguyễn Việt Khoa', 'Ông', 'MALE', '1998-11-20', 'Cần Thơ', 'Việt Nam', '092198005678', '2020-08-15', 'Cục Cảnh sát QLHC về TTXH', '456 Đường 3/2, P. Xuân Khánh, Q. Ninh Kiều, TP. Cần Thơ', '456 Đường 3/2, P. Xuân Khánh, Q. Ninh Kiều, TP. Cần Thơ', '0930015044', NULL, 'khoa.nguyen@example.com', 'Kinh', 'Không', 'Đại học', 'Kinh doanh quốc tế', 'IN_PROGRESS', '81b7a2d4-0466-4aa7-92aa-66ec96fe398c', 'a68ef3be-4977-449e-ba78-4cf5bb36b9c9', '21e25d25-6677-4e6f-a894-35bbd5c58a69', '4143fcfa-1c69-42b7-a36c-2f9543e527d9', '2026-07-01', '2026-08-03', 8500000.00, '10/2026', NULL, 'Hồ sơ thử việc tạo từ giao diện', NOW(6), NOW(6), 'USER:37a9a237-bf1a-4231-ad33-6862d8e44439', 'USER:37a9a237-bf1a-4231-ad33-6862d8e44439', 0),
@@ -359,7 +355,7 @@ def build_master_dump():
   UNIQUE KEY `uk_hr_department_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;""")
 
-    for d in departments_dict.values():
+    for d in departments_by_code.values():
         name_esc = d['name'].strip("'").replace("'", "''")
         out_sql.append(f"INSERT INTO `hr_departments` (`id`, `code`, `name`, `status`, `sort_order`, `created_at`, `updated_at`, `created_by_actor`, `updated_by_actor`, `row_version`) VALUES ('{d['id']}', '{d['code']}', '{name_esc}', 'ACTIVE', 0, NOW(6), NOW(6), 'system', 'system', 0);")
 
@@ -380,7 +376,7 @@ def build_master_dump():
   UNIQUE KEY `uk_hr_position_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;""")
 
-    for p in positions_dict.values():
+    for p in positions_by_code.values():
         name_esc = p['name'].strip("'").replace("'", "''")
         out_sql.append(f"INSERT INTO `hr_positions` (`id`, `code`, `name`, `status`, `sort_order`, `created_at`, `updated_at`, `created_by_actor`, `updated_by_actor`, `row_version`) VALUES ('{p['id']}', '{p['code']}', '{name_esc}', 'ACTIVE', 0, NOW(6), NOW(6), 'system', 'system', 0);")
 
@@ -403,7 +399,7 @@ def build_master_dump():
   UNIQUE KEY `uk_hr_working_condition_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;""")
 
-    for w in working_cond_dict.values():
+    for w in working_cond_by_code.values():
         name_esc = w['name'].strip("'").replace("'", "''")
         out_sql.append(f"INSERT INTO `hr_working_conditions` (`id`, `code`, `name`, `status`, `sort_order`, `annual_leave_days_base`, `created_at`, `updated_at`, `created_by_actor`, `updated_by_actor`, `row_version`) VALUES ('{w['id']}', '{w['code']}', '{name_esc}', 'ACTIVE', 0, {w['base']}, NOW(6), NOW(6), 'system', 'system', 0);")
 
