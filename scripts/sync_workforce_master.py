@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Workforce Master Synchronization Tool (CFCBase)
-Generates 100% Schema-Compliant Flyway V9 Migration for T8-2026 Master Workforce
+Generates 100% Schema-Compliant & FK-Safe Flyway V9 Migration for T8-2026 Master Workforce
 """
 
 import os
@@ -65,7 +65,7 @@ def calculate_leave_days(hire_date_str, working_condition):
             return base
         
         years = (target - hire).days // 365
-        seniority_bonus = years // 5 # Mỗi 5 năm +1 ngày
+        seniority_bonus = years // 5
         return float(base + seniority_bonus)
     except Exception:
         return base
@@ -127,7 +127,7 @@ def read_workbook_sheets(excel_path):
 
 def generate_v9_migration():
     print("=" * 80)
-    print("🚀 ĐANG TẠO V9 FLYWAY MIGRATION TƯƠNG THÍCH 100% CSDL MYSQL")
+    print("🚀 ĐANG TẠO V9 FLYWAY MIGRATION AN TOÀN TUYỆT ĐỐI (FK SAFE)")
     print("=" * 80)
     
     sheets = read_workbook_sheets(EXCEL_PATH)
@@ -238,17 +238,16 @@ def generate_v9_migration():
             active_employees.append(emp_obj)
 
     print(f"✅ Đã parse {len(active_employees)} nhân sự T8-26.")
-    print(f"✅ Đã chuẩn hóa {len(departments_dict)} phòng ban, {len(positions_dict)} chức vụ, {len(working_cond_dict)} ĐKLĐ.")
 
     sql = [
         "-- BookingBase HR Phase 1 - V9 Master Workforce Sync (T8-2026)",
-        "-- 100% Schema-compliant with Flyway MySQL",
+        "-- 100% Schema-compliant & Foreign-Key Safe",
         "",
         "-- 1. Ensure Catalogs (Departments, Positions, Working Conditions)"
     ]
 
     for d in departments_dict.values():
-        name_esc = d['name'].replace("'", "''")
+        name_esc = d['name'].strip("'").replace("'", "''")
         sql.append(
             f"INSERT INTO hr_departments (id, code, name, status, sort_order, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
             f"VALUES ('{d['id']}', '{d['code']}', '{name_esc}', 'ACTIVE', 0, NOW(6), NOW(6), 'system', 'system', 0) "
@@ -256,7 +255,7 @@ def generate_v9_migration():
         )
 
     for p in positions_dict.values():
-        name_esc = p['name'].replace("'", "''")
+        name_esc = p['name'].strip("'").replace("'", "''")
         sql.append(
             f"INSERT INTO hr_positions (id, code, name, status, sort_order, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
             f"VALUES ('{p['id']}', '{p['code']}', '{name_esc}', 'ACTIVE', 0, NOW(6), NOW(6), 'system', 'system', 0) "
@@ -264,14 +263,14 @@ def generate_v9_migration():
         )
 
     for w in working_cond_dict.values():
-        name_esc = w['name'].replace("'", "''")
+        name_esc = w['name'].strip("'").replace("'", "''")
         sql.append(
             f"INSERT INTO hr_working_conditions (id, code, name, status, sort_order, annual_leave_days_base, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
             f"VALUES ('{w['id']}', '{w['code']}', '{name_esc}', 'ACTIVE', 0, {w['base']}, NOW(6), NOW(6), 'system', 'system', 0) "
             f"ON DUPLICATE KEY UPDATE name = VALUES(name), annual_leave_days_base = VALUES(annual_leave_days_base), updated_at = NOW(6);"
         )
 
-    sql.append("\n-- 2. Upsert Employees and Details")
+    sql.append("\n-- 2. Upsert Employees into hr_employees first")
 
     for emp in active_employees:
         emp_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"emp-{emp['code']}"))
@@ -281,6 +280,21 @@ def generate_v9_migration():
         pob_esc = emp['pob'].strip("'").replace("'", "''")
         edu_esc = emp['education'].strip("'").replace("'", "''")
         maj_esc = emp['major'].strip("'").replace("'", "''")
+
+        dob_str = f"'{emp['dob']}'" if emp['dob'] else "NULL"
+        hire_date_str = f"'{emp['hire_date']}'" if emp['hire_date'] else "'2026-08-01'"
+
+        # hr_employees
+        sql.append(
+            f"INSERT INTO hr_employees (id, employee_code, full_name, gender, date_of_birth, ethnicity, religion, birth_place_original, education_level, major, employment_status, status_effective_date, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
+            f"VALUES ('{emp_id}', '{emp['code']}', '{name_esc}', '{emp['gender']}', {dob_str}, '{eth_esc}', '{rel_esc}', '{pob_esc}', '{edu_esc}', '{maj_esc}', 'ACTIVE', {hire_date_str}, NOW(6), NOW(6), 'system', 'system', 0) "
+            f"ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), gender = VALUES(gender), employment_status = 'ACTIVE', updated_at = NOW(6);"
+        )
+
+    sql.append("\n-- 3. Upsert Child Tables using (SELECT id FROM hr_employees WHERE employee_code = ...)")
+
+    for emp in active_employees:
+        name_esc = emp['name'].strip("'").replace("'", "''")
         job_esc = emp['job_desc'].strip("'").replace("'", "''")
         addr_reg_esc = emp['address_reg'].strip("'").replace("'", "''")
         addr_cur_esc = emp['address_cur'].strip("'").replace("'", "''")
@@ -292,56 +306,59 @@ def generate_v9_migration():
         phone_esc = emp['phone'].strip("'").replace("'", "''")
         bhxh_esc = emp['bhxh'].strip("'").replace("'", "''")
         bhyt_esc = emp['bhyt'].strip("'").replace("'", "''")
-
-        dob_str = f"'{emp['dob']}'" if emp['dob'] else "NULL"
         hire_date_str = f"'{emp['hire_date']}'" if emp['hire_date'] else "'2026-08-01'"
         issue_date_str = f"'{emp['id_issue_date']}'" if emp['id_issue_date'] else "NULL"
-
-        # hr_employees
-        sql.append(
-            f"INSERT INTO hr_employees (id, employee_code, full_name, gender, date_of_birth, ethnicity, religion, birth_place_original, education_level, major, employment_status, status_effective_date, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{emp['code']}', '{name_esc}', '{emp['gender']}', {dob_str}, '{eth_esc}', '{rel_esc}', '{pob_esc}', '{edu_esc}', '{maj_esc}', 'ACTIVE', {hire_date_str}, NOW(6), NOW(6), 'system', 'system', 0) "
-            f"ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), gender = VALUES(gender), employment_status = 'ACTIVE', updated_at = NOW(6);"
-        )
+        dept_name_esc = emp['dept_name'].strip("'").replace("'", "''")
+        pos_name_esc = emp['pos_name'].strip("'").replace("'", "''")
+        cond_name_esc = emp['cond_name'].strip("'").replace("'", "''")
 
         # hr_employee_employment
         sql.append(
             f"INSERT INTO hr_employee_employment (employee_id, department_id, position_id, working_condition_id, hire_date, leave_accrual_start_date, contract_type_label, contract_number, base_salary, allowance, job_description, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{emp['dept_id']}', '{emp['pos_id']}', '{emp['cond_id']}', {hire_date_str}, {hire_date_str}, '{ctype_esc}', '{cnum_esc}', {emp['salary']}, {emp['allowance']}, '{job_esc}', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"SELECT e.id, d.id, p.id, w.id, {hire_date_str}, {hire_date_str}, '{ctype_esc}', '{cnum_esc}', {emp['salary']}, {emp['allowance']}, '{job_esc}', NOW(6), NOW(6), 'system', 'system', 0 "
+            f"FROM hr_employees e "
+            f"LEFT JOIN hr_departments d ON d.name = '{dept_name_esc}' "
+            f"LEFT JOIN hr_positions p ON p.name = '{pos_name_esc}' "
+            f"LEFT JOIN hr_working_conditions w ON w.name = '{cond_name_esc}' "
+            f"WHERE e.employee_code = '{emp['code']}' "
             f"ON DUPLICATE KEY UPDATE department_id = VALUES(department_id), position_id = VALUES(position_id), working_condition_id = VALUES(working_condition_id), hire_date = VALUES(hire_date), base_salary = VALUES(base_salary), allowance = VALUES(allowance), updated_at = NOW(6);"
         )
 
         # hr_employee_identity
         sql.append(
             f"INSERT INTO hr_employee_identity (employee_id, legacy_identity_number, citizen_identity_number, issued_date, issued_place, verification_status, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{cmnd_esc}', '{cccd_esc}', {issue_date_str}, '{id_place_esc}', 'VERIFIED', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"SELECT e.id, '{cmnd_esc}', '{cccd_esc}', {issue_date_str}, '{id_place_esc}', 'VERIFIED', NOW(6), NOW(6), 'system', 'system', 0 "
+            f"FROM hr_employees e WHERE e.employee_code = '{emp['code']}' "
             f"ON DUPLICATE KEY UPDATE legacy_identity_number = VALUES(legacy_identity_number), citizen_identity_number = VALUES(citizen_identity_number), issued_date = VALUES(issued_date), issued_place = VALUES(issued_place), updated_at = NOW(6);"
         )
 
         # hr_employee_insurance
         sql.append(
             f"INSERT INTO hr_employee_insurance (employee_id, social_insurance_number, health_insurance_number, status, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{bhxh_esc}', '{bhyt_esc}', 'ACTIVE', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"SELECT e.id, '{bhxh_esc}', '{bhyt_esc}', 'ACTIVE', NOW(6), NOW(6), 'system', 'system', 0 "
+            f"FROM hr_employees e WHERE e.employee_code = '{emp['code']}' "
             f"ON DUPLICATE KEY UPDATE social_insurance_number = VALUES(social_insurance_number), health_insurance_number = VALUES(health_insurance_number), status = 'ACTIVE', updated_at = NOW(6);"
         )
 
         # hr_employee_contacts
         sql.append(
             f"INSERT INTO hr_employee_contacts (employee_id, permanent_address, current_address, phone, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{addr_reg_esc}', '{addr_cur_esc}', '{phone_esc}', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"SELECT e.id, '{addr_reg_esc}', '{addr_cur_esc}', '{phone_esc}', NOW(6), NOW(6), 'system', 'system', 0 "
+            f"FROM hr_employees e WHERE e.employee_code = '{emp['code']}' "
             f"ON DUPLICATE KEY UPDATE permanent_address = VALUES(permanent_address), current_address = VALUES(current_address), phone = VALUES(phone), updated_at = NOW(6);"
         )
 
-        # hr_employee_leave_entitlements (Year 2026)
+        # hr_employee_leave_entitlements
         leave_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"leave-entitlement-{emp['code']}-2026"))
         sql.append(
             f"INSERT INTO hr_employee_leave_entitlements (id, employee_id, leave_year, manual_override_days, note, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{leave_id}', '{emp_id}', 2026, {emp['leave_days']}, 'Đồng bộ từ T8-2026 Master Excel', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"SELECT '{leave_id}', e.id, 2026, {emp['leave_days']}, 'Đồng bộ từ T8-2026 Master Excel', NOW(6), NOW(6), 'system', 'system', 0 "
+            f"FROM hr_employees e WHERE e.employee_code = '{emp['code']}' "
             f"ON DUPLICATE KEY UPDATE manual_override_days = VALUES(manual_override_days), updated_at = NOW(6);"
         )
 
-    # 3. Monthly Roster
-    sql.append("\n-- 3. Monthly Roster T8-2026")
+    # 4. Monthly Roster T8-2026
+    sql.append("\n-- 4. Monthly Roster T8-2026")
     sql.append(
         f"INSERT INTO hr_monthly_rosters (id, period_start, status, snapshot_schema_version, item_count, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
         f"VALUES ('roster-2026-08', '2026-08-01', 'DRAFT', 1, {len(active_employees)}, NOW(6), NOW(6), 'system', 'system', 0) "
@@ -349,12 +366,11 @@ def generate_v9_migration():
     )
 
     for emp in active_employees:
-        emp_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"emp-{emp['code']}"))
         roster_item_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"roster-item-2026-08-{emp['code']}"))
-        name_esc = emp['name'].replace("'", "''")
-        dept_name_esc = emp['dept_name'].replace("'", "''")
-        pos_name_esc = emp['pos_name'].replace("'", "''")
-        cond_name_esc = emp['cond_name'].replace("'", "''")
+        name_esc = emp['name'].strip("'").replace("'", "''")
+        dept_name_esc = emp['dept_name'].strip("'").replace("'", "''")
+        pos_name_esc = emp['pos_name'].strip("'").replace("'", "''")
+        cond_name_esc = emp['cond_name'].strip("'").replace("'", "''")
         hire_date_str = f"'{emp['hire_date']}'" if emp['hire_date'] else "NULL"
         
         payload_json = json.dumps({
@@ -369,14 +385,15 @@ def generate_v9_migration():
 
         sql.append(
             f"INSERT INTO hr_monthly_roster_items (id, roster_id, employee_id, display_order, employee_code, full_name, department_code, department_name, position_code, position_name, working_condition_code, working_condition_name, employment_status, hire_date, leave_days, inclusion_reason, snapshot_schema_version, snapshot_payload, payload_sha256, created_at, created_by_actor) "
-            f"VALUES ('{roster_item_id}', 'roster-2026-08', '{emp_id}', {emp['stt']}, '{emp['code']}', '{name_esc}', '{emp['dept_code']}', '{dept_name_esc}', '{emp['pos_code']}', '{pos_name_esc}', '{emp['cond_code']}', '{cond_name_esc}', 'ACTIVE', {hire_date_str}, {emp['leave_days']}, 'BASELINE', 1, '{payload_json}', '{payload_sha}', NOW(6), 'system') "
+            f"SELECT '{roster_item_id}', 'roster-2026-08', e.id, {emp['stt']}, '{emp['code']}', '{name_esc}', '{emp['dept_code']}', '{dept_name_esc}', '{emp['pos_code']}', '{pos_name_esc}', '{emp['cond_code']}', '{cond_name_esc}', 'ACTIVE', {hire_date_str}, {emp['leave_days']}, 'BASELINE', 1, '{payload_json}', '{payload_sha}', NOW(6), 'system' "
+            f"FROM hr_employees e WHERE e.employee_code = '{emp['code']}' "
             f"ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), leave_days = VALUES(leave_days), department_name = VALUES(department_name), position_name = VALUES(position_name);"
         )
 
     with open(OUTPUT_SQL_PATH, "w", encoding="utf-8") as f:
         f.write("\n".join(sql))
 
-    print(f"\n🎉 HOÀN THÀNH: Đã ghi {len(sql)} câu lệnh SQL hợp lệ 100% vào {OUTPUT_SQL_PATH}")
+    print(f"\n🎉 HOÀN THÀNH: Đã ghi {len(sql)} câu lệnh SQL FK-Safe vào {OUTPUT_SQL_PATH}")
 
 if __name__ == "__main__":
     generate_v9_migration()
