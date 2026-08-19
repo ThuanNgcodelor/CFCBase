@@ -275,18 +275,23 @@ def generate_v9_migration():
 
     for emp in active_employees:
         emp_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"emp-{emp['code']}"))
-        name_esc = emp['name'].replace("'", "''")
-        eth_esc = emp['ethnicity'].replace("'", "''")
-        rel_esc = emp['religion'].replace("'", "''")
-        pob_esc = emp['pob'].replace("'", "''")
-        edu_esc = emp['education'].replace("'", "''")
-        maj_esc = emp['major'].replace("'", "''")
-        job_esc = emp['job_desc'].replace("'", "''")
-        addr_reg_esc = emp['address_reg'].replace("'", "''")
-        addr_cur_esc = emp['address_cur'].replace("'", "''")
-        id_place_esc = emp['id_issue_place'].replace("'", "''")
-        ctype_esc = emp['contract_type'].replace("'", "''")
-        cnum_esc = emp['contract_num'].replace("'", "''")
+        name_esc = emp['name'].strip("'").replace("'", "''")
+        eth_esc = emp['ethnicity'].strip("'").replace("'", "''")
+        rel_esc = emp['religion'].strip("'").replace("'", "''")
+        pob_esc = emp['pob'].strip("'").replace("'", "''")
+        edu_esc = emp['education'].strip("'").replace("'", "''")
+        maj_esc = emp['major'].strip("'").replace("'", "''")
+        job_esc = emp['job_desc'].strip("'").replace("'", "''")
+        addr_reg_esc = emp['address_reg'].strip("'").replace("'", "''")
+        addr_cur_esc = emp['address_cur'].strip("'").replace("'", "''")
+        id_place_esc = emp['id_issue_place'].strip("'").replace("'", "''")
+        ctype_esc = emp['contract_type'].strip("'").replace("'", "''")
+        cnum_esc = emp['contract_num'].strip("'").replace("'", "''")
+        cmnd_esc = emp['cmnd'].strip("'").replace("'", "''")
+        cccd_esc = emp['cccd'].strip("'").replace("'", "''")
+        phone_esc = emp['phone'].strip("'").replace("'", "''")
+        bhxh_esc = emp['bhxh'].strip("'").replace("'", "''")
+        bhyt_esc = emp['bhyt'].strip("'").replace("'", "''")
 
         dob_str = f"'{emp['dob']}'" if emp['dob'] else "NULL"
         hire_date_str = f"'{emp['hire_date']}'" if emp['hire_date'] else "'2026-08-01'"
@@ -309,21 +314,21 @@ def generate_v9_migration():
         # hr_employee_identity
         sql.append(
             f"INSERT INTO hr_employee_identity (employee_id, legacy_identity_number, citizen_identity_number, issued_date, issued_place, verification_status, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{emp['cmnd']}', '{emp['cccd']}', {issue_date_str}, '{id_place_esc}', 'VERIFIED', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"VALUES ('{emp_id}', '{cmnd_esc}', '{cccd_esc}', {issue_date_str}, '{id_place_esc}', 'VERIFIED', NOW(6), NOW(6), 'system', 'system', 0) "
             f"ON DUPLICATE KEY UPDATE legacy_identity_number = VALUES(legacy_identity_number), citizen_identity_number = VALUES(citizen_identity_number), issued_date = VALUES(issued_date), issued_place = VALUES(issued_place), updated_at = NOW(6);"
         )
 
         # hr_employee_insurance
         sql.append(
             f"INSERT INTO hr_employee_insurance (employee_id, social_insurance_number, health_insurance_number, status, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{emp['bhxh']}', '{emp['bhyt']}', 'ACTIVE', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"VALUES ('{emp_id}', '{bhxh_esc}', '{bhyt_esc}', 'ACTIVE', NOW(6), NOW(6), 'system', 'system', 0) "
             f"ON DUPLICATE KEY UPDATE social_insurance_number = VALUES(social_insurance_number), health_insurance_number = VALUES(health_insurance_number), status = 'ACTIVE', updated_at = NOW(6);"
         )
 
         # hr_employee_contacts
         sql.append(
             f"INSERT INTO hr_employee_contacts (employee_id, permanent_address, current_address, phone, created_at, updated_at, created_by_actor, updated_by_actor, row_version) "
-            f"VALUES ('{emp_id}', '{addr_reg_esc}', '{addr_cur_esc}', '{emp['phone']}', NOW(6), NOW(6), 'system', 'system', 0) "
+            f"VALUES ('{emp_id}', '{addr_reg_esc}', '{addr_cur_esc}', '{phone_esc}', NOW(6), NOW(6), 'system', 'system', 0) "
             f"ON DUPLICATE KEY UPDATE permanent_address = VALUES(permanent_address), current_address = VALUES(current_address), phone = VALUES(phone), updated_at = NOW(6);"
         )
 
