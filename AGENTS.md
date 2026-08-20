@@ -7,21 +7,16 @@ Read this file before changing code in this repository.
 - Since 2026-07-27, only the HR management domain is under active product development.
 - Booking room/car and Booking approval are legacy/frozen; do not start Booking Phase 6–10 or expand Booking unless the user explicitly reopens that scope.
 - Do not delete legacy Booking code, tables, routes, or shared Auth/Notification/PWA infrastructure as part of HR work.
-- The canonical active roadmap is `docs/HR_MANAGEMENT_IMPLEMENTATION_PLAN.md`.
+- The canonical active roadmap and system master context is `documents/PROJECT_MASTER_CONTEXT.md`.
 
 ## Source Of Truth
 
 1. Current code and config are the source of truth.
-2. Current schema/migrations are next.
-3. Docs are reference only and can be outdated.
+2. Current schema/migrations and `clean_database_master.sql` are next.
+3. Master Architecture and Business Flow: `documents/PROJECT_MASTER_CONTEXT.md`.
 
 Start by reading:
-- `docs/CURRENT_WORK_STATUS.md`
-- `docs/HR_MANAGEMENT_IMPLEMENTATION_PLAN.md`
-- `docs/AI_PROJECT_CONTEXT.md`
-- `docs/PROJECT_FLOW.md`
-- `docs/PERFORMANCE_AUDIT.md`
-- `docs/OPTIMIZATION_EXECUTION_PLAN.md`
+- `documents/PROJECT_MASTER_CONTEXT.md`
 
 ## Hard Rules
 
