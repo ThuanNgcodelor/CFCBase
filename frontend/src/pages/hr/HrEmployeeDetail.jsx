@@ -319,14 +319,6 @@ export default function HrEmployeeDetail() {
 
       {activeTab === 'info' && (
         <>
-          {employmentStatus !== 'DRAFT' && (
-            <div className="mb-5">
-              <HrReadOnlyNotice>
-                Đây là hồ sơ chính thức và được mở ở chế độ tra cứu.
-              </HrReadOnlyNotice>
-            </div>
-          )}
-
           <div className="grid gap-5 xl:grid-cols-2">
             <DetailSection icon={UserRound} title="Thông tin chung">
               <DetailItem label="Họ và tên" value={personal.fullName} />
