@@ -192,10 +192,6 @@ public class HrManagementService {
             HrImportActor actor
     ) {
         HrEmployee employee = requireEmployee(employeeId);
-        if (employee.getEmploymentStatus() != HrEmploymentStatus.DRAFT) {
-            throw HrApiException.conflict("EMPLOYEE_NOT_DRAFT",
-                    "Chỉ hồ sơ nhân sự ở trạng thái bản nháp mới được chỉnh sửa trực tiếp.");
-        }
         if (employee.getRowVersion() != request.rowVersion()) {
             throw HrApiException.conflict("STALE_EMPLOYEE_VERSION",
                     "Hồ sơ đã được cập nhật ở nơi khác. Vui lòng tải lại trước khi lưu.");

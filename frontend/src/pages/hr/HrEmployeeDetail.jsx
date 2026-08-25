@@ -255,9 +255,9 @@ export default function HrEmployeeDetail() {
             {currentContract && (
               <ContractExportButton disabled={exportingContract} loading={exportingContract} onClick={exportEmploymentContract} />
             )}
-            {employmentStatus === 'DRAFT' && (
-              <Button type="button" onClick={() => navigate(`/manager/hr/employees/${id}/edit`)}><FilePenLine className="mr-1.5 h-4 w-4" />Chỉnh sửa bản nháp</Button>
-            )}
+            <Button type="button" onClick={() => navigate(`/manager/hr/employees/${id}/edit`)}>
+              <FilePenLine className="mr-1.5 h-4 w-4" />Chỉnh sửa thông tin
+            </Button>
             {canDeleteDraft && (
               <Button type="button" variant="danger" disabled={deleting} onClick={deleteDraft}><Trash2 className="mr-1.5 h-4 w-4" />Xóa bản nháp</Button>
             )}

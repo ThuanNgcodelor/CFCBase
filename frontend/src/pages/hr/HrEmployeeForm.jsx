@@ -202,7 +202,7 @@ export default function HrEmployeeForm() {
       const saved = isEdit
         ? await hrEmployeeApi.updateEmployee(id, payload)
         : await hrEmployeeApi.createEmployee(payload);
-      toast.success(isEdit ? 'Đã cập nhật hồ sơ nháp' : 'Đã tạo hồ sơ nháp');
+      toast.success(isEdit ? 'Đã cập nhật hồ sơ nhân sự thành công' : 'Đã tạo hồ sơ nháp thành công');
       navigate(`/manager/hr/employees/${saved?.id || id}`, { replace: true });
     } catch (requestError) {
       const message = apiErrorMessage(requestError, isEdit ? 'Không thể cập nhật hồ sơ.' : 'Không thể tạo hồ sơ.');
@@ -215,28 +215,20 @@ export default function HrEmployeeForm() {
 
   if (loading) return <HrLoading label="Đang tải biểu mẫu..." />;
   if (error && isEdit && !form.personal.fullName) return <HrError message={error} />;
-  if (isEdit && employeeStatus !== 'DRAFT') {
-    return (
-      <div className="max-w-3xl">
-        <HrError message="Chỉ hồ sơ nháp mới được chỉnh sửa trực tiếp. Hồ sơ chính thức cần thay đổi qua nghiệp vụ Tăng/Giảm để giữ lịch sử." />
-        <Button type="button" variant="secondary" className="mt-4" onClick={() => navigate(`/manager/hr/employees/${id}`)}>Quay lại chi tiết</Button>
-      </div>
-    );
-  }
 
   return (
     <HrPageShell size="standard">
       <SEOHead title={`CFC Base | ${isEdit ? 'Chỉnh sửa' : 'Thêm'} hồ sơ nhân sự`} />
       <HrPageHeader
-        title={isEdit ? 'Chỉnh sửa hồ sơ nháp' : 'Thêm hồ sơ nhân sự'}
-        description="Hồ sơ mới luôn được lưu ở trạng thái Hồ sơ nháp. Việc đưa vào danh sách chính thức sẽ được xử lý qua nghiệp vụ Tăng/Giảm."
+        title={isEdit ? `Chỉnh sửa hồ sơ: ${form.personal.fullName || 'Nhân sự'}` : 'Thêm hồ sơ nhân sự'}
+        description={isEdit ? 'Cập nhật thông tin cá nhân, định danh CCCD, bảo hiểm, địa chỉ liên hệ và công việc của nhân sự.' : 'Hồ sơ mới luôn được lưu ở trạng thái Hồ sơ nháp. Việc đưa vào danh sách chính thức sẽ được xử lý qua nghiệp vụ Tăng/Giảm.'}
         actions={<Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/manager/hr/employees/${id}` : '/manager/hr/employees')}><ArrowLeft className="mr-1.5 h-4 w-4" />Quay lại</Button>}
       />
 
       {isEdit && (
         <div className="mb-4">
           <HrReadOnlyNotice>
-            Form đang hiển thị đầy đủ dữ liệu hồ sơ nháp để Manager kiểm tra và chỉnh sửa. Field nhạy cảm để trống sẽ giữ nguyên dữ liệu cũ.
+            Form cho phép Manager cập nhật trực tiếp thông tin cá nhân, CMND/CCCD, bảo hiểm, địa chỉ và thông tin công việc. Các trường nhạy cảm nếu để trống sẽ giữ nguyên dữ liệu hiện tại.
           </HrReadOnlyNotice>
         </div>
       )}

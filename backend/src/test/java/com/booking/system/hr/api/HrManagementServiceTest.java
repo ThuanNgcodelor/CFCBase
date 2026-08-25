@@ -195,18 +195,16 @@ class HrManagementServiceTest {
     }
 
     @Test
-    void updateRejectsEmployeeOutsideDraftState() {
+    void updateAllowsActiveEmployeeProfileDetails() {
         employee.setEmploymentStatus(HrEmploymentStatus.ACTIVE);
         when(employeeRepository.findDetailById(employee.getId())).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByEmployeeCode("NV001")).thenReturn(Optional.of(employee));
 
-        assertThatThrownBy(() -> service.updateEmployee(
-                employee.getId(), updateRequest(employee.getRowVersion()), managerActor()))
-                .isInstanceOf(HrApiException.class)
-                .satisfies(error -> {
-                    HrApiException apiError = (HrApiException) error;
-                    assertThat(apiError.status().value()).isEqualTo(409);
-                    assertThat(apiError.code()).isEqualTo("EMPLOYEE_NOT_DRAFT");
-                });
+        HrApiDtos.EmployeeDetail result = service.updateEmployee(
+                employee.getId(), updateRequest(employee.getRowVersion()), managerActor());
+
+        assertThat(result.personal().fullName()).isEqualTo("Nguyễn Văn A cập nhật");
+        assertThat(result.contact().permanentAddress()).isEqualTo("Địa chỉ đang được bảo vệ");
     }
 
     @Test
