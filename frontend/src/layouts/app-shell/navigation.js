@@ -18,12 +18,11 @@ import {
 
 export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistrationCount = 0 }) {
   const primaryItems = isManager
-    ? [{ name: 'Thông báo', path: '/notifications', icon: Bell }]
+    ? []
     : [
         { name: 'Trang chủ', path: '/', icon: Home, exact: true },
         { name: 'Phòng họp', path: '/rooms', icon: CalendarRange },
         { name: 'Xe công tác', path: '/cars', icon: CarFront },
-        // { name: 'Thông báo', path: '/notifications', icon: Bell },
       ];
 
   const adminItems = [
@@ -48,9 +47,10 @@ export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistr
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
   ];
 
-  const sections = [
-    { label: isManager ? 'Hệ thống' : 'Điều phối', items: primaryItems },
-  ];
+  const sections = [];
+  if (primaryItems.length > 0) {
+    sections.push({ label: isManager ? 'Hệ thống' : 'Điều phối', items: primaryItems });
+  }
   if (adminItems.length > 0) sections.push({ label: 'Quản trị hệ thống', items: adminItems });
   if (isManager) sections.push({ label: 'Quản lý nhân sự', items: hrItems });
 
@@ -68,7 +68,7 @@ export function buildMobileNavigation({ isManager, primaryItems, adminItems, hrI
       ],
       moreSections: [
         { label: 'Vận hành nhân sự', items: hrItems.slice(3) },
-        { label: 'Hệ thống', items: primaryItems },
+        ...(adminItems.length > 0 ? [{ label: 'Quản trị hệ thống', items: adminItems }] : []),
       ],
     };
   }
