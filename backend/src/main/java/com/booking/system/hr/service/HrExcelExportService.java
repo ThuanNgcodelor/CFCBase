@@ -147,10 +147,12 @@ public class HrExcelExportService {
         HrEmployee employee = item.employee();
         HrEmployeeEmployment employment = employee == null ? null : employee.getEmployment();
         HrEmployeeIdentity identity = employee == null ? null : employee.getIdentity();
-        HrEmployeeContact contact = employee == null ? null : employee.getContact();
         LocalDate hireDate = firstDate(item.hireDate(), employment == null ? null : employment.getHireDate());
-        String address = contact == null ? "" : (contact.getPermanentAddress() != null && !contact.getPermanentAddress().isBlank() ? contact.getPermanentAddress() : contact.getCurrentAddress());
         String citizenId = identity == null ? "" : (identity.getCitizenIdentityNumber() != null && !identity.getCitizenIdentityNumber().isBlank() ? identity.getCitizenIdentityNumber() : identity.getLegacyIdentityNumber());
+        String contractType = employment == null || employment.getContractTypeLabel() == null || employment.getContractTypeLabel().isBlank()
+                ? "Không xác định"
+                : employment.getContractTypeLabel();
+        BigDecimal allowance = employment == null || employment.getAllowance() == null ? BigDecimal.ZERO : employment.getAllowance();
 
         return List.of(
                 number(order),                                                           // A: STT
@@ -159,20 +161,20 @@ public class HrExcelExportService {
                 text(genderLabel(employee == null ? null : employee.getGender())),       // D: Giới tính
                 date(employee == null ? null : employee.getDateOfBirth()),               // E: Ngày tháng năm sinh
                 text("Việt Nam"),                                                        // F: Quốc tịch
-                text(address),                                                           // G: Nơi cư trú
+                text(null),                                                              // G: Nơi cư trú (để trống như Sheet1 (3) gốc)
                 text(citizenId),                                                         // H: Số thẻ CCCD hoặc CMND hoặc hộ chiếu
                 text(employee == null ? null : employee.getEducationLevel()),            // I: Trình độ chuyên môn kỹ thuật
                 text(null),                                                              // J: Bậc trình độ kỹ năng nghề
-                text(item.positionName()),                                               // K: Vị trí làm việc
-                text(employment == null ? null : employment.getContractTypeLabel()),     // L: Loại hợp đồng lao động
+                text(null),                                                              // K: Vị trí làm việc (để trống như Sheet1 (3) gốc)
+                text(contractType),                                                      // L: Loại hợp đồng lao động
                 date(hireDate),                                                          // M: Thời điểm bắt đầu làm việc
                 date(hireDate),                                                          // N: Tham gia bảo hiểm - BHXH
                 date(hireDate),                                                          // O: Tham gia bảo hiểm - BHYT
                 date(hireDate),                                                          // P: Tham gia bảo hiểm - BHTN
                 decimal(employment == null ? null : employment.getBaseSalary()),         // Q: Tiền lương
-                decimal(employment == null ? null : employment.getAllowance()),          // R: Phụ cấp
+                decimal(allowance),                                                      // R: Phụ cấp (0 hiển thị '-')
                 text(null),                                                              // S: Nâng bậc, nâng lương
-                decimal(item.leaveDays()),                                               // T: Số ngày nghỉ trong năm
+                text(null),                                                              // T: Số ngày nghỉ trong năm (để trống)
                 text(null),                                                              // U: Số giờ làm thêm
                 text(null),                                                              // V: Hưởng chế độ BHXH, BHYT, BHTN
                 text(null),                                                              // W: Học nghề, đào tạo, bồi dưỡng
