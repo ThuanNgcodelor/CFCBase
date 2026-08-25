@@ -101,7 +101,7 @@ class HrPhase1MigrationTest {
             MigrateResult firstRun = flyway.migrate();
             MigrateResult secondRun = flyway.migrate();
 
-            assertThat(firstRun.migrationsExecuted).isEqualTo(8);
+            assertThat(firstRun.migrationsExecuted).isEqualTo(9);
             assertThat(secondRun.migrationsExecuted).isZero();
 
             for (String table : EXPECTED_TABLES) {
@@ -177,6 +177,84 @@ class HrPhase1MigrationTest {
                 assertThat(rows.next()).isTrue();
                 assertThat(rows.getInt(1)).isZero();
             }
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_departments (
+                        id, code, name, parent_id, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'dept-1', 'D1', 'Dept 1', 'dept-1', 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_employee_movements (
+                        id, employee_id, movement_type, status, effective_date, source_kind, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'mov-1', 'phase-1-emp-1', 'INVALID', 'DRAFT', '2026-06-01', 'MANUAL', 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_employee_employment (
+                        employee_id, base_salary, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'phase-1-emp-1', -1, 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_employee_insurance (
+                        employee_id, valid_from, valid_until, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'phase-1-emp-1', '2026-06-30', '2026-06-01', 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_monthly_rosters (
+                        id, period_start, total_active_employees, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'roster-1', '2026-06-15', 10, 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_employee_movements (
+                        id, employee_id, movement_type, status, effective_date, source_kind,
+                        confirmed_at, confirmed_by_actor, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'mov-lifecycle-1', 'phase-1-emp-1', 'TRANSFER', 'DRAFT', '2026-06-01', 'MANUAL',
+                        NOW(6), 'actor', 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_employee_movements (
+                        id, employee_id, movement_type, status, effective_date, source_kind,
+                        to_employee_status, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'mov-activation-1', 'phase-1-emp-1', 'INCREASE', 'DRAFT', '2026-06-01', 'MANUAL',
+                        'INACTIVE', 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO hr_employee_movements (
+                        id, employee_id, movement_type, status, effective_date, source_kind,
+                        from_employee_status, to_employee_status, created_by_actor, updated_by_actor
+                    ) VALUES (
+                        'mov-decrease-1', 'phase-1-emp-1', 'DECREASE', 'DRAFT', '2026-06-01', 'MANUAL',
+                        'INACTIVE', 'ACTIVE', 'test', 'test'
+                    )
+                    """))
+                    .isInstanceOf(SQLException.class);
         }
     }
 
@@ -189,7 +267,7 @@ class HrPhase1MigrationTest {
             statement.executeUpdate("INSERT INTO users (id, email) VALUES ('legacy-user', 'legacy@example.test')");
 
             MigrateResult result = flyway(connection, true).migrate();
-            assertThat(result.migrationsExecuted).isEqualTo(8);
+            assertThat(result.migrationsExecuted).isEqualTo(9);
 
             try (var rows = statement.executeQuery("SELECT id, email FROM users")) {
                 assertThat(rows.next()).isTrue();

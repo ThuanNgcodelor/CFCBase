@@ -1,6 +1,7 @@
 package com.booking.system.hr;
 
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
+import com.booking.system.hr.repository.HrEmployeeRepository;
 import com.booking.system.hr.service.HrExcelExportService;
 import com.booking.system.hr.service.HrRosterProjectionService;
 import org.junit.jupiter.api.Test;
@@ -18,9 +19,11 @@ import static org.mockito.Mockito.when;
 
 class HrExcelExportServiceTest {
 
+    private final HrEmployeeRepository employeeRepository = mock(HrEmployeeRepository.class);
     private final HrEmployeeMovementRepository movementRepository = mock(HrEmployeeMovementRepository.class);
     private final HrRosterProjectionService rosterProjectionService = mock(HrRosterProjectionService.class);
     private final HrExcelExportService service = new HrExcelExportService(
+            employeeRepository,
             movementRepository,
             rosterProjectionService
     );

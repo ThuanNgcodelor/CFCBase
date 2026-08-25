@@ -89,7 +89,7 @@
     "cccd": "092206004796",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "Xã Thới Hưng- TP Cần Thơ"
@@ -108,7 +108,7 @@
     "cccd": "086087012847",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4730000.0,
     "allowance": 0.0,
     "address": "Tân Lược, Vĩnh Long"
@@ -127,7 +127,7 @@
     "cccd": "092203005594",
     "education": "6135000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 6135000.0,
     "allowance": 0,
     "address": ""
@@ -146,7 +146,7 @@
     "cccd": "092093000993",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": ""
@@ -165,7 +165,7 @@
     "cccd": "089078027100",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "Long Xuyên- An Giang"
@@ -184,7 +184,7 @@
     "cccd": "089087004314",
     "education": "6198000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 6198000.0,
     "allowance": 0.0,
     "address": "Ba Khúc, An Giang"
@@ -203,7 +203,7 @@
     "cccd": "004091003281",
     "education": "4730000",
     "contract_type": "Tày",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": ""
@@ -222,7 +222,7 @@
     "cccd": "092096000440",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": ""
@@ -241,7 +241,7 @@
     "cccd": "092080005321",
     "education": "5739000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5739000.0,
     "allowance": 0.0,
     "address": "P. Ô Môn, Cần Thơ"
@@ -260,7 +260,7 @@
     "cccd": "092080005824",
     "education": "5061000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5061000.0,
     "allowance": 0.0,
     "address": "Cần Thơ"
@@ -279,7 +279,7 @@
     "cccd": "093072001642",
     "education": "5061000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5061000.0,
     "allowance": 0.0,
     "address": "Vị Thanh 1, TP Cần Thơ"
@@ -298,7 +298,7 @@
     "cccd": "092304001313",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "ẤP Thanh Lợi 1- Phường Trung Nhứt- Cần Thơ"
@@ -313,11 +313,11 @@
     "is_fired": false,
     "code": "C498",
     "gender": "MALE",
-    "dob": "01/01/1972",
+    "dob": "1972-01-01",
     "cccd": "092072003728",
     "education": "5739000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5739000.0,
     "allowance": 0.0,
     "address": "Thới An Đông, Cần Thơ"
@@ -336,7 +336,7 @@
     "cccd": "092070001186",
     "education": "7230000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 7230000.0,
     "allowance": 0.0,
     "address": "Thới An Đông, Cần Thơ"
@@ -355,7 +355,7 @@
     "cccd": "082084027185",
     "education": "5061000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5061000.0,
     "allowance": 0.0,
     "address": "Mỹ Chánh B, Hội Cư, Đồng Tháp"
@@ -374,7 +374,7 @@
     "cccd": "092086005960",
     "education": "5061000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5061000.0,
     "allowance": 0.0,
     "address": "Tân Long A, Xã Phong Điền, TP Cần Thơ"
@@ -412,7 +412,7 @@
     "cccd": "092087006701",
     "education": "6647000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 6647000.0,
     "allowance": 0.0,
     "address": ""
@@ -450,7 +450,7 @@
     "cccd": "092203004819",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "Thới Lai- Cần Thơ"
@@ -469,7 +469,7 @@
     "cccd": "092093003729",
     "education": "4730000",
     "contract_type": "1",
-    "hire_date": "Kinh",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "Phước Thới- TP Cần Thơ"
@@ -488,7 +488,7 @@
     "cccd": "092204001412",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "Phong Điền- TP Cần Thơ"
@@ -507,7 +507,7 @@
     "cccd": "091204003300",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4730000.0,
     "allowance": 0.0,
     "address": "Thạnh Hưng, An GIang"
@@ -526,7 +526,7 @@
     "cccd": "091081002826",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4730000.0,
     "allowance": 0.0,
     "address": "Thạnh Hưng, An GIang"
@@ -545,7 +545,7 @@
     "cccd": "092095006795",
     "education": "6579000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 6135000.0,
     "allowance": 0,
     "address": "Xã Thạnh Phú, TP Cần Thơ"
@@ -564,7 +564,7 @@
     "cccd": "040074000865",
     "education": "8873000",
     "contract_type": "Kinh",
-    "hire_date": "Lương",
+    "hire_date": "2024-01-01",
     "salary": 7454000.0,
     "allowance": 1419000.0,
     "address": "xã Giai Lạc, Nghệ An"
@@ -583,7 +583,7 @@
     "cccd": "092099004268",
     "education": "5061000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "Cái Khế- Cần Thơ"
@@ -602,7 +602,7 @@
     "cccd": "092197011285",
     "education": "5466000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5466000.0,
     "allowance": 0.0,
     "address": "Cần Thơ"
@@ -621,7 +621,7 @@
     "cccd": "052072013074",
     "education": "7780000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 7780000.0,
     "allowance": 0.0,
     "address": "Bình Định"
@@ -640,7 +640,7 @@
     "cccd": "091196000015",
     "education": "5739000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 5739000.0,
     "allowance": 0.0,
     "address": "Kiên Giang"
@@ -659,7 +659,7 @@
     "cccd": "092080005739",
     "education": "4730000",
     "contract_type": "Kinh",
-    "hire_date": "Không",
+    "hire_date": "2024-01-01",
     "salary": 4730000.0,
     "allowance": 0.0,
     "address": "Cần Thơ"
@@ -678,7 +678,7 @@
     "cccd": "040086016405",
     "education": "4730000",
     "contract_type": "1",
-    "hire_date": "Kinh",
+    "hire_date": "2024-01-01",
     "salary": 4730000.0,
     "allowance": 0.0,
     "address": "Nghệ An"
@@ -697,7 +697,7 @@
     "cccd": "092085002540",
     "education": "4730000",
     "contract_type": "1",
-    "hire_date": "Kinh",
+    "hire_date": "2024-01-01",
     "salary": 4410000.0,
     "allowance": 0,
     "address": "Cần Thơ"
@@ -716,7 +716,7 @@
     "cccd": "092070008622",
     "education": "4730000",
     "contract_type": "1",
-    "hire_date": "Kinh",
+    "hire_date": "2024-01-01",
     "salary": 4410000,
     "allowance": 0,
     "address": "Tân Thới, Phong Điền, Cần Thơ"
