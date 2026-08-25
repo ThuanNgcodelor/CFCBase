@@ -43,6 +43,7 @@ import java.util.zip.ZipOutputStream;
 public class HrExcelExportService {
 
     private static final String RESOURCE_TEMPLATE_PATH = "/hr/templates/workforce-export-template.xlsx";
+    private static final String LABOR_BOOK_RESOURCE_TEMPLATE_PATH = "/hr/templates/labor-book-template.xlsx";
     private static final List<Path> TEMPLATE_PATHS = List.of(
             Path.of("docs/hr-template/workforce-baseline-339-2026.xlsx"),
             Path.of("../docs/hr-template/workforce-baseline-339-2026.xlsx")
@@ -113,6 +114,72 @@ public class HrExcelExportService {
         }
 
         return new ExportFile("hr-nam-" + year + ".xlsx", zip(entries));
+    }
+
+    public ExportFile exportLaborBookMonth(int year, int month) {
+        LocalDate periodStart = periodStart(year, month);
+        List<HrRosterProjectionService.ProjectedRosterItem> rosterItems = rosterProjectionService.projectedItems(periodStart);
+        return generateLaborBookFile(rosterItems, "so-quan-ly-lao-dong-" + monthSheetName(periodStart) + ".xlsx");
+    }
+
+    public ExportFile exportLaborBookYear(int year) {
+        requireYear(year);
+        LocalDate periodStart = LocalDate.of(year, 12, 1);
+        List<HrRosterProjectionService.ProjectedRosterItem> rosterItems = rosterProjectionService.projectedItems(periodStart);
+        return generateLaborBookFile(rosterItems, "so-quan-ly-lao-dong-nam-" + year + ".xlsx");
+    }
+
+    private ExportFile generateLaborBookFile(List<HrRosterProjectionService.ProjectedRosterItem> rosterItems, String fileName) {
+        Map<String, byte[]> entries = templateEntries(LABOR_BOOK_RESOURCE_TEMPLATE_PATH);
+        String template = text(entries, "xl/worksheets/sheet1.xml");
+        List<List<CellValue>> rows = new ArrayList<>();
+        int order = 1;
+        for (HrRosterProjectionService.ProjectedRosterItem item : rosterItems) {
+            rows.add(laborBookRow(item, order++));
+        }
+        String sheetXml = rewriteSheetData(template, 7, 26, rows, "Z", false);
+        sheetXml = sheetXml.replaceFirst("<dimension ref=\\\"[^\\\"]+\\\"", "<dimension ref=\"A1:Z" + Math.max(6, rows.size() + 6) + "\"");
+        entries.put("xl/worksheets/sheet1.xml", sheetBytes(sheetXml));
+        return new ExportFile(fileName, zip(entries));
+    }
+
+    private List<CellValue> laborBookRow(HrRosterProjectionService.ProjectedRosterItem item, int order) {
+        HrEmployee employee = item.employee();
+        HrEmployeeEmployment employment = employee == null ? null : employee.getEmployment();
+        HrEmployeeIdentity identity = employee == null ? null : employee.getIdentity();
+        HrEmployeeContact contact = employee == null ? null : employee.getContact();
+        LocalDate hireDate = firstDate(item.hireDate(), employment == null ? null : employment.getHireDate());
+        String address = contact == null ? "" : (contact.getPermanentAddress() != null && !contact.getPermanentAddress().isBlank() ? contact.getPermanentAddress() : contact.getCurrentAddress());
+        String citizenId = identity == null ? "" : (identity.getCitizenIdentityNumber() != null && !identity.getCitizenIdentityNumber().isBlank() ? identity.getCitizenIdentityNumber() : identity.getLegacyIdentityNumber());
+
+        return List.of(
+                number(order),                                                           // A: STT
+                text(item.employeeCode()),                                               // B: M số
+                text(item.fullName()),                                                   // C: Họ và tên
+                text(genderLabel(employee == null ? null : employee.getGender())),       // D: Giới tính
+                date(employee == null ? null : employee.getDateOfBirth()),               // E: Ngày tháng năm sinh
+                text("Việt Nam"),                                                        // F: Quốc tịch
+                text(address),                                                           // G: Nơi cư trú
+                text(citizenId),                                                         // H: Số thẻ CCCD hoặc CMND hoặc hộ chiếu
+                text(employee == null ? null : employee.getEducationLevel()),            // I: Trình độ chuyên môn kỹ thuật
+                text(null),                                                              // J: Bậc trình độ kỹ năng nghề
+                text(item.positionName()),                                               // K: Vị trí làm việc
+                text(employment == null ? null : employment.getContractTypeLabel()),     // L: Loại hợp đồng lao động
+                date(hireDate),                                                          // M: Thời điểm bắt đầu làm việc
+                date(hireDate),                                                          // N: Tham gia bảo hiểm - BHXH
+                date(hireDate),                                                          // O: Tham gia bảo hiểm - BHYT
+                date(hireDate),                                                          // P: Tham gia bảo hiểm - BHTN
+                decimal(employment == null ? null : employment.getBaseSalary()),         // Q: Tiền lương
+                decimal(employment == null ? null : employment.getAllowance()),          // R: Phụ cấp
+                text(null),                                                              // S: Nâng bậc, nâng lương
+                decimal(item.leaveDays()),                                               // T: Số ngày nghỉ trong năm
+                text(null),                                                              // U: Số giờ làm thêm
+                text(null),                                                              // V: Hưởng chế độ BHXH, BHYT, BHTN
+                text(null),                                                              // W: Học nghề, đào tạo, bồi dưỡng
+                text(null),                                                              // X: Kỷ luật lao động
+                text(null),                                                              // Y: Tai nạn lao động
+                text(null)                                                               // Z: Thời điểm chấm dứt HĐLĐ và lý do
+        );
     }
 
     private List<HrEmployeeMovement> confirmedMovements(LocalDate from, LocalDate to) {
@@ -351,9 +418,16 @@ public class HrExcelExportService {
     }
 
     private Map<String, byte[]> templateEntries() {
-        byte[] template = readTemplateFromResources();
-        if (template == null) {
+        return templateEntries(RESOURCE_TEMPLATE_PATH);
+    }
+
+    private Map<String, byte[]> templateEntries(String resourcePath) {
+        byte[] template = readTemplateFromResources(resourcePath);
+        if (template == null && RESOURCE_TEMPLATE_PATH.equals(resourcePath)) {
             template = readTemplateFromLocalDocs();
+        }
+        if (template == null) {
+            throw new IllegalStateException("Không tìm thấy file mẫu Excel " + resourcePath);
         }
         Map<String, byte[]> entries = new LinkedHashMap<>();
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(template), StandardCharsets.UTF_8)) {
@@ -367,12 +441,16 @@ public class HrExcelExportService {
         return entries;
     }
 
-    private static byte[] readTemplateFromResources() {
-        try (InputStream input = HrExcelExportService.class.getResourceAsStream(RESOURCE_TEMPLATE_PATH)) {
+    private static byte[] readTemplateFromResources(String resourcePath) {
+        try (InputStream input = HrExcelExportService.class.getResourceAsStream(resourcePath)) {
             return input == null ? null : input.readAllBytes();
         } catch (IOException exception) {
-            throw new IllegalStateException("Không thể đọc file mẫu Excel HR trong backend resources.", exception);
+            throw new IllegalStateException("Không thể đọc file mẫu Excel HR trong backend resources: " + resourcePath, exception);
         }
+    }
+
+    private static byte[] readTemplateFromResources() {
+        return readTemplateFromResources(RESOURCE_TEMPLATE_PATH);
     }
 
     private static byte[] readTemplateFromLocalDocs() {

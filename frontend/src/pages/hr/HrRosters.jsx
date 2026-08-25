@@ -80,6 +80,40 @@ export default function HrRosters() {
     }
   };
 
+  const exportLaborBookYearFile = async () => {
+    if (!exportYear || exportYear < 2000 || exportYear > 2100) {
+      toast.error('Năm export không hợp lệ.');
+      return;
+    }
+    setExporting('labor-book-year');
+    try {
+      await hrActivityApi.exportLaborBookYear({ year: exportYear });
+      toast.success(`Đã tải Sổ Quản Lý Lao Động năm ${exportYear}.`);
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể export Sổ Quản Lý Lao Động năm.'));
+    } finally {
+      setExporting('');
+    }
+  };
+
+  const exportLaborBookMonthFile = async (roster, event) => {
+    event.stopPropagation();
+    const { year, month } = parsePeriod(roster.periodStart);
+    if (!year || !month) {
+      toast.error('Không thể xác định tháng export.');
+      return;
+    }
+    setExporting(`labor-book-${roster.id}`);
+    try {
+      await hrActivityApi.exportLaborBookMonth({ year, month });
+      toast.success(`Đã tải Sổ Quản Lý Lao Động ${formatPeriod(roster.periodStart)}.`);
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể export Sổ Quản Lý Lao Động tháng.'));
+    } finally {
+      setExporting('');
+    }
+  };
+
   const exportMonthFile = async (roster, event) => {
     event.stopPropagation();
     const { year, month } = parsePeriod(roster.periodStart);
@@ -122,6 +156,9 @@ export default function HrRosters() {
             />
             <Button type="button" size="sm" variant="secondary" disabled={exporting === 'year'} onClick={exportYearFile}>
               <Download className="mr-1.5 h-4 w-4" />Export năm
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={exporting === 'labor-book-year'} onClick={exportLaborBookYearFile} className="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100">
+              <Download className="mr-1.5 h-4 w-4" />Sổ QLLĐ năm
             </Button>
           </div>
         )}
@@ -168,6 +205,7 @@ export default function HrRosters() {
                   <div className="flex flex-nowrap items-center gap-2">
                     <Button type="button" size="sm" variant="secondary" onClick={() => openRosterDetail(roster)}><Eye className="mr-1.5 h-4 w-4" />Xem danh sách</Button>
                     <Button type="button" size="sm" variant="secondary" disabled={exporting === roster.id} onClick={(event) => exportMonthFile(roster, event)}><Download className="mr-1.5 h-4 w-4" />Export tháng</Button>
+                    <Button type="button" size="sm" variant="secondary" disabled={exporting === `labor-book-${roster.id}`} onClick={(event) => exportLaborBookMonthFile(roster, event)} className="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"><Download className="mr-1.5 h-4 w-4" />Sổ QLLĐ</Button>
                   </div>
                 </article>
               ))}
@@ -193,9 +231,10 @@ export default function HrRosters() {
                     <span className="text-base font-semibold text-emerald-700">{nonEmpty(roster.itemCount)} nhân sự</span>
                   </div>
                   <p className="mt-3 text-xs text-gray-400">Tính từ biến động có hiệu lực đến cuối tháng</p>
-                  <div className="mt-4 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
+                  <div className="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
                     <Button type="button" size="sm" variant="secondary" onClick={() => openRosterDetail(roster)}><Eye className="mr-1.5 h-4 w-4" />Danh sách</Button>
                     <Button type="button" size="sm" variant="secondary" disabled={exporting === roster.id} onClick={(event) => exportMonthFile(roster, event)}><Download className="mr-1.5 h-4 w-4" />Export</Button>
+                    <Button type="button" size="sm" variant="secondary" disabled={exporting === `labor-book-${roster.id}`} onClick={(event) => exportLaborBookMonthFile(roster, event)} className="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"><Download className="mr-1.5 h-4 w-4" />Sổ QLLĐ</Button>
                   </div>
                 </article>
               ))}

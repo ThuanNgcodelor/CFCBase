@@ -127,6 +127,19 @@ public class HrActivityController {
         return exportResponse(exportService.exportYear(year));
     }
 
+    @GetMapping("/exports/labor-book/month")
+    public ResponseEntity<byte[]> exportLaborBookMonth(
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        return exportResponse(exportService.exportLaborBookMonth(year, month));
+    }
+
+    @GetMapping("/exports/labor-book/year")
+    public ResponseEntity<byte[]> exportLaborBookYear(@RequestParam int year) {
+        return exportResponse(exportService.exportLaborBookYear(year));
+    }
+
     private static ResponseEntity<byte[]> exportResponse(HrExcelExportService.ExportFile file) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(

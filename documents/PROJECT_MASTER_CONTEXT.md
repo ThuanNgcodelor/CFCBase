@@ -394,8 +394,10 @@ function syncFromCFCBase(options) {
 | **HR** | `POST` | `/api/v1/hr/probation/candidates/{id}/contracts` | `MANAGER`, `ADMIN` | Sinh hợp đồng thử việc DOCX |
 | **HR** | `GET` | `/api/v1/hr/probation/contracts/{id}/download` | `MANAGER`, `ADMIN` | Tải file Word HĐTV DOCX |
 | **Sync** | `GET` | `/api/v1/hr/sync/leave-roster` | `MANAGER`, `ADMIN` | API đồng bộ Google Apps Script |
-| **Export**| `GET` | `/api/v1/hr/exports/month` | `MANAGER`, `ADMIN` | Xuất Excel báo cáo tháng |
-| **Export**| `GET` | `/api/v1/hr/exports/year` | `MANAGER`, `ADMIN` | Xuất Excel báo cáo năm |
+| **Export**| `GET` | `/api/v1/hr/exports/month` | `MANAGER`, `ADMIN` | Xuất Excel báo cáo quân số tháng (34 cột) |
+| **Export**| `GET` | `/api/v1/hr/exports/year` | `MANAGER`, `ADMIN` | Xuất Excel báo cáo quân số năm (14 sheets) |
+| **Export**| `GET` | `/api/v1/hr/exports/labor-book/month` | `MANAGER`, `ADMIN` | Xuất Sổ Quản Lý Lao Động theo tháng (26 cột chuẩn Sheet1 (3)) |
+| **Export**| `GET` | `/api/v1/hr/exports/labor-book/year` | `MANAGER`, `ADMIN` | Xuất Sổ Quản Lý Lao Động năm (26 cột chuẩn Sheet1 (3)) |
 
 ---
 

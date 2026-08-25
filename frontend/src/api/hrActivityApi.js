@@ -152,4 +152,12 @@ export const hrActivityApi = {
   exportYear: async ({ year }) => {
     await downloadExport('/hr/exports/year', { year }, `hr-nam-${year}.xlsx`);
   },
+
+  exportLaborBookMonth: async ({ year, month }) => {
+    await downloadExport('/hr/exports/labor-book/month', { year, month }, `so-quan-ly-lao-dong-T${month}-${String(year).slice(-2)}.xlsx`);
+  },
+
+  exportLaborBookYear: async ({ year }) => {
+    await downloadExport('/hr/exports/labor-book/year', { year }, `so-quan-ly-lao-dong-nam-${year}.xlsx`);
+  },
 };
