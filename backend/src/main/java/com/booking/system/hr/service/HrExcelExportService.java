@@ -144,12 +144,8 @@ public class HrExcelExportService {
         List<List<CellValue>> rows = new ArrayList<>();
         int order = 1;
         for (HrEmployee employee : allEmployees) {
-            HrEmployeeEmployment employment = employee.getEmployment();
-            LocalDate termDate = employment == null ? null : employment.getTerminationDate();
-            if (employee.getEmploymentStatus() == HrEmploymentStatus.ACTIVE || (termDate != null && termDate.getYear() == year) || terminationMovements.containsKey(employee.getId())) {
-                HrEmployeeMovement termMov = terminationMovements.get(employee.getId());
-                rows.add(laborBookEmployeeRow(employee, termMov, order++));
-            }
+            HrEmployeeMovement termMov = terminationMovements.get(employee.getId());
+            rows.add(laborBookEmployeeRow(employee, termMov, order++));
         }
 
         Map<String, byte[]> entries = templateEntries(LABOR_BOOK_RESOURCE_TEMPLATE_PATH);
