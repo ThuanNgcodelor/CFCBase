@@ -270,11 +270,9 @@ export default function HrEmployees() {
                 <td className="whitespace-nowrap px-5 py-4"><HrStatusBadge status={employee.employmentStatus || employee.status} label={employmentStatusLabel(employee.employmentStatus || employee.status)} /></td>
                 <td className="px-5 py-4 text-right">
                   <div className="flex justify-end gap-2">
-                    {(employee.employmentStatus || employee.status) === 'DRAFT' && (
-                      <Button type="button" size="sm" onClick={() => navigate(`/manager/hr/employees/${employee.id}/edit`)}>
-                        <PencilLine className="mr-1.5 h-4 w-4" />Sửa nháp
-                      </Button>
-                    )}
+                    <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/manager/hr/employees/${employee.id}/edit`)}>
+                      <PencilLine className="mr-1.5 h-4 w-4" />Sửa
+                    </Button>
                     <Button type="button" size="sm" variant="secondary" onClick={() => navigate(`/manager/hr/employees/${employee.id}`)}>
                       <Eye className="mr-1.5 h-4 w-4" />Chi tiết
                     </Button>
