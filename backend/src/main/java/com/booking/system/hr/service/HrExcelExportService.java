@@ -9,9 +9,11 @@ import com.booking.system.hr.entity.HrEmployeeIdentity;
 import com.booking.system.hr.entity.HrEmployeeInsurance;
 import com.booking.system.hr.entity.HrEmployeeMovement;
 import com.booking.system.hr.enums.HrEmployeeGender;
+import com.booking.system.hr.enums.HrEmploymentStatus;
 import com.booking.system.hr.enums.HrMovementStatus;
 import com.booking.system.hr.enums.HrMovementType;
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
+import com.booking.system.hr.repository.HrEmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -58,6 +62,7 @@ public class HrExcelExportService {
     private static final Pattern CELL_STYLE_PATTERN = Pattern.compile("\\bs=\\\"([^\\\"]+)\\\"");
     private static final LocalDate EXCEL_EPOCH = LocalDate.of(1899, 12, 30);
 
+    private final HrEmployeeRepository employeeRepository;
     private final HrEmployeeMovementRepository movementRepository;
     private final HrRosterProjectionService rosterProjectionService;
 
@@ -124,9 +129,93 @@ public class HrExcelExportService {
 
     public ExportFile exportLaborBookYear(int year) {
         requireYear(year);
-        LocalDate periodStart = LocalDate.of(year, 12, 1);
-        List<HrRosterProjectionService.ProjectedRosterItem> rosterItems = rosterProjectionService.projectedItems(periodStart);
-        return generateLaborBookFile(rosterItems, "so-quan-ly-lao-dong-nam-" + year + ".xlsx");
+        List<HrEmployee> allEmployees = employeeRepository.findAllDetails();
+        LocalDate yearStart = LocalDate.of(year, 1, 1);
+        LocalDate yearEnd = LocalDate.of(year, 12, 31);
+        List<HrEmployeeMovement> movements = movementRepository.findConfirmedForExport(
+                HrMovementStatus.CONFIRMED,
+                List.of(HrMovementType.DECREASE, HrMovementType.TERMINATE),
+                yearStart,
+                yearEnd
+        );
+        Map<String, HrEmployeeMovement> terminationMovements = movements.stream()
+                .collect(Collectors.toMap(m -> m.getEmployee().getId(), m -> m, (existing, replace) -> replace));
+
+        List<List<CellValue>> rows = new ArrayList<>();
+        int order = 1;
+        for (HrEmployee employee : allEmployees) {
+            HrEmployeeEmployment employment = employee.getEmployment();
+            LocalDate termDate = employment == null ? null : employment.getTerminationDate();
+            if (employee.getEmploymentStatus() == HrEmploymentStatus.ACTIVE || (termDate != null && termDate.getYear() == year) || terminationMovements.containsKey(employee.getId())) {
+                HrEmployeeMovement termMov = terminationMovements.get(employee.getId());
+                rows.add(laborBookEmployeeRow(employee, termMov, order++));
+            }
+        }
+
+        Map<String, byte[]> entries = templateEntries(LABOR_BOOK_RESOURCE_TEMPLATE_PATH);
+        String template = text(entries, "xl/worksheets/sheet1.xml");
+        String sheetXml = rewriteSheetData(template, 7, 26, rows, "Z", false);
+        sheetXml = sheetXml.replaceFirst("<dimension ref=\\\"[^\\\"]+\\\"", "<dimension ref=\"A1:Z" + Math.max(6, rows.size() + 6) + "\"");
+        entries.put("xl/worksheets/sheet1.xml", sheetBytes(sheetXml));
+        return new ExportFile("so-quan-ly-lao-dong-nam-" + year + ".xlsx", zip(entries));
+    }
+
+    private List<CellValue> laborBookEmployeeRow(HrEmployee employee, HrEmployeeMovement termMov, int order) {
+        HrEmployeeEmployment employment = employee == null ? null : employee.getEmployment();
+        HrEmployeeIdentity identity = employee == null ? null : employee.getIdentity();
+        HrEmployeeContact contact = employee == null ? null : employee.getContact();
+        LocalDate hireDate = employment == null ? null : employment.getHireDate();
+        String address = contact == null ? "" : (contact.getPermanentAddress() != null && !contact.getPermanentAddress().isBlank() ? contact.getPermanentAddress() : contact.getCurrentAddress());
+        String citizenId = identity == null ? "" : (identity.getCitizenIdentityNumber() != null && !identity.getCitizenIdentityNumber().isBlank() ? identity.getCitizenIdentityNumber() : identity.getLegacyIdentityNumber());
+        String positionName = employment == null || employment.getPosition() == null ? "" : employment.getPosition().getName();
+        String contractType = employment == null || employment.getContractTypeLabel() == null || employment.getContractTypeLabel().isBlank()
+                ? "Không xác định"
+                : employment.getContractTypeLabel();
+        BigDecimal allowance = employment == null || employment.getAllowance() == null ? BigDecimal.ZERO : employment.getAllowance();
+
+        String terminationText = null;
+        if (employee != null && (employee.getEmploymentStatus() == HrEmploymentStatus.INACTIVE || employee.getEmploymentStatus() == HrEmploymentStatus.TERMINATED || termMov != null)) {
+            LocalDate decDate = termMov != null && termMov.getDecisionDate() != null ? termMov.getDecisionDate() : (termMov != null && termMov.getEffectiveDate() != null ? termMov.getEffectiveDate() : (employment == null ? null : employment.getTerminationDate()));
+            String decNo = termMov != null && termMov.getDecisionNumber() != null && !termMov.getDecisionNumber().isBlank() ? "QĐ " + termMov.getDecisionNumber() : "";
+            String reason = termMov != null && termMov.getReason() != null && !termMov.getReason().isBlank() ? termMov.getReason() : (employee.getEmploymentStatus() == HrEmploymentStatus.TERMINATED ? "Kỷ luật sa thải" : "Thôi việc theo nguyện vọng");
+            String dateStr = decDate != null ? decDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
+            if (!dateStr.isBlank() && !decNo.isBlank()) {
+                terminationText = dateStr + " - " + decNo + " (" + reason + ")";
+            } else if (!dateStr.isBlank()) {
+                terminationText = dateStr + " (" + reason + ")";
+            } else {
+                terminationText = reason;
+            }
+        }
+
+        return List.of(
+                number(order),                                                           // A: STT
+                text(employee == null ? "" : employee.getEmployeeCode()),               // B: M số
+                text(employee == null ? "" : employee.getFullName()),                   // C: Họ và tên
+                text(genderLabel(employee == null ? null : employee.getGender())),       // D: Giới tính
+                date(employee == null ? null : employee.getDateOfBirth()),               // E: Ngày tháng năm sinh
+                text("Việt Nam"),                                                        // F: Quốc tịch
+                text(address),                                                           // G: Nơi cư trú
+                text(citizenId),                                                         // H: Số thẻ CCCD hoặc CMND hoặc hộ chiếu
+                text(employee == null ? null : employee.getEducationLevel()),            // I: Trình độ chuyên môn kỹ thuật
+                text(null),                                                              // J: Bậc trình độ kỹ năng nghề
+                text(positionName),                                                      // K: Vị trí làm việc
+                text(contractType),                                                      // L: Loại hợp đồng lao động
+                date(hireDate),                                                          // M: Thời điểm bắt đầu làm việc
+                date(hireDate),                                                          // N: Tham gia bảo hiểm - BHXH
+                date(hireDate),                                                          // O: Tham gia bảo hiểm - BHYT
+                date(hireDate),                                                          // P: Tham gia bảo hiểm - BHTN
+                decimal(employment == null ? null : employment.getBaseSalary()),         // Q: Tiền lương
+                decimal(allowance),                                                      // R: Phụ cấp (0 hiển thị '-')
+                text(null),                                                              // S: Nâng bậc, nâng lương
+                decimal(null),                                                           // T: Số ngày nghỉ trong năm
+                text(null),                                                              // U: Số giờ làm thêm
+                text(null),                                                              // V: Hưởng chế độ BHXH, BHYT, BHTN
+                text(null),                                                              // W: Học nghề, đào tạo, bồi dưỡng
+                text(null),                                                              // X: Kỷ luật lao động
+                text(null),                                                              // Y: Tai nạn lao động
+                text(terminationText)                                                    // Z: Thời điểm chấm dứt HĐLĐ và lý do
+        );
     }
 
     private ExportFile generateLaborBookFile(List<HrRosterProjectionService.ProjectedRosterItem> rosterItems, String fileName) {

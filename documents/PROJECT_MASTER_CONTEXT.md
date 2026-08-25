@@ -62,7 +62,7 @@ flowchart TB
     subgraph DataLayer ["Data & Persistence Layer"]
         MySQL[("MySQL 8.0 (booking_db) - 34 Tables")]
         Redis[("Redis 7.0 (booking_redis) - Session & Token Cache")]
-        Flyway["Flyway Migration Engine (V1..V8)"]
+        Flyway["Flyway Migration Engine (V1..V9)"]
     end
 
     Browser -->|HTTPS / WSS| CFTunnel
