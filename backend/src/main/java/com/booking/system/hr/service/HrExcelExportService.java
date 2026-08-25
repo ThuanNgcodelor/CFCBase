@@ -134,7 +134,7 @@ public class HrExcelExportService {
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
         List<HrEmployeeMovement> movements = movementRepository.findConfirmedForExport(
                 HrMovementStatus.CONFIRMED,
-                List.of(HrMovementType.DECREASE, HrMovementType.TERMINATE),
+                List.of(HrMovementType.DECREASE),
                 yearStart,
                 yearEnd
         );
@@ -174,10 +174,10 @@ public class HrExcelExportService {
         BigDecimal allowance = employment == null || employment.getAllowance() == null ? BigDecimal.ZERO : employment.getAllowance();
 
         String terminationText = null;
-        if (employee != null && (employee.getEmploymentStatus() == HrEmploymentStatus.INACTIVE || employee.getEmploymentStatus() == HrEmploymentStatus.TERMINATED || termMov != null)) {
+        if (employee != null && (employee.getEmploymentStatus() == HrEmploymentStatus.INACTIVE || termMov != null || (employment != null && employment.getTerminationDate() != null))) {
             LocalDate decDate = termMov != null && termMov.getDecisionDate() != null ? termMov.getDecisionDate() : (termMov != null && termMov.getEffectiveDate() != null ? termMov.getEffectiveDate() : (employment == null ? null : employment.getTerminationDate()));
             String decNo = termMov != null && termMov.getDecisionNumber() != null && !termMov.getDecisionNumber().isBlank() ? "QĐ " + termMov.getDecisionNumber() : "";
-            String reason = termMov != null && termMov.getReason() != null && !termMov.getReason().isBlank() ? termMov.getReason() : (employee.getEmploymentStatus() == HrEmploymentStatus.TERMINATED ? "Kỷ luật sa thải" : "Thôi việc theo nguyện vọng");
+            String reason = termMov != null && termMov.getReason() != null && !termMov.getReason().isBlank() ? termMov.getReason() : "Thôi việc theo nguyện vọng";
             String dateStr = decDate != null ? decDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
             if (!dateStr.isBlank() && !decNo.isBlank()) {
                 terminationText = dateStr + " - " + decNo + " (" + reason + ")";
