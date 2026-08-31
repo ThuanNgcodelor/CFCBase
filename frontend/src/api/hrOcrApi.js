@@ -18,12 +18,13 @@ export const hrOcrApi = {
       formData.append('files', file);
     });
 
+    const { headers = {}, ...restOptions } = options;
     const response = await baseApi.post('/hr/ocr/extract-profile', formData, {
+      timeout: 120000,
       headers: {
-        'Content-Type': 'multipart/form-data',
+        ...headers,
       },
-      timeout: 60000,
-      ...options,
+      ...restOptions,
     });
     return unwrapApiData(response);
   },
