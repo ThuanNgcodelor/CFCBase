@@ -153,11 +153,13 @@ public class HrOcrService {
                 if (file.isEmpty()) continue;
                 String mimeType = file.getContentType() != null ? file.getContentType() : "image/jpeg";
                 String base64Data = Base64.getEncoder().encodeToString(file.getBytes());
-                parts.add(Map.of("inlineData", Map.of("mimeType", mimeType, "data", base64Data)));
+                parts.add(Map.of("inline_data", Map.of("mime_type", mimeType, "data", base64Data)));
             }
 
-            Map<String, Object> contents = Map.of("contents", List.of(Map.of("parts", parts)),
-                    "generationConfig", Map.of("temperature", 0.1, "responseMimeType", "application/json"));
+            Map<String, Object> contents = Map.of(
+                    "contents", List.of(Map.of("parts", parts)),
+                    "generationConfig", Map.of("temperature", 0.1, "response_mime_type", "application/json")
+            );
 
             String requestBody = objectMapper.writeValueAsString(contents);
 
