@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Camera, Save } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice } from '../../components/hr/HrUi';
+import HrOcrModal from '../../components/hr/HrOcrModal';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { apiErrorMessage } from '../../utils/hr';
@@ -128,6 +129,48 @@ export default function HrEmployeeForm() {
   const [error, setError] = useState('');
   const [catalogError, setCatalogError] = useState('');
   const [catalogReloadKey, setCatalogReloadKey] = useState(0);
+  const [showOcrModal, setShowOcrModal] = useState(false);
+
+  const handleApplyOcrData = (data) => {
+    if (!data) return;
+    setForm((prev) => ({
+      ...prev,
+      personal: {
+        ...prev.personal,
+        fullName: data.fullName || prev.personal.fullName,
+        gender: data.gender || prev.personal.gender,
+        dateOfBirth: data.dateOfBirth || prev.personal.dateOfBirth,
+        ethnicity: data.ethnicity || prev.personal.ethnicity,
+        religion: data.religion || prev.personal.religion,
+        birthPlaceOriginal: data.birthPlaceOriginal || prev.personal.birthPlaceOriginal,
+        birthPlaceCurrent: data.birthPlaceCurrent || data.birthPlaceOriginal || prev.personal.birthPlaceCurrent,
+        educationLevel: data.educationLevel || prev.personal.educationLevel,
+        major: data.major || prev.personal.major,
+      },
+      identity: {
+        ...prev.identity,
+        legacyIdentityNumber: data.legacyIdentityNumber || prev.identity.legacyIdentityNumber,
+        citizenIdentityNumber: data.citizenIdentityNumber || prev.identity.citizenIdentityNumber,
+        issuedDate: data.issuedDate || prev.identity.issuedDate,
+        issuedPlace: data.issuedPlace || prev.identity.issuedPlace,
+      },
+      insurance: {
+        ...prev.insurance,
+        socialInsuranceNumber: data.socialInsuranceNumber || prev.insurance.socialInsuranceNumber,
+        healthInsuranceNumber: data.healthInsuranceNumber || prev.insurance.healthInsuranceNumber,
+      },
+      contact: {
+        ...prev.contact,
+        phone: data.phone || prev.contact.phone,
+        personalEmail: data.personalEmail || prev.contact.personalEmail,
+        permanentAddress: data.permanentAddress || prev.contact.permanentAddress,
+        currentAddress: data.currentAddress || data.permanentAddress || prev.contact.currentAddress,
+        emergencyContactName: data.emergencyContactName || prev.contact.emergencyContactName,
+        emergencyContactPhone: data.emergencyContactPhone || prev.contact.emergencyContactPhone,
+        emergencyContactRelation: data.emergencyContactRelation || prev.contact.emergencyContactRelation,
+      },
+    }));
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -222,7 +265,28 @@ export default function HrEmployeeForm() {
       <HrPageHeader
         title={isEdit ? `Chỉnh sửa hồ sơ: ${form.personal.fullName || 'Nhân sự'}` : 'Thêm hồ sơ nhân sự'}
         description={isEdit ? 'Cập nhật thông tin cá nhân, định danh CCCD, bảo hiểm, địa chỉ liên hệ và công việc của nhân sự.' : 'Hồ sơ mới luôn được lưu ở trạng thái Hồ sơ nháp. Việc đưa vào danh sách chính thức sẽ được xử lý qua nghiệp vụ Tăng/Giảm.'}
-        actions={<Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/manager/hr/employees/${id}` : '/manager/hr/employees')}><ArrowLeft className="mr-1.5 h-4 w-4" />Quay lại</Button>}
+        actions={(
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowOcrModal(true)}
+              className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold"
+            >
+              <Camera className="mr-1.5 h-4 w-4 text-emerald-600" />
+              Quét ảnh hồ sơ (AI OCR)
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate(isEdit ? `/manager/hr/employees/${id}` : '/manager/hr/employees')}>
+              <ArrowLeft className="mr-1.5 h-4 w-4" />Quay lại
+            </Button>
+          </div>
+        )}
+      />
+
+      <HrOcrModal
+        isOpen={showOcrModal}
+        onClose={() => setShowOcrModal(false)}
+        onApply={handleApplyOcrData}
       />
 
       {isEdit && (

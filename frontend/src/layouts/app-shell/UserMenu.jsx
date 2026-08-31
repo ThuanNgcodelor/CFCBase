@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, LogOut, UserRound } from 'lucide-react';
+import { Bot, ChevronDown, LogOut, UserRound } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
+import HrOcrSettingsModal from '../../components/hr/HrOcrSettingsModal';
 
 const ROLE_LABELS = {
   ADMIN: 'Quản trị hệ thống',
@@ -19,6 +20,7 @@ function getUserMeta(user) {
 
 export function UserMenu({ user, navigate, onLogout, mobile = false, dark = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showOcrSettings, setShowOcrSettings] = useState(false);
   const menuRef = useRef(null);
   const displayName = user.fullName || user.email || 'Người dùng';
   const meta = getUserMeta(user);
@@ -58,7 +60,7 @@ export function UserMenu({ user, navigate, onLogout, mobile = false, dark = fals
             <p className="truncate text-sm font-bold text-[var(--cfc-ink)]">{displayName}</p>
             <p className="mt-0.5 truncate text-xs text-[var(--cfc-muted)]">{user.email || meta}</p>
           </div>
-          <div className="p-2">
+          <div className="p-2 space-y-0.5">
             <button
               type="button"
               onClick={() => {
@@ -70,6 +72,19 @@ export function UserMenu({ user, navigate, onLogout, mobile = false, dark = fals
               <UserRound className="h-5 w-5 text-[var(--cfc-muted)]" />
               Hồ sơ cá nhân
             </button>
+            {(user.role === 'ADMIN' || user.role === 'MANAGER') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowOcrSettings(true);
+                }}
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-[var(--cfc-ink)] hover:bg-slate-100"
+              >
+                <Bot className="h-5 w-5 text-emerald-600" />
+                Cài đặt AI (OCR)
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -84,6 +99,11 @@ export function UserMenu({ user, navigate, onLogout, mobile = false, dark = fals
           </div>
         </div>
       )}
+
+      <HrOcrSettingsModal
+        isOpen={showOcrSettings}
+        onClose={() => setShowOcrSettings(false)}
+      />
     </div>
   );
 }
