@@ -238,15 +238,41 @@ public class HrWorkforceService {
                     "Chỉ biến động nháp mới có thể được xác nhận.");
         }
         requireVersion(movement.getRowVersion(), rowVersion, "Biến động đã được cập nhật ở nơi khác.");
-        if (movement.getEffectiveDate().isAfter(today())) {
-            throw HrApiException.badRequest("MOVEMENT_EFFECTIVE_DATE_IN_FUTURE",
-                    "Chưa thể xác nhận biến động trước ngày hiệu lực.");
-        }
 
         if (movement.getCorrectionOfMovement() != null) {
             return confirmAdjustmentMovement(movement, actor);
         }
         return confirmStandardMovement(movement, actor);
+    }
+
+    @Transactional
+    public List<HrMovementResponse> bulkConfirmMovements(List<String> movementIds, HrImportActor actor) {
+        if (movementIds == null || movementIds.isEmpty()) {
+            throw HrApiException.badRequest("BULK_MOVEMENT_EMPTY", "Danh sách biến động không được rỗng.");
+        }
+        List<HrMovementResponse> responses = new ArrayList<>();
+        for (String id : movementIds) {
+            HrEmployeeMovement movement = lockedMovement(id);
+            if (movement.getStatus() == HrMovementStatus.DRAFT) {
+                responses.add(confirmMovement(id, movement.getRowVersion(), actor));
+            }
+        }
+        return responses;
+    }
+
+    @Transactional
+    public List<HrMovementResponse> bulkCancelMovements(List<String> movementIds, HrImportActor actor) {
+        if (movementIds == null || movementIds.isEmpty()) {
+            throw HrApiException.badRequest("BULK_MOVEMENT_EMPTY", "Danh sách biến động không được rỗng.");
+        }
+        List<HrMovementResponse> responses = new ArrayList<>();
+        for (String id : movementIds) {
+            HrEmployeeMovement movement = lockedMovement(id);
+            if (movement.getStatus() == HrMovementStatus.DRAFT) {
+                responses.add(cancelMovement(id, movement.getRowVersion(), actor));
+            }
+        }
+        return responses;
     }
 
     private HrMovementResponse confirmStandardMovement(HrEmployeeMovement movement, HrImportActor actor) {

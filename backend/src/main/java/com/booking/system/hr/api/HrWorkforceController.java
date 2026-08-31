@@ -2,6 +2,7 @@ package com.booking.system.hr.api;
 
 import com.booking.system.dto.ApiResponse;
 import com.booking.system.entity.User;
+import com.booking.system.hr.api.dto.HrBulkMovementRequest;
 import com.booking.system.hr.api.dto.HrMovementAdjustmentRequest;
 import com.booking.system.hr.api.dto.HrMovementCreateRequest;
 import com.booking.system.hr.api.dto.HrLeaveEntitlementResponse;
@@ -14,6 +15,7 @@ import com.booking.system.hr.api.dto.HrVersionRequest;
 import com.booking.system.hr.service.HrLeaveEntitlementService;
 import com.booking.system.hr.service.HrWorkforceService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -85,6 +87,28 @@ public class HrWorkforceController {
                 workforceService.cancelMovement(
                         movementId, request.rowVersion(), actorResolver.fromPrincipal(principal)),
                 "Hủy biến động nhân sự nháp thành công"));
+    }
+
+    @PostMapping("/movements/bulk-confirm")
+    public ResponseEntity<ApiResponse<List<HrMovementResponse>>> bulkConfirmMovements(
+            @AuthenticationPrincipal User principal,
+            @Valid @RequestBody HrBulkMovementRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                workforceService.bulkConfirmMovements(
+                        request.movementIds(), actorResolver.fromPrincipal(principal)),
+                "Xác nhận hàng loạt biến động thành công"));
+    }
+
+    @PostMapping("/movements/bulk-cancel")
+    public ResponseEntity<ApiResponse<List<HrMovementResponse>>> bulkCancelMovements(
+            @AuthenticationPrincipal User principal,
+            @Valid @RequestBody HrBulkMovementRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                workforceService.bulkCancelMovements(
+                        request.movementIds(), actorResolver.fromPrincipal(principal)),
+                "Hủy hàng loạt biến động nháp thành công"));
     }
 
     @DeleteMapping("/movements/{movementId}")

@@ -8,6 +8,7 @@ import com.booking.system.hr.api.dto.HrMovementCreateRequest;
 import com.booking.system.hr.entity.HrEmployee;
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrEmploymentStatus;
+import com.booking.system.hr.enums.HrMovementStatus;
 import com.booking.system.hr.enums.HrMovementType;
 import com.booking.system.hr.enums.HrRosterStatus;
 import com.booking.system.hr.importer.HrBaselineImportContract;
@@ -373,15 +374,11 @@ class HrPhase5WorkforceServiceTest {
                 null, null, null, "phase5-future"
         ), MANAGER);
 
-        assertThatThrownBy(() -> workforceService.confirmMovement(draft.id(), draft.rowVersion(), MANAGER))
-                .isInstanceOf(HrApiException.class)
-                .extracting(error -> ((HrApiException) error).code())
-                .isEqualTo("MOVEMENT_EFFECTIVE_DATE_IN_FUTURE");
+        var confirmed = workforceService.confirmMovement(draft.id(), draft.rowVersion(), MANAGER);
+        assertThat(confirmed.status()).isEqualTo(HrMovementStatus.CONFIRMED);
 
-        assertThatThrownBy(() -> workforceService.cancelMovement(draft.id(), draft.rowVersion() + 1, MANAGER))
-                .isInstanceOf(HrApiException.class)
-                .extracting(error -> ((HrApiException) error).code())
-                .isEqualTo("STALE_HR_VERSION");
+        var employeeAfter = employeeRepository.findById(employee.getId()).orElseThrow();
+        assertThat(employeeAfter.getEmploymentStatus()).isEqualTo(HrEmploymentStatus.ACTIVE);
     }
 
     private static String sha256(byte[] value) {

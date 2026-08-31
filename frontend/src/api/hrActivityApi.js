@@ -67,8 +67,18 @@ export const hrActivityApi = {
     return unwrapApiData(response);
   },
 
+  bulkConfirmMovements: async (movementIds) => {
+    const response = await baseApi.post('/hr/movements/bulk-confirm', { movementIds });
+    return unwrapApiData(response);
+  },
+
   cancelMovement: async (id, rowVersion) => {
     const response = await baseApi.post(`/hr/movements/${id}/cancel`, { rowVersion });
+    return unwrapApiData(response);
+  },
+
+  bulkCancelMovements: async (movementIds) => {
+    const response = await baseApi.post('/hr/movements/bulk-cancel', { movementIds });
     return unwrapApiData(response);
   },
 

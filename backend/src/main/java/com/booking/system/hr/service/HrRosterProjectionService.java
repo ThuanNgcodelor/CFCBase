@@ -67,6 +67,13 @@ public class HrRosterProjectionService {
 
         LocalDate firstPeriod = baseline.get().getPeriodStart();
         LocalDate lastPeriod = currentPeriod();
+        List<HrEmployeeMovement> timeline = confirmedProjectionMovements();
+        for (HrEmployeeMovement movement : timeline) {
+            LocalDate movementPeriod = movement.getEffectiveDate().withDayOfMonth(1);
+            if (movementPeriod.isAfter(lastPeriod)) {
+                lastPeriod = movementPeriod;
+            }
+        }
         if (lastPeriod.isBefore(firstPeriod)) {
             lastPeriod = firstPeriod;
         }
@@ -77,7 +84,6 @@ public class HrRosterProjectionService {
         int fromIndex = Math.min(safePage * safeSize, periods.size());
         int toIndex = Math.min(fromIndex + safeSize, periods.size());
         Map<LocalDate, HrMonthlyRoster> storedRosters = storedRosters(firstPeriod, lastPeriod);
-        List<HrEmployeeMovement> timeline = confirmedProjectionMovements();
         List<HrRosterResponse> content = periods.subList(fromIndex, toIndex).stream()
                 .map(period -> rosterResponse(period, storedRosters.get(period), baseline.get(), timeline))
                 .toList();
@@ -205,8 +211,7 @@ public class HrRosterProjectionService {
         LocalDate normalizedPeriod = requirePeriodStart(periodStart);
         Optional<HrMonthlyRoster> baseline = baselineRoster();
         if (baseline.isEmpty()
-                || normalizedPeriod.isBefore(baseline.get().getPeriodStart())
-                || normalizedPeriod.isAfter(currentPeriod())) {
+                || normalizedPeriod.isBefore(baseline.get().getPeriodStart())) {
             return List.of();
         }
 

@@ -15,6 +15,7 @@ import {
   HrIssuingAuthoritySelect,
   HrSearchableCatalogSelect,
 } from '../../components/hr/HrFormControls';
+import { hrActivityApi } from '../../api/hrActivityApi';
 import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { hrEmploymentContractApi } from '../../api/hrEmploymentContractApi';
 import { hrOnboardingApi } from '../../api/hrOnboardingApi';
@@ -163,7 +164,20 @@ export default function HrGeneralLaborOnboarding() {
     try {
       const response = await hrOnboardingApi.createGeneralLabor(payload);
       const savedEmployee = response?.employee;
-      toast.success('Đã tạo hồ sơ nháp và lưu thông tin hợp đồng. Tiếp theo: tạo Tăng nhân sự.');
+
+      try {
+        await hrActivityApi.createMovement({
+          employeeId: savedEmployee.id,
+          movementType: 'INCREASE',
+          effectiveDate: contract.effectiveFrom,
+          reason: 'Tuyển mới lao động phổ thông',
+          idempotencyKey: newIdempotencyKey('mv-gl'),
+        });
+        toast.success(`Đã lưu hồ sơ ${savedEmployee?.fullName || ''} và tạo biến động Tăng nhân sự thành công!`);
+      } catch {
+        toast.success('Đã tạo hồ sơ lao động phổ thông.');
+      }
+
       if (exportRequested) {
         try {
           const document = await hrEmploymentContractApi.generateDocument(response?.contract?.id);
@@ -174,12 +188,8 @@ export default function HrGeneralLaborOnboarding() {
           toast.error(apiErrorMessage(exportError, 'Hồ sơ đã được lưu nhưng chưa thể xuất file hợp đồng. Bạn có thể xuất lại tại chi tiết nhân sự.'));
         }
       }
-      const params = new URLSearchParams({
-        create: 'increase',
-        employeeId: savedEmployee?.id || '',
-        effectiveDate: contract.effectiveFrom,
-      });
-      navigate(`/manager/hr/movements?${params.toString()}`, { replace: true });
+
+      navigate('/manager/hr/general-labor', { replace: true });
     } catch (requestError) {
       const message = apiErrorMessage(requestError, 'Không thể tạo hồ sơ lao động phổ thông.');
       setError(message);

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, FilePenLine, Plus, Search, Trash2, UserPlus, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, CheckCircle2, CheckSquare, FilePenLine, Plus, Search, Square, Trash2, UserPlus, XCircle } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrDrawer, HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge } from '../../components/hr/HrUi';
@@ -136,6 +136,112 @@ export default function HrMovements() {
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [page, reloadKey]);
+
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, reloadKey]);
+
+  const toggleSort = (key) => {
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const sortedContent = useMemo(() => {
+    if (!result.content) return [];
+    const items = [...result.content];
+    if (!sortConfig.key) return items;
+    return items.sort((a, b) => {
+      let aVal = '';
+      let bVal = '';
+      switch (sortConfig.key) {
+        case 'employee':
+          aVal = `${a.employeeCode || ''} ${a.employeeName || a.fullName || ''}`.toLowerCase();
+          bVal = `${b.employeeCode || ''} ${b.employeeName || b.fullName || ''}`.toLowerCase();
+          break;
+        case 'type':
+          aVal = a.movementType || a.type || '';
+          bVal = b.movementType || b.type || '';
+          break;
+        case 'effectiveDate':
+          aVal = a.effectiveDate || '';
+          bVal = b.effectiveDate || '';
+          break;
+        case 'status':
+          aVal = a.status || '';
+          bVal = b.status || '';
+          break;
+        case 'createdAt':
+          aVal = a.confirmedAt || a.cancelledAt || a.createdAt || '';
+          bVal = b.confirmedAt || b.cancelledAt || b.createdAt || '';
+          break;
+        default:
+          return 0;
+      }
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [result.content, sortConfig]);
+
+  const draftItemsOnPage = useMemo(() => {
+    return sortedContent.filter((item) => item.status === 'DRAFT');
+  }, [sortedContent]);
+
+  const isAllSelected = draftItemsOnPage.length > 0 && draftItemsOnPage.every((item) => selectedIds.has(item.id));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(draftItemsOnPage.map((item) => item.id)));
+    }
+  };
+
+  const toggleSelectOne = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkConfirm = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Xác nhận áp dụng ${selectedIds.size} biến động nhân sự đã chọn? Quân số tháng tương ứng sẽ được cập nhật ngay lập tức.`)) return;
+    setBusy('bulk-confirm');
+    try {
+      await hrActivityApi.bulkConfirmMovements(Array.from(selectedIds));
+      toast.success(`Đã xác nhận thành công ${selectedIds.size} biến động nhân sự!`);
+      setSelectedIds(new Set());
+      setReloadKey((k) => k + 1);
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể xác nhận hàng loạt biến động.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleBulkCancel = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Hủy ${selectedIds.size} biến động nháp đã chọn?`)) return;
+    setBusy('bulk-cancel');
+    try {
+      await hrActivityApi.bulkCancelMovements(Array.from(selectedIds));
+      toast.success(`Đã hủy thành công ${selectedIds.size} biến động nháp!`);
+      setSelectedIds(new Set());
+      setReloadKey((k) => k + 1);
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể hủy hàng loạt biến động.'));
+    } finally {
+      setBusy('');
+    }
+  };
 
   const resetForm = () => {
     setForm(initialForm());
@@ -533,10 +639,47 @@ export default function HrMovements() {
       </HrDrawer>
 
       {error && <div className="mb-4"><HrError message={error} onRetry={() => setReloadKey((value) => value + 1)} /></div>}
+
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50/90 p-3.5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckSquare className="h-5 w-5 text-emerald-700" />
+            <span className="font-semibold text-emerald-950">Đã chọn {selectedIds.size} biến động nháp</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={Boolean(busy)}
+              onClick={handleBulkConfirm}
+            >
+              <CheckCircle2 className="mr-1.5 h-4 w-4" />Xác nhận hàng loạt ({selectedIds.size})
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={Boolean(busy)}
+              onClick={handleBulkCancel}
+            >
+              <XCircle className="mr-1.5 h-4 w-4" />Hủy hàng loạt ({selectedIds.size})
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Bỏ chọn
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-3 flex items-end justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold text-[var(--cfc-ink)]">Lịch sử biến động</h2>
-          <p className="mt-1 text-sm text-[var(--cfc-muted)]">Các bản nháp cần được xác nhận trước khi làm thay đổi quân số tháng.</p>
+          <p className="mt-1 text-sm text-[var(--cfc-muted)]">Các bản nháp cần được xác nhận trước khi làm thay đổi quân số tháng. Bấm vào tiêu đề cột để sắp xếp.</p>
         </div>
         {!loading && <span className="shrink-0 text-sm font-medium text-[var(--cfc-muted)]">{result.totalElements} bản ghi</span>}
       </div>
@@ -544,23 +687,78 @@ export default function HrMovements() {
         <table className="w-full min-w-[1080px] divide-y divide-[var(--cfc-border)]">
           <thead className="bg-[var(--cfc-surface-muted)] text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--cfc-muted)]">
             <tr>
-              <th className="px-5 py-4">Nhân sự</th>
-              <th className="px-5 py-4">Loại</th>
-              <th className="px-5 py-4">Hiệu lực</th>
+              <th className="w-12 px-4 py-4 text-center">
+                {draftItemsOnPage.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-emerald-700"
+                    title={isAllSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả bản nháp trên trang'}
+                  >
+                    {isAllSelected ? <CheckSquare className="h-4 w-4 text-emerald-700" /> : <Square className="h-4 w-4 text-gray-400" />}
+                  </button>
+                )}
+              </th>
+              <th className="cursor-pointer select-none px-5 py-4 transition hover:text-gray-900" onClick={() => toggleSort('employee')}>
+                <div className="flex items-center gap-1.5">
+                  Nhân sự
+                  <ArrowUpDown className={`h-3.5 w-3.5 ${sortConfig.key === 'employee' ? 'text-emerald-700' : 'text-gray-400'}`} />
+                  {sortConfig.key === 'employee' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </div>
+              </th>
+              <th className="cursor-pointer select-none px-5 py-4 transition hover:text-gray-900" onClick={() => toggleSort('type')}>
+                <div className="flex items-center gap-1.5">
+                  Loại
+                  <ArrowUpDown className={`h-3.5 w-3.5 ${sortConfig.key === 'type' ? 'text-emerald-700' : 'text-gray-400'}`} />
+                  {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </div>
+              </th>
+              <th className="cursor-pointer select-none px-5 py-4 transition hover:text-gray-900" onClick={() => toggleSort('effectiveDate')}>
+                <div className="flex items-center gap-1.5">
+                  Hiệu lực
+                  <ArrowUpDown className={`h-3.5 w-3.5 ${sortConfig.key === 'effectiveDate' ? 'text-emerald-700' : 'text-gray-400'}`} />
+                  {sortConfig.key === 'effectiveDate' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </div>
+              </th>
               <th className="px-5 py-4">Thay đổi</th>
-              <th className="px-5 py-4">Trạng thái</th>
-              <th className="px-5 py-4">Người xử lý</th>
+              <th className="cursor-pointer select-none px-5 py-4 transition hover:text-gray-900" onClick={() => toggleSort('status')}>
+                <div className="flex items-center gap-1.5">
+                  Trạng thái
+                  <ArrowUpDown className={`h-3.5 w-3.5 ${sortConfig.key === 'status' ? 'text-emerald-700' : 'text-gray-400'}`} />
+                  {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </div>
+              </th>
+              <th className="cursor-pointer select-none px-5 py-4 transition hover:text-gray-900" onClick={() => toggleSort('createdAt')}>
+                <div className="flex items-center gap-1.5">
+                  Người xử lý
+                  <ArrowUpDown className={`h-3.5 w-3.5 ${sortConfig.key === 'createdAt' ? 'text-emerald-700' : 'text-gray-400'}`} />
+                  {sortConfig.key === 'createdAt' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </div>
+              </th>
               <th className="px-5 py-4">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan="7" className="px-5 py-12 text-center text-sm text-gray-500">Đang tải...</td></tr>
-            ) : result.content.map((item) => {
+              <tr><td colSpan="8" className="px-5 py-12 text-center text-sm text-gray-500">Đang tải...</td></tr>
+            ) : sortedContent.map((item) => {
               const name = item.employeeName || item.fullName;
               const type = item.movementType || item.type;
+              const isSelected = selectedIds.has(item.id);
               return (
-                <tr key={item.id} className="align-top transition hover:bg-slate-50/80">
+                <tr key={item.id} className={`align-top transition ${isSelected ? 'bg-emerald-50/60' : 'hover:bg-slate-50/80'}`}>
+                  <td className="px-4 py-4 text-center">
+                    {item.status === 'DRAFT' ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectOne(item.id)}
+                        className="rounded p-1 text-gray-500 hover:text-emerald-700"
+                        title={isSelected ? 'Bỏ chọn' : 'Chọn bản ghi này'}
+                      >
+                        {isSelected ? <CheckSquare className="h-4 w-4 text-emerald-700" /> : <Square className="h-4 w-4 text-gray-400" />}
+                      </button>
+                    ) : null}
+                  </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${type === 'DECREASE' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{employeeInitials(name)}</span>
@@ -588,20 +786,30 @@ export default function HrMovements() {
                 </tr>
               );
             })}
-            {!loading && result.content.length === 0 && <tr><td colSpan="7" className="p-5"><HrEmpty title="Chưa có biến động phù hợp" description="Tạo biến động mới để bắt đầu theo dõi tăng hoặc giảm nhân sự." /></td></tr>}
+            {!loading && sortedContent.length === 0 && <tr><td colSpan="8" className="p-5"><HrEmpty title="Chưa có biến động phù hợp" description="Tạo biến động mới để bắt đầu theo dõi tăng hoặc giảm nhân sự." /></td></tr>}
           </tbody>
         </table>
       </div>
       <div className="hr-responsive-cards hr-responsive-cards--wide space-y-3">
         {loading ? (
           <div className="rounded-xl border bg-white py-10 text-center text-sm text-gray-500">Đang tải...</div>
-        ) : result.content.map((item) => {
+        ) : sortedContent.map((item) => {
           const name = item.employeeName || item.fullName;
           const type = item.movementType || item.type;
+          const isSelected = selectedIds.has(item.id);
           return (
-            <article key={item.id} className="rounded-xl border border-[var(--cfc-border)] bg-white p-4 shadow-[var(--cfc-shadow-sm)]">
+            <article key={item.id} className={`rounded-xl border p-4 shadow-[var(--cfc-shadow-sm)] ${isSelected ? 'border-emerald-300 bg-emerald-50/50' : 'border-[var(--cfc-border)] bg-white'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
+                  {item.status === 'DRAFT' && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectOne(item.id)}
+                      className="mr-1 rounded p-1 text-gray-500 hover:text-emerald-700"
+                    >
+                      {isSelected ? <CheckSquare className="h-5 w-5 text-emerald-700" /> : <Square className="h-5 w-5 text-gray-400" />}
+                    </button>
+                  )}
                   <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${type === 'DECREASE' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{employeeInitials(name)}</span>
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-[var(--cfc-ink)]">{name}</p>
@@ -624,7 +832,7 @@ export default function HrMovements() {
             </article>
           );
         })}
-        {!loading && result.content.length === 0 && <HrEmpty title="Chưa có biến động phù hợp" description="Tạo biến động mới để bắt đầu theo dõi tăng hoặc giảm nhân sự." />}
+        {!loading && sortedContent.length === 0 && <HrEmpty title="Chưa có biến động phù hợp" description="Tạo biến động mới để bắt đầu theo dõi tăng hoặc giảm nhân sự." />}
       </div>
       <div className="mt-4"><HrPagination page={page} totalPages={result.totalPages} totalElements={result.totalElements} loading={loading} onPageChange={setPage} /></div>
     </HrPageShell>
