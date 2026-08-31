@@ -105,12 +105,12 @@ class HrEmployeeDocumentServiceTest {
     }
 
     @Test
-    void uploadDocumentRejectsNonPdfFile() {
+    void uploadDocumentRejectsUnsupportedFileType() {
         HrEmployee employee = new HrEmployee();
         employee.setId("emp-1");
         when(employeeRepository.findById("emp-1")).thenReturn(Optional.of(employee));
 
-        byte[] fakeBytes = "NOT A PDF FILE".getBytes(StandardCharsets.UTF_8);
+        byte[] fakeBytes = "NOT A SUPPORTED FILE".getBytes(StandardCharsets.UTF_8);
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "test.txt",
@@ -130,7 +130,52 @@ class HrEmployeeDocumentServiceTest {
 
         assertThatThrownBy(() -> service.uploadDocument("emp-1", request, file, actor))
                 .isInstanceOf(HrApiException.class)
-                .hasMessageContaining("không phải là định dạng PDF hợp lệ");
+                .hasMessageContaining("Định dạng file không được hỗ trợ");
+    }
+
+    @Test
+    void uploadDocumentSucceedsWithWordDocxFile() {
+        HrEmployee employee = new HrEmployee();
+        employee.setId("emp-1");
+        employee.setEmployeeCode("A001");
+        employee.setFullName("Nguyen Van A");
+
+        when(employeeRepository.findById("emp-1")).thenReturn(Optional.of(employee));
+        when(documentRepository.save(any())).thenAnswer(invocation -> {
+            HrEmployeeDocument doc = invocation.getArgument(0);
+            doc.setId("doc-docx-1");
+            return doc;
+        });
+
+        byte[] docxBytes = "PK\u0003\u0004FakeWordDocx".getBytes(StandardCharsets.UTF_8);
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "HopDongLaoDong.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                docxBytes
+        );
+
+        HrEmployeeDocumentDtos.UploadRequest request = new HrEmployeeDocumentDtos.UploadRequest(
+                HrDocumentCategory.LABOR_CONTRACT,
+                "Hợp đồng lao động chính thức",
+                "01/HDLD",
+                LocalDate.of(2026, 1, 1),
+                null,
+                "CFC",
+                "Hợp đồng Word có chữ ký"
+        );
+
+        HrEmployeeDocumentDtos.DocumentSummary result = service.uploadDocument(
+                "emp-1",
+                request,
+                file,
+                actor
+        );
+
+        assertThat(result).isNotNull();
+        assertThat(result.id()).isEqualTo("doc-docx-1");
+        assertThat(result.fileName()).isEqualTo("HopDongLaoDong.docx");
+        assertThat(result.fileType()).isEqualTo("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     }
 
     @Test

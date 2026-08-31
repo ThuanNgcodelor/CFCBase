@@ -196,11 +196,46 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
           )}
 
           {blobUrl && !loading && !error && (
-            <iframe
-              src={blobUrl}
-              title={doc.documentName}
-              className="h-full w-full border-0 bg-white"
-            />
+            <>
+              {doc.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i) || doc.fileType?.startsWith('image/') ? (
+                <div className="flex h-full items-center justify-center overflow-auto p-4 bg-slate-900/10">
+                  <img
+                    src={blobUrl}
+                    alt={doc.documentName}
+                    className="max-h-full max-w-full rounded-lg shadow-lg object-contain"
+                  />
+                </div>
+              ) : doc.fileName?.toLowerCase().endsWith('.pdf') || doc.fileType === 'application/pdf' ? (
+                <iframe
+                  src={blobUrl}
+                  className="h-full w-full border-0"
+                  title={doc.documentName}
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 shadow-sm mb-4">
+                    <FileText className="h-10 w-10" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 max-w-md">{doc.documentName}</h3>
+                  <p className="mt-1 text-sm text-gray-500 max-w-md">
+                    File {doc.fileName} ({formatFileSize(doc.fileSizeBytes)})
+                  </p>
+                  <p className="mt-2 text-xs text-slate-600 max-w-md bg-blue-50/70 border border-blue-200 rounded-lg p-3">
+                    Định dạng tài liệu Word / Office. Hãy bấm nút bên dưới để tải về và chỉnh sửa trực tiếp trên Microsoft Word / WPS Office.
+                  </p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button type="button" onClick={handleDownload} disabled={downloading}>
+                      <Download className="mr-1.5 h-4 w-4" />
+                      {downloading ? 'Đang tải...' : 'Tải file Word về máy'}
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={handleOpenInNewTab}>
+                      <ExternalLink className="mr-1.5 h-4 w-4" />
+                      Mở liên kết file
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

@@ -58,10 +58,10 @@ export function HrEmployeeDocumentsTab({ employeeId, employeeName, onDocumentCou
     setDownloadingId(doc.id);
     try {
       const response = await hrEmployeeDocumentApi.downloadDocument(doc.id);
-      downloadResponseBlob(response, doc.fileName || `${doc.documentName}.pdf`);
-      toast.success('Đã tải file PDF về máy.');
+      downloadResponseBlob(response, doc.fileName || doc.documentName);
+      toast.success('Đã tải file tài liệu về máy.');
     } catch (requestError) {
-      toast.error(apiErrorMessage(requestError, 'Không thể tải file PDF.'));
+      toast.error(apiErrorMessage(requestError, 'Không thể tải file tài liệu.'));
     } finally {
       setDownloadingId(null);
     }
@@ -111,7 +111,7 @@ export function HrEmployeeDocumentsTab({ employeeId, employeeName, onDocumentCou
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              {employeeName ? `Quản lý, xem trực tiếp PDF và lưu trữ hồ sơ cho ${employeeName}` : 'Xem trực tiếp file PDF không cần tải file, tải xuống và quản lý tài liệu của nhân sự'}
+              {employeeName ? `Quản lý, xem và lưu trữ hồ sơ tài liệu (Word, PDF, Excel, Ảnh) cho ${employeeName}` : 'Quản lý, xem và lưu trữ hồ sơ tài liệu (Word, PDF, Excel, Ảnh) của nhân sự'}
             </p>
           </div>
         </div>

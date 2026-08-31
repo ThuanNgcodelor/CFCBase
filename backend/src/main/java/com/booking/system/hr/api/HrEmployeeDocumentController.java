@@ -112,8 +112,14 @@ public class HrEmployeeDocumentController {
     @GetMapping("/employee-documents/{documentId}/view")
     public ResponseEntity<byte[]> viewDocumentInline(@PathVariable String documentId) {
         HrEmployeeDocumentDtos.DocumentFile file = documentService.getDocumentFile(documentId);
+        MediaType mediaType;
+        try {
+            mediaType = file.fileType() != null ? MediaType.parseMediaType(file.fileType()) : MediaType.APPLICATION_OCTET_STREAM;
+        } catch (Exception e) {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
         return ResponseEntity.ok()
-                .contentType(PDF_MEDIA_TYPE)
+                .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
                         .filename(file.fileName(), StandardCharsets.UTF_8)
                         .build()
@@ -124,8 +130,14 @@ public class HrEmployeeDocumentController {
     @GetMapping("/employee-documents/{documentId}/download")
     public ResponseEntity<byte[]> downloadDocument(@PathVariable String documentId) {
         HrEmployeeDocumentDtos.DocumentFile file = documentService.getDocumentFile(documentId);
+        MediaType mediaType;
+        try {
+            mediaType = file.fileType() != null ? MediaType.parseMediaType(file.fileType()) : MediaType.APPLICATION_OCTET_STREAM;
+        } catch (Exception e) {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
         return ResponseEntity.ok()
-                .contentType(PDF_MEDIA_TYPE)
+                .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(file.fileName(), StandardCharsets.UTF_8)
                         .build()

@@ -78,19 +78,19 @@ export function HrDocumentUploadModal({
   const handleSingleFileSelect = (selectedFile) => {
     if (!selectedFile) return;
 
-    if (!selectedFile.name.toLowerCase().endsWith('.pdf') && selectedFile.type !== 'application/pdf') {
-      toast.error('Chỉ chấp nhận file định dạng PDF.');
+    if (!isAllowedDocumentFile(selectedFile)) {
+      toast.error('Chỉ chấp nhận file Word (.docx, .doc), PDF, Excel hoặc Ảnh.');
       return;
     }
 
-    if (selectedFile.size > 15 * 1024 * 1024) {
-      toast.error('Dung lượng file vượt quá giới hạn 15MB.');
+    if (selectedFile.size > 25 * 1024 * 1024) {
+      toast.error('Dung lượng file vượt quá giới hạn 25MB.');
       return;
     }
 
     setFile(selectedFile);
     if (!form.documentName.trim()) {
-      const cleanName = selectedFile.name.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ').trim();
+      const cleanName = cleanDocumentName(selectedFile.name);
       setForm((prev) => ({ ...prev, documentName: cleanName }));
     }
   };
@@ -101,16 +101,16 @@ export function HrDocumentUploadModal({
     const newItems = [];
     for (let i = 0; i < fileList.length; i++) {
       const current = fileList[i];
-      if (!current.name.toLowerCase().endsWith('.pdf') && current.type !== 'application/pdf') {
-        toast.error(`File "${current.name}" không phải PDF nên đã bị bỏ qua.`);
+      if (!isAllowedDocumentFile(current)) {
+        toast.error(`File "${current.name}" không hợp lệ nên đã bị bỏ qua.`);
         continue;
       }
-      if (current.size > 15 * 1024 * 1024) {
-        toast.error(`File "${current.name}" vượt quá 15MB nên đã bị bỏ qua.`);
+      if (current.size > 25 * 1024 * 1024) {
+        toast.error(`File "${current.name}" vượt quá 25MB nên đã bị bỏ qua.`);
         continue;
       }
 
-      const cleanName = current.name.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ').trim();
+      const cleanName = cleanDocumentName(current.name);
       newItems.push({
         file: current,
         documentName: cleanName || 'Tài liệu',
@@ -345,13 +345,13 @@ export function HrDocumentUploadModal({
               {!isEditMode && (
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wide text-gray-700 mb-1.5">
-                    File tài liệu PDF <span className="text-rose-500">*</span>
+                    File tài liệu đính kèm (Word, PDF, Excel, Ảnh) <span className="text-rose-500">*</span>
                   </label>
 
                   <input
                     type="file"
                     ref={fileInputRef}
-                    accept="application/pdf,.pdf"
+                    accept={ACCEPTED_MIME_TYPES}
                     className="hidden"
                     onChange={(e) => e.target.files?.[0] && handleSingleFileSelect(e.target.files[0])}
                   />
@@ -372,10 +372,10 @@ export function HrDocumentUploadModal({
                         <UploadCloud className="h-6 w-6" />
                       </div>
                       <p className="text-sm font-medium text-gray-800">
-                        Nhấn để chọn file hoặc kéo thả file PDF vào đây
+                        Nhấn để chọn file hoặc kéo thả file Word / PDF / Excel / Ảnh vào đây
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
-                        Định dạng hỗ trợ: PDF (dung lượng tối đa 15MB)
+                        Định dạng hỗ trợ: Word (.docx, .doc), PDF (.pdf), Excel (.xlsx), Ảnh (tối đa 25MB)
                       </p>
                     </div>
                   ) : (
@@ -508,7 +508,7 @@ export function HrDocumentUploadModal({
                 type="file"
                 ref={batchFileInputRef}
                 multiple
-                accept="application/pdf,.pdf"
+                accept={ACCEPTED_MIME_TYPES}
                 className="hidden"
                 onChange={(e) => e.target.files && handleBatchFilesSelect(e.target.files)}
               />
@@ -528,10 +528,10 @@ export function HrDocumentUploadModal({
                   <UploadCloud className="h-6 w-6" />
                 </div>
                 <p className="text-sm font-medium text-gray-800">
-                  Nhấn để chọn nhiều file hoặc kéo thả nhiều file PDF vào đây
+                  Nhấn để chọn nhiều file hoặc kéo thả nhiều file Word / PDF / Excel / Ảnh vào đây
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Hỗ trợ tải lên tối đa 20 file PDF cùng một lúc (tối đa 15MB/file)
+                  Hỗ trợ tải lên tối đa 20 file cùng một lúc (Word .docx, PDF, Excel, Ảnh - tối đa 25MB/file)
                 </p>
               </div>
 

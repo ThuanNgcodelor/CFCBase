@@ -51,10 +51,11 @@ public class HrEmployeeDocumentService {
     ) {
         HrEmployee employee = requireEmployee(employeeId);
         validateUploadRequest(request);
-        byte[] fileBytes = validateAndExtractPdfFile(file);
+        byte[] fileBytes = validateAndExtractFile(file);
 
         String originalFilename = file.getOriginalFilename();
         String sanitizedFilename = sanitizeFileName(originalFilename, request.documentName());
+        String mimeType = resolveMimeType(sanitizedFilename, file.getContentType());
         String sha256 = calculateSha256(fileBytes);
 
         HrEmployeeDocument document = new HrEmployeeDocument();
@@ -62,7 +63,7 @@ public class HrEmployeeDocumentService {
         document.setDocumentCategory(request.documentCategory());
         document.setDocumentName(request.documentName().trim());
         document.setFileName(sanitizedFilename);
-        document.setFileType("application/pdf");
+        document.setFileType(mimeType);
         document.setFileSizeBytes(fileBytes.length);
         document.setFileSha256(sha256);
         document.setFileData(fileBytes);
@@ -109,13 +110,14 @@ public class HrEmployeeDocumentService {
             if (file == null || file.isEmpty()) {
                 continue;
             }
-            byte[] fileBytes = validateAndExtractPdfFile(file);
+            byte[] fileBytes = validateAndExtractFile(file);
             String originalFilename = file.getOriginalFilename();
             String fallbackName = originalFilename != null
-                    ? originalFilename.replaceAll("(?i)\\.pdf$", "").replace('_', ' ').replace('-', ' ').trim()
+                    ? originalFilename.replaceAll("(?i)\\.(pdf|docx|doc|xlsx|xls|png|jpe?g|webp)$", "").replace('_', ' ').replace('-', ' ').trim()
                     : "Tài liệu";
             if (fallbackName.isBlank()) fallbackName = "Tài liệu";
             String sanitizedFilename = sanitizeFileName(originalFilename, fallbackName);
+            String mimeType = resolveMimeType(sanitizedFilename, file.getContentType());
             String sha256 = calculateSha256(fileBytes);
 
             HrEmployeeDocument document = new HrEmployeeDocument();
@@ -123,7 +125,7 @@ public class HrEmployeeDocumentService {
             document.setDocumentCategory(category);
             document.setDocumentName(fallbackName);
             document.setFileName(sanitizedFilename);
-            document.setFileType("application/pdf");
+            document.setFileType(mimeType);
             document.setFileSizeBytes(fileBytes.length);
             document.setFileSha256(sha256);
             document.setFileData(fileBytes);
@@ -284,47 +286,68 @@ public class HrEmployeeDocumentService {
         }
     }
 
-    private byte[] validateAndExtractPdfFile(MultipartFile file) {
+    private byte[] validateAndExtractFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw HrApiException.badRequest("FILE_REQUIRED", "File đính kèm là bắt buộc.");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw HrApiException.badRequest("FILE_TOO_LARGE",
-                    "Dung lượng file vượt quá giới hạn cho phép (tối đa 15MB).");
+                    "Dung lượng file vượt quá giới hạn cho phép (tối đa 25MB).");
         }
 
-        byte[] bytes;
+        String originalFilename = file.getOriginalFilename();
+        if (!isSupportedExtension(originalFilename)) {
+            throw HrApiException.badRequest("UNSUPPORTED_FILE_TYPE",
+                    "Định dạng file không được hỗ trợ. Vui lòng tải file Word (.docx, .doc), PDF (.pdf), Excel (.xlsx, .xls) hoặc Ảnh (.png, .jpg, .webp).");
+        }
+
         try {
-            bytes = file.getBytes();
+            return file.getBytes();
         } catch (IOException exception) {
             throw HrApiException.badRequest("FILE_READ_ERROR", "Không thể đọc dữ liệu file tải lên.");
         }
-
-        if (bytes.length < 5 || !isPdfHeader(bytes)) {
-            throw HrApiException.badRequest("INVALID_PDF_FORMAT",
-                    "File tải lên không phải là định dạng PDF hợp lệ.");
-        }
-
-        return bytes;
     }
 
-    private static boolean isPdfHeader(byte[] bytes) {
-        for (int i = 0; i < PDF_MAGIC_BYTES.length; i++) {
-            if (bytes[i] != PDF_MAGIC_BYTES[i]) {
-                return false;
-            }
+    private static boolean isSupportedExtension(String filename) {
+        if (filename == null || filename.isBlank()) return false;
+        String lower = filename.toLowerCase();
+        return lower.endsWith(".pdf")
+                || lower.endsWith(".docx")
+                || lower.endsWith(".doc")
+                || lower.endsWith(".xlsx")
+                || lower.endsWith(".xls")
+                || lower.endsWith(".png")
+                || lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg")
+                || lower.endsWith(".webp");
+    }
+
+    private static String resolveMimeType(String filename, String declaredContentType) {
+        if (filename != null) {
+            String lower = filename.toLowerCase();
+            if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            if (lower.endsWith(".doc")) return "application/msword";
+            if (lower.endsWith(".pdf")) return "application/pdf";
+            if (lower.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            if (lower.endsWith(".xls")) return "application/vnd.ms-excel";
+            if (lower.endsWith(".png")) return "image/png";
+            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+            if (lower.endsWith(".webp")) return "image/webp";
         }
-        return true;
+        if (declaredContentType != null && !declaredContentType.isBlank() && !declaredContentType.equals("application/octet-stream")) {
+            return declaredContentType;
+        }
+        return "application/octet-stream";
     }
 
     private static String sanitizeFileName(String originalFilename, String fallbackName) {
         String baseName = originalFilename == null || originalFilename.isBlank()
-                ? fallbackName + ".pdf"
+                ? fallbackName + ".docx"
                 : originalFilename.trim();
 
         String sanitized = NON_FILE_NAME.matcher(baseName).replaceAll("_").trim();
-        if (!sanitized.toLowerCase().endsWith(".pdf")) {
-            sanitized = sanitized + ".pdf";
+        if (!sanitized.contains(".")) {
+            sanitized = sanitized + ".docx";
         }
         return sanitized;
     }
