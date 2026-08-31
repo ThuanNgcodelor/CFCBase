@@ -63,17 +63,62 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const addFiles = (newFiles) => {
+  const compressImage = async (file) => {
+    if (!file.type.startsWith('image/') || file.size < 1024 * 1024) return file;
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 2048;
+          let w = img.width;
+          let h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) {
+              h = Math.round((h * MAX) / w);
+              w = MAX;
+            } else {
+              w = Math.round((w * MAX) / h);
+              h = MAX;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), { type: 'image/jpeg' }));
+              } else {
+                resolve(file);
+              }
+            },
+            'image/jpeg',
+            0.85
+          );
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const addFiles = async (newFiles) => {
     const validFiles = newFiles.filter((file) => file.type.startsWith('image/') || file.type === 'application/pdf');
     if (!validFiles.length) {
       toast.error('Vui lòng chọn file ảnh (JPG, PNG, WebP) hoặc PDF.');
       return;
     }
 
-    const updatedFiles = [...files, ...validFiles];
-    setFiles(updatedFiles);
+    const processedFiles = await Promise.all(validFiles.map(compressImage));
 
-    const newPreviews = validFiles.map((file) => ({
+    setFiles((prev) => [...prev, ...processedFiles]);
+
+    const newPreviews = processedFiles.map((file) => ({
       name: file.name,
       size: (file.size / 1024).toFixed(0) + ' KB',
       url: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
