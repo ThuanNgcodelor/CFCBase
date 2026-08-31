@@ -9,6 +9,24 @@ import { hrEmployeeDocumentApi } from '../../api/hrEmployeeDocumentApi';
 const INPUT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
 const SELECT_CLASS = 'h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:text-sm';
 
+const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.png', '.jpg', '.jpeg', '.webp'];
+const ACCEPTED_MIME_TYPES = 'application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/msword,.doc,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.ms-excel,.xls,image/*';
+
+function isAllowedDocumentFile(file) {
+  if (!file) return false;
+  const name = file.name?.toLowerCase() || '';
+  return ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext))
+    || file.type === 'application/pdf'
+    || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    || file.type === 'application/msword'
+    || file.type.startsWith('image/');
+}
+
+function cleanDocumentName(filename) {
+  if (!filename) return 'Tài liệu';
+  return filename.replace(/\.(pdf|docx|doc|xlsx|xls|png|jpe?g|webp)$/i, '').replace(/[_-]/g, ' ').trim() || 'Tài liệu';
+}
+
 export function HrDocumentUploadModal({
   isOpen,
   onClose,
