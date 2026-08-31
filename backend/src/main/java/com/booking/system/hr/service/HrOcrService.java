@@ -71,9 +71,9 @@ public class HrOcrService {
             4. Giới tính Nam -> MALE, Nữ -> FEMALE.
             """;
 
-    public HrOcrService(HrSystemSettingRepository systemSettingRepository, ObjectMapper objectMapper) {
+    public HrOcrService(HrSystemSettingRepository systemSettingRepository) {
         this.systemSettingRepository = systemSettingRepository;
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(20))
                 .build();

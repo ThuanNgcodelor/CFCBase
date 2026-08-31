@@ -29,7 +29,7 @@ class HrOcrServiceTest {
 
     @BeforeEach
     void setUp() {
-        ocrService = new HrOcrService(systemSettingRepository, objectMapper);
+        ocrService = new HrOcrService(systemSettingRepository);
     }
 
     @Test
