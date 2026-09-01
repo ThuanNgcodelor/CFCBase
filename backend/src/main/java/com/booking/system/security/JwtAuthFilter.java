@@ -18,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -32,7 +33,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         
         try {
             String jwt = parseJwt(request);
-            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
+            boolean protectedApi = request.getRequestURI().startsWith("/api/v1/hr/")
+                    || request.getRequestURI().startsWith("/api/v1/notifications");
+            if (jwt == null && protectedApi) {
+                System.err.println("[JWT] Missing Authorization header for " + request.getRequestURI());
+            }
+            boolean validToken = jwt != null && jwtUtils.validateJwtToken(jwt);
+            if (!validToken && jwt != null && protectedApi) {
+                // JwtUtils logs the validation reason; this adds only the route,
+                // never the token value.
+                System.err.println("[JWT] Rejected token for " + request.getRequestURI());
+            }
+            if (validToken) {
                 String email = jwtUtils.getEmailFromJwtToken(jwt);
                 User user = userRepository.findByEmail(email)
                         .orElseThrow(() -> new RuntimeException("User not found"));
@@ -41,12 +53,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // disabled. Never rebuild an authenticated principal for such an
                 // account; protected endpoints must treat that request as anonymous.
                 if (user.getStatus() == UserStatus.ACTIVE) {
+                    // HR authentication no longer depends on a role. Keep an
+                    // authority when one exists for legacy admin/approval APIs,
+                    // but do not fail authentication when role is null.
+                    List<SimpleGrantedAuthority> authorities = user.getRole() == null
+                            ? Collections.emptyList()
+                            : Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            user, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
+                            user, null, authorities);
 
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else if (protectedApi) {
+                    System.err.println("[JWT] Active authentication refused for inactive user on "
+                            + request.getRequestURI());
                 }
             }
         } catch (Exception e) {

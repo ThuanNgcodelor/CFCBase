@@ -70,6 +70,17 @@ class HrSecurityContractTest {
     }
 
     @Test
+    void hrApiAllowsActiveUserWhenRoleIsUnset() throws Exception {
+        User user = user("no-role@example.test", RoleEnum.EMPLOYEE);
+        user.setRole(null);
+        stubToken("no-role-token", user);
+
+        mockMvc.perform(get("/api/v1/hr/security-contract")
+                        .header("Authorization", "Bearer no-role-token"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void hrApiAllowsAuthenticatedManagerAndAdmin() throws Exception {
         stubToken("manager-token", user("manager@example.test", RoleEnum.MANAGER));
         stubToken("admin-token", user("admin@example.test", RoleEnum.ADMIN));

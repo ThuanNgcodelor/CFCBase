@@ -74,7 +74,10 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.POST,
                                                                 "/api/v1/integrations/telegram/payroll/webhook")
                                                 .permitAll()
+                                                .requestMatchers("/api/v1/hr/sync/**").permitAll()
                                                 .requestMatchers("/ws/**").permitAll()
+                                                // HR APIs require an authenticated user, regardless of role.
+                                                .requestMatchers("/api/v1/hr/**").authenticated()
                                                 .requestMatchers("/api/v1/dashboard/admin").hasRole("ADMIN")
                                                 .anyRequest().authenticated())
                                 .exceptionHandling(exceptions -> exceptions
