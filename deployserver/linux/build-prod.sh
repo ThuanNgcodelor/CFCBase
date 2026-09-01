@@ -67,11 +67,11 @@ java_major="$(java -version 2>&1 | sed -n '1s/.*version "\([0-9]*\).*/\1/p')"
 
 log "[1/4] Chuan bi va build frontend..."
 cd "$FRONTEND_DIR"
-if [[ ! -d node_modules ]]; then
-  [[ -f package-lock.json ]] || fail "Thieu frontend/package-lock.json."
-  log "node_modules chua co; chay npm ci mot lan..."
-  npm ci
-fi
+[[ -f package-lock.json ]] || fail "Thieu frontend/package-lock.json."
+# Luôn đồng bộ dependency theo lockfile. node_modules có thể tồn tại từ bản
+# deploy trước và thiếu package mới (ví dụ qrcode.react), khiến Vite resolve lỗi.
+log "Dong bo frontend dependencies theo package-lock.json..."
+npm ci
 npm run build
 
 log "[2/4] Build backend JAR vao staging (bo qua unit test)..."

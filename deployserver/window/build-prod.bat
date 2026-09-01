@@ -17,6 +17,18 @@ echo.
 
 echo [1/4] Build frontend dist...
 cd /d "%ROOT%frontend"
+if not exist package-lock.json (
+  echo [ERROR] Thieu frontend/package-lock.json.
+  pause
+  exit /b 1
+)
+echo Dong bo frontend dependencies theo package-lock.json...
+call npm.cmd ci
+if errorlevel 1 (
+  echo [ERROR] npm ci that bai.
+  pause
+  exit /b 1
+)
 call npm.cmd run build
 if errorlevel 1 (
   echo [ERROR] Frontend build that bai.
