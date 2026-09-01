@@ -3,6 +3,7 @@ package com.booking.system.hr.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@Slf4j
 public class TelegramBotClient {
 
     private final ObjectMapper objectMapper;
@@ -43,7 +45,10 @@ public class TelegramBotClient {
     }
 
     public boolean testConnection() {
-        if (!configured()) return false;
+        if (!configured()) {
+            log.warn("Telegram connection test skipped: TELEGRAM_BOT_TOKEN is not configured");
+            return false;
+        }
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.telegram.org/bot" + botToken + "/getMe"))
@@ -57,7 +62,10 @@ public class TelegramBotClient {
     }
 
     private boolean send(String method, Map<String, Object> payload) {
-        if (!configured()) return false;
+        if (!configured()) {
+            log.warn("Telegram send skipped: TELEGRAM_BOT_TOKEN is not configured");
+            return false;
+        }
         try {
             String body = objectMapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
@@ -66,9 +74,12 @@ public class TelegramBotClient {
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
-            return httpClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() / 100 == 2;
-        } catch (Exception ignored) {
+            int status = httpClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+            if (status / 100 != 2) log.warn("Telegram API {} returned HTTP {}", method, status);
+            return status / 100 == 2;
+        } catch (Exception exception) {
             // Lỗi gửi lời nhắc không được làm webhook tạo lại registration.
+            log.warn("Telegram API {} request failed: {}", method, exception.getClass().getSimpleName());
             return false;
         }
     }
