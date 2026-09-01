@@ -30,6 +30,8 @@ import java.util.zip.ZipInputStream;
 
 @Component
 public class HrPayrollWorkbookParser {
+    /** Kept for source compatibility; sheet selection is now structure-based. */
+    @Deprecated
     public static final String SHEET_NAME = "VIETIN - PBHOACHAT";
     private static final int MAX_FILE_BYTES = 15 * 1024 * 1024;
     private static final int MAX_HEADER_ROWS = 30;
@@ -45,15 +47,15 @@ public class HrPayrollWorkbookParser {
             Map.entry("maNv", List.of("mã số", "mã nv", "manv")),
             Map.entry("hoTen", List.of("họ và tên", "họ tên")),
             Map.entry("stk", List.of("số tài khoản", "stk")),
-            Map.entry("plh", List.of("p+l+h", "p l h")),
+            Map.entry("plh", List.of("p+l+h", "p l h", "f+l", "f l")),
             Map.entry("cong", List.of("công")),
             Map.entry("tienLuong", List.of("tiền lương")),
             Map.entry("tongThu", List.of("tổng thu")),
             Map.entry("bhxh", List.of("bhxh 10,5%", "bhxh 10.5%", "bhxh")),
             Map.entry("baoGiat", List.of("b giặt", "b giat")),
             Map.entry("htkk", List.of("htkk")),
-            Map.entry("thuDangPhi", List.of("đảng phí", "dang phi")),
-            Map.entry("doanPhi", List.of("đoàn phí", "doan phi")),
+            Map.entry("thuDangPhi", List.of("đảng phí", "dang phi", "thu đang phí", "thudang phí")),
+            Map.entry("doanPhi", List.of("đoàn phí", "doan phi", "thu đp", "thu dp")),
             Map.entry("asxh", List.of("asxh")),
             Map.entry("xhhc", List.of("xhhc")),
             Map.entry("ttn", List.of("ttn")),
@@ -70,22 +72,30 @@ public class HrPayrollWorkbookParser {
             Map<String, byte[]> parts = readZip(bytes);
             Document workbook = xml(required(parts, "xl/workbook.xml"));
             Map<String, String> relationships = relationships(required(parts, "xl/_rels/workbook.xml.rels"));
+            List<String> shared = sharedStrings(parts.get("xl/sharedStrings.xml"));
+            String selectedSheetName = null;
             String sheetPart = null;
+            Map<Integer, Map<Integer, String>> rows = null;
+            int headerRow = 0;
             NodeList sheets = workbook.getElementsByTagNameNS(MAIN_NS, "sheet");
             for (int i = 0; i < sheets.getLength(); i++) {
                 Element sheet = (Element) sheets.item(i);
-                if (SHEET_NAME.equals(sheet.getAttribute("name"))) {
-                    String target = relationships.get(sheet.getAttributeNS(REL_NS, "id"));
-                    sheetPart = resolve("xl/workbook.xml", target);
+                String target = relationships.get(sheet.getAttributeNS(REL_NS, "id"));
+                String candidatePart = resolve("xl/workbook.xml", target);
+                if (candidatePart == null || !parts.containsKey(candidatePart)) continue;
+                Map<Integer, Map<Integer, String>> candidateRows = cells(parts.get(candidatePart), shared);
+                Integer candidateHeaderRow = findHeaderRowOrNull(candidateRows);
+                if (candidateHeaderRow != null) {
+                    selectedSheetName = sheet.getAttribute("name");
+                    sheetPart = candidatePart;
+                    rows = candidateRows;
+                    headerRow = candidateHeaderRow;
                     break;
                 }
             }
-            if (sheetPart == null || !parts.containsKey(sheetPart)) {
-                throw HrApiException.badRequest("PAYROLL_SHEET_NOT_FOUND", "Không tìm thấy tab " + SHEET_NAME + ".");
+            if (sheetPart == null || rows == null) {
+                throw HrApiException.badRequest("PAYROLL_HEADER_INVALID", "Không tìm thấy sheet bảng lương có đủ các cột bắt buộc trong 30 dòng đầu.");
             }
-            List<String> sharedStrings = sharedStrings(parts.get("xl/sharedStrings.xml"));
-            Map<Integer, Map<Integer, String>> rows = cells(parts.get(sheetPart), sharedStrings);
-            int headerRow = findHeaderRow(rows);
             Map<String, Integer> columns = headerColumns(rows.get(headerRow));
             String month = extractMonth(rows, headerRow);
             List<PayrollRow> parsed = new ArrayList<>();
@@ -108,16 +118,13 @@ public class HrPayrollWorkbookParser {
                     String value = text(row, columns, field);
                     values.put(field, numericField(field) ? number(value) : value);
                 }
-                if (text(row, columns, "stk").isBlank() || text(row, columns, "nganHangChuyen").isBlank()) {
-                    throw HrApiException.badRequest("PAYROLL_ROW_INVALID", "Dòng " + rowNumber + " thiếu Số tài khoản hoặc NH CHUYỂN.");
-                }
                 if (!seenEmployeeCodes.add(code)) {
                     throw HrApiException.badRequest("PAYROLL_DUPLICATE_EMPLOYEE", "Mã nhân viên " + code + " xuất hiện nhiều lần trong file.");
                 }
                 parsed.add(new PayrollRow(rowNumber, code, name, text(row, columns, "stk"), values));
             }
             if (parsed.isEmpty()) throw HrApiException.badRequest("PAYROLL_NO_ROWS", "Không tìm thấy dòng nhân viên hợp lệ trong file lương.");
-            return new ParsedWorkbook(sha256(bytes), bytes.length, SHEET_NAME, month, parsed);
+            return new ParsedWorkbook(sha256(bytes), bytes.length, selectedSheetName, month, parsed);
         } catch (HrApiException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -137,12 +144,12 @@ public class HrPayrollWorkbookParser {
         return columns.values().stream().allMatch(index -> row.getOrDefault(index, "").isBlank());
     }
     private static String text(Map<Integer, String> row, Map<String, Integer> columns, String field) { return row.getOrDefault(columns.getOrDefault(field, -1), "").trim(); }
-    private static int findHeaderRow(Map<Integer, Map<Integer, String>> rows) {
+    private static Integer findHeaderRowOrNull(Map<Integer, Map<Integer, String>> rows) {
         for (int row = 1; row <= MAX_HEADER_ROWS; row++) {
             Map<String, Integer> columns = headerColumns(rows.getOrDefault(row, Map.of()));
             if (REQUIRED.stream().allMatch(columns::containsKey)) return row;
         }
-        throw HrApiException.badRequest("PAYROLL_HEADER_INVALID", "Không tìm thấy đủ cột lương trong 30 dòng đầu file.");
+        return null;
     }
     private static Map<String, Integer> headerColumns(Map<Integer, String> row) {
         Map<String, Integer> result = new LinkedHashMap<>();

@@ -97,7 +97,7 @@ export default function HrPayroll() {
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-gray-900">1. Import file lương</h2>
-        <p className="mt-1 text-sm text-gray-500">Đúng mẫu sheet <strong>VIETIN - PBHOACHAT</strong>, tối đa 15 MB.</p>
+        <p className="mt-1 text-sm text-gray-500">File .xlsx có dòng tiêu đề tháng và các cột chuẩn (Mã số, Họ và Tên, Tiền lương, Tổng thu, NH chuyển), tối đa 15 MB.</p>
         <form onSubmit={upload} className="mt-4 flex flex-wrap items-center gap-3">
           <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => setFile(event.target.files?.[0] || null)} className="block max-w-full text-sm" />
           <Button type="submit" disabled={!file || busy}><FileUp className="mr-1.5 h-4 w-4" />{busy ? 'Đang xử lý...' : 'Import & xem trước'}</Button>
