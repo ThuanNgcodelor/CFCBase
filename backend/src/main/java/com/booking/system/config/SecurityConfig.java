@@ -22,76 +22,74 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
+        private final JwtAuthFilter jwtAuthFilter;
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .cors(Customizer.withDefaults())
-            .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(
-                        "/favicon.ico",
-                        "/logo*.png",
-                        "/logotitle.png",
-                        "/og-image*.png",
-                        "/robots.txt",
-                        "/sitemap.xml",
-                        "/assets/**",
-                        "/icons/**"
-                ).permitAll()
-                .requestMatchers(HttpMethod.HEAD,
-                        "/",
-                        "/index.html",
-                        "/offline.html",
-                        "/manifest.webmanifest",
-                        "/login",
-                        "/register",
-                        "/forgot-password",
-                        "/manager",
-                        "/manager/**"
-                ).permitAll()
-                .requestMatchers(HttpMethod.GET,
-                        "/",
-                        "/index.html",
-                        "/offline.html",
-                        "/manifest.webmanifest",
-                        "/sw.js",
-                        "/login",
-                        "/register",
-                        "/forgot-password",
-                        "/rooms/**",
-                        "/cars/**",
-                        "/notifications/**",
-                        "/profile/**",
-                        "/admin/**",
-                        "/manager/**"
-                ).permitAll()
-                .requestMatchers("/api/v1/auth/**").permitAll() // Mở endpoint đăng nhập
-                .requestMatchers(HttpMethod.POST, "/api/v1/integrations/telegram/payroll/webhook").permitAll()
-                .requestMatchers("/api/v1/hr/sync/**").permitAll() // Mở endpoint đồng bộ cho Google Apps Script
-                .requestMatchers("/ws/**").permitAll()
-                // HR APIs vẫn yêu cầu đăng nhập, nhưng phân quyền HR không còn
-                // phụ thuộc vào role MANAGER/ADMIN.
-                .requestMatchers("/api/v1/hr/**").authenticated()
-                .requestMatchers("/api/v1/dashboard/admin").hasRole("ADMIN")
-                .anyRequest().authenticated()
-            )
-            .exceptionHandling(exceptions -> exceptions
-                    .authenticationEntryPoint((request, response, exception) ->
-                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
-                    .accessDeniedHandler((request, response, exception) ->
-                            response.sendError(HttpServletResponse.SC_FORBIDDEN)));
+        @Bean
+        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+                http
+                                .cors(Customizer.withDefaults())
+                                .csrf(AbstractHttpConfigurer::disable)
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                                .requestMatchers(
+                                                                "/favicon.ico",
+                                                                "/logo*.png",
+                                                                "/logotitle.png",
+                                                                "/og-image*.png",
+                                                                "/robots.txt",
+                                                                "/sitemap.xml",
+                                                                "/assets/**",
+                                                                "/icons/**")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.HEAD,
+                                                                "/",
+                                                                "/index.html",
+                                                                "/offline.html",
+                                                                "/manifest.webmanifest",
+                                                                "/login",
+                                                                "/register",
+                                                                "/forgot-password",
+                                                                "/manager",
+                                                                "/manager/**")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/",
+                                                                "/index.html",
+                                                                "/offline.html",
+                                                                "/manifest.webmanifest",
+                                                                "/sw.js",
+                                                                "/login",
+                                                                "/register",
+                                                                "/forgot-password",
+                                                                "/rooms/**",
+                                                                "/cars/**",
+                                                                "/notifications/**",
+                                                                "/profile/**",
+                                                                "/admin/**",
+                                                                "/manager/**")
+                                                .permitAll()
+                                                .requestMatchers("/api/v1/auth/**").permitAll() // Mở endpoint đăng nhập
+                                                .requestMatchers(HttpMethod.POST,
+                                                                "/api/v1/integrations/telegram/payroll/webhook")
+                                                .permitAll()
+                                                .requestMatchers("/ws/**").permitAll()
+                                                .requestMatchers("/api/v1/dashboard/admin").hasRole("ADMIN")
+                                                .anyRequest().authenticated())
+                                .exceptionHandling(exceptions -> exceptions
+                                                .authenticationEntryPoint((request, response, exception) -> response
+                                                                .sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                                                .accessDeniedHandler((request, response, exception) -> response
+                                                                .sendError(HttpServletResponse.SC_FORBIDDEN)));
 
-        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 }

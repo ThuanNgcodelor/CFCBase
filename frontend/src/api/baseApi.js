@@ -46,6 +46,14 @@ baseApi.interceptors.request.use(
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;
       }
+    } else if (!config.url?.startsWith('/auth/')) {
+      // Diagnostic without exposing the token: a 401 caused by a missing
+      // cookie is different from a token rejected by the backend.
+      console.warn('[CFC Auth] Request has no access token', {
+        method: config.method,
+        url: config.url,
+        origin: window.location.origin,
+      });
     }
     return config;
   },
@@ -60,6 +68,17 @@ baseApi.interceptors.response.use(
 
     // Nếu lỗi 401 và chưa từng thử refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const requestHeaders = originalRequest.headers;
+      const hasAuthorization = typeof requestHeaders?.get === 'function'
+        ? Boolean(requestHeaders.get('Authorization'))
+        : Boolean(requestHeaders?.Authorization || requestHeaders?.authorization);
+      console.warn('[CFC Auth] 401 response', {
+        method: originalRequest.method,
+        url: originalRequest.url,
+        hasAuthorization,
+        hasAccessToken: Boolean(Cookies.get('accessToken')),
+        hasRefreshToken: Boolean(Cookies.get('refreshToken')),
+      });
       originalRequest._retry = true;
 
       try {
