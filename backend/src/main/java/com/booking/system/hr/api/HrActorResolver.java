@@ -13,14 +13,14 @@ public class HrActorResolver {
     public HrImportActor fromPrincipal(User principal) {
         if (principal == null
                 || principal.getId() == null
-                || principal.getRole() != RoleEnum.MANAGER
+                || (principal.getRole() != RoleEnum.MANAGER && principal.getRole() != RoleEnum.ADMIN)
                 || principal.getStatus() != UserStatus.ACTIVE) {
-            throw new AccessDeniedException("Chỉ tài khoản quản lý đang hoạt động được truy cập phân hệ nhân sự");
+            throw new AccessDeniedException("Chỉ tài khoản quản lý hoặc quản trị viên đang hoạt động được truy cập phân hệ nhân sự");
         }
         return new HrImportActor(
                 "USER:" + principal.getId(),
                 principal.getFullName() == null ? principal.getEmail() : principal.getFullName(),
-                RoleEnum.MANAGER.name()
+                principal.getRole().name()
         );
     }
 }

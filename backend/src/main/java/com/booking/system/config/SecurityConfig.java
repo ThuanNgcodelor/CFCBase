@@ -72,7 +72,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll() // Mở endpoint đăng nhập
                 .requestMatchers("/api/v1/hr/sync/**").permitAll() // Mở endpoint đồng bộ cho Google Apps Script
                 .requestMatchers("/ws/**").permitAll()
-                .requestMatchers("/api/v1/hr/**").hasRole("MANAGER")
+                .requestMatchers("/api/v1/hr/**").hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers("/api/v1/dashboard/admin").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
