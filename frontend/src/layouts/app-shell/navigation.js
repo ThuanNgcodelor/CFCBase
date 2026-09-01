@@ -46,6 +46,7 @@ export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistr
     { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
     { name: 'Telegram nhân viên', path: '/manager/hr/telegram', icon: Send },
+    { name: 'Gửi phiếu lương', path: '/manager/hr/payroll', icon: Send },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
   ];
 
@@ -98,6 +99,7 @@ export function getPageTitle(pathname, items) {
     ['/manager/hr/employees/', 'Chi tiết nhân sự'],
     ['/manager/hr/rosters/', 'Danh sách tháng'],
     ['/manager/hr/telegram', 'Telegram nhân viên'],
+    ['/manager/hr/payroll', 'Gửi phiếu lương'],
     ['/admin/profile-approvals/', 'Chi tiết hồ sơ'],
     ['/admin/approvals/', 'Chi tiết đặt chỗ'],
     ['/rooms/create', 'Đặt phòng họp'],

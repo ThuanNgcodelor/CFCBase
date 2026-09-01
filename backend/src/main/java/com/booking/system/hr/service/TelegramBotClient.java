@@ -38,8 +38,8 @@ public class TelegramBotClient {
         ));
     }
 
-    public void sendText(Long chatId, String text) {
-        send("sendMessage", Map.of("chat_id", chatId, "text", text));
+    public boolean sendText(Long chatId, String text) {
+        return send("sendMessage", Map.of("chat_id", chatId, "text", text));
     }
 
     public boolean testConnection() {
@@ -56,8 +56,8 @@ public class TelegramBotClient {
         }
     }
 
-    private void send(String method, Map<String, Object> payload) {
-        if (!configured()) return;
+    private boolean send(String method, Map<String, Object> payload) {
+        if (!configured()) return false;
         try {
             String body = objectMapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
@@ -66,9 +66,10 @@ public class TelegramBotClient {
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
-            httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            return httpClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() / 100 == 2;
         } catch (Exception ignored) {
             // Lỗi gửi lời nhắc không được làm webhook tạo lại registration.
+            return false;
         }
     }
 

@@ -9,6 +9,7 @@ import {
   UserCheck,
   UserMinus,
   UserPlus,
+  Send,
 } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { HrError, HrLoading, HrPageHeader, HrPageShell } from '../../components/hr/HrUi';
@@ -142,6 +143,7 @@ export default function HrOverview() {
             <QuickLink to="/manager/hr/movements" icon={ArrowUpDown} title="Tăng / Giảm" description="Tạo, kiểm tra và xác nhận biến động nhân sự." />
             <QuickLink to="/manager/hr/rosters" icon={TableProperties} title="Danh sách theo tháng" description="Kế thừa, mở và chốt danh sách nhân sự từng tháng." />
             <QuickLink to="/manager/hr/probation" icon={UserPlus} title="Thử việc" description="Quản lý ứng viên thử việc, tạo hợp đồng và chuyển hồ sơ khi đạt." />
+            <QuickLink to="/manager/hr/payroll" icon={Send} title="Gửi phiếu lương" description="Import file lương, kiểm tra người nhận và gửi qua Telegram." />
           </div>
         </>
       )}

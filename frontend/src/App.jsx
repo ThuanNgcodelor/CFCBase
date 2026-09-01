@@ -38,6 +38,7 @@ const HrRosters = lazy(() => import('./pages/hr/HrRosters'));
 const HrRosterDetail = lazy(() => import('./pages/hr/HrRosterDetail'));
 const HrAudit = lazy(() => import('./pages/hr/HrAudit'));
 const HrTelegramEmployees = lazy(() => import('./pages/hr/HrTelegramEmployees'));
+const HrPayroll = lazy(() => import('./pages/hr/HrPayroll'));
 
 const SessionCheckScreen = ({ unavailable = false }) => (
   <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', justifyContent: 'center' }}>
@@ -192,6 +193,7 @@ function App() {
         <Route path="manager/hr/rosters/:id" element={<HrRoute><HrRosterDetail /></HrRoute>} />
         <Route path="manager/hr/audit" element={<HrRoute><HrAudit /></HrRoute>} />
         <Route path="manager/hr/telegram" element={<HrRoute><HrTelegramEmployees /></HrRoute>} />
+        <Route path="manager/hr/payroll" element={<HrRoute><HrPayroll /></HrRoute>} />
 
         {/* Booking Details (Approvals / Logs) */}
         <Route path="admin/approvals/:id" element={<BookingDetail />} />
