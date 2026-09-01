@@ -70,6 +70,7 @@ public class SecurityConfig {
                         "/manager/**"
                 ).permitAll()
                 .requestMatchers("/api/v1/auth/**").permitAll() // Mở endpoint đăng nhập
+                .requestMatchers(HttpMethod.POST, "/api/v1/integrations/telegram/payroll/webhook").permitAll()
                 .requestMatchers("/api/v1/hr/sync/**").permitAll() // Mở endpoint đồng bộ cho Google Apps Script
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/v1/hr/**").hasAnyRole("MANAGER", "ADMIN")

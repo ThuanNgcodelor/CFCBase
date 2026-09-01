@@ -12,6 +12,7 @@ import {
   Library,
   MoreHorizontal,
   TableProperties,
+  Send,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistr
     { name: 'LĐ phổ thông', path: '/manager/hr/general-labor', icon: HardHat },
     { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
+    { name: 'Telegram nhân viên', path: '/manager/hr/telegram', icon: Send },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
   ];
 
@@ -95,6 +97,7 @@ export function getPageTitle(pathname, items) {
     ['/manager/hr/employees/new', 'Thêm hồ sơ nhân sự'],
     ['/manager/hr/employees/', 'Chi tiết nhân sự'],
     ['/manager/hr/rosters/', 'Danh sách tháng'],
+    ['/manager/hr/telegram', 'Telegram nhân viên'],
     ['/admin/profile-approvals/', 'Chi tiết hồ sơ'],
     ['/admin/approvals/', 'Chi tiết đặt chỗ'],
     ['/rooms/create', 'Đặt phòng họp'],
