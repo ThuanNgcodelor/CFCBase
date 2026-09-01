@@ -38,6 +38,18 @@ export function refreshAccessToken() {
 
 baseApi.interceptors.request.use(
   (config) => {
+    // FormData must be sent as multipart/form-data with the browser-generated
+    // boundary. The axios instance has a JSON default, so remove it here
+    // before the browser builds the multipart request.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      if (config.headers && typeof config.headers.delete === 'function') {
+        config.headers.delete('Content-Type');
+      } else if (config.headers) {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
+    }
+
     const token = Cookies.get('accessToken');
     if (token) {
       if (config.headers && typeof config.headers.set === 'function') {
