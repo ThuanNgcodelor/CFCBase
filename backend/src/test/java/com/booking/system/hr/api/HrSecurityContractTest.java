@@ -61,16 +61,16 @@ class HrSecurityContractTest {
     }
 
     @Test
-    void hrApiReturns403ForEmployee() throws Exception {
+    void hrApiAllowsAuthenticatedEmployee() throws Exception {
         stubToken("employee-token", user("employee@example.test", RoleEnum.EMPLOYEE));
 
         mockMvc.perform(get("/api/v1/hr/security-contract")
                         .header("Authorization", "Bearer employee-token"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
-    void hrApiAllowsManagerAndAdmin() throws Exception {
+    void hrApiAllowsAuthenticatedManagerAndAdmin() throws Exception {
         stubToken("manager-token", user("manager@example.test", RoleEnum.MANAGER));
         stubToken("admin-token", user("admin@example.test", RoleEnum.ADMIN));
 

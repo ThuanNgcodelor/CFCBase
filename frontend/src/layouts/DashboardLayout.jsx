@@ -75,6 +75,7 @@ function DashboardLayoutContent() {
       isAdmin,
       isManager,
       isApprover,
+      isHrUser: true,
       pendingRegistrationCount,
     }),
     [isAdmin, isApprover, isManager, pendingRegistrationCount],
@@ -82,6 +83,7 @@ function DashboardLayoutContent() {
   const mobileNavigation = useMemo(
     () => buildMobileNavigation({
       isManager,
+      isHrUser: true,
       primaryItems: navigation.primaryItems,
       adminItems: navigation.adminItems,
       hrItems: navigation.hrItems,

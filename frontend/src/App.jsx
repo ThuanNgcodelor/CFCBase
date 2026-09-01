@@ -111,14 +111,8 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
-// Employee HR là domain riêng. Chỉ tài khoản login có role MANAGER được vào.
-const ManagerRoute = ({ children }) => {
-  const role = authApi.getRole();
-  if (role !== 'MANAGER') {
-    return <Navigate to={getRoleLandingPath(role)} replace />;
-  }
-  return children;
-};
+// HR chỉ yêu cầu tài khoản đã đăng nhập; backend vẫn kiểm tra principal ACTIVE.
+const ManagerRoute = ({ children }) => <ProtectedRoute>{children}</ProtectedRoute>;
 
 const RoleHome = () => {
   const role = authApi.getRole();
@@ -173,7 +167,7 @@ function App() {
         <Route path="notifications" element={<Notifications />} />
         <Route path="profile" element={<Profile />} />
 
-        {/* Phân hệ HR độc lập, chỉ dành cho MANAGER. */}
+        {/* Phân hệ HR yêu cầu đăng nhập, không khóa theo role. */}
         <Route path="manager/hr" element={<HrRoute><HrOverview /></HrRoute>} />
         <Route path="manager/hr/employees" element={<HrRoute><HrEmployees /></HrRoute>} />
         <Route path="manager/hr/employees/new" element={<HrRoute><HrEmployeeForm /></HrRoute>} />

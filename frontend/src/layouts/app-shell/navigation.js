@@ -17,7 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 
-export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistrationCount = 0 }) {
+export function buildNavigation({ isAdmin, isManager, isApprover, isHrUser = false, pendingRegistrationCount = 0 }) {
   const primaryItems = isManager
     ? []
     : [
@@ -55,12 +55,12 @@ export function buildNavigation({ isAdmin, isManager, isApprover, pendingRegistr
     sections.push({ label: isManager ? 'Hệ thống' : 'Điều phối', items: primaryItems });
   }
   if (adminItems.length > 0) sections.push({ label: 'Quản trị hệ thống', items: adminItems });
-  if (isManager) sections.push({ label: 'Quản lý nhân sự', items: hrItems });
+  if (isHrUser) sections.push({ label: 'Quản lý nhân sự', items: hrItems });
 
   return { sections, primaryItems, adminItems, hrItems };
 }
 
-export function buildMobileNavigation({ isManager, primaryItems, adminItems, hrItems }) {
+export function buildMobileNavigation({ isManager, isHrUser = false, primaryItems, adminItems, hrItems }) {
   if (isManager) {
     return {
       primary: [
@@ -78,9 +78,10 @@ export function buildMobileNavigation({ isManager, primaryItems, adminItems, hrI
 
   return {
     primary: primaryItems.slice(0, 4),
-    moreSections: adminItems.length > 0
-      ? [{ label: 'Quản trị hệ thống', items: adminItems }]
-      : [],
+    moreSections: [
+      ...(isHrUser ? [{ label: 'Quản lý nhân sự', items: hrItems }] : []),
+      ...(adminItems.length > 0 ? [{ label: 'Quản trị hệ thống', items: adminItems }] : []),
+    ],
   };
 }
 

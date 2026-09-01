@@ -73,7 +73,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/integrations/telegram/payroll/webhook").permitAll()
                 .requestMatchers("/api/v1/hr/sync/**").permitAll() // Mở endpoint đồng bộ cho Google Apps Script
                 .requestMatchers("/ws/**").permitAll()
-                .requestMatchers("/api/v1/hr/**").hasAnyRole("MANAGER", "ADMIN")
+                // HR APIs vẫn yêu cầu đăng nhập, nhưng phân quyền HR không còn
+                // phụ thuộc vào role MANAGER/ADMIN.
+                .requestMatchers("/api/v1/hr/**").authenticated()
                 .requestMatchers("/api/v1/dashboard/admin").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
