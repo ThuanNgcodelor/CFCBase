@@ -21,8 +21,8 @@ public class TelegramBotClient {
     @Value("${cfc.telegram.bot-token:}")
     private String botToken;
 
-    public TelegramBotClient(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public TelegramBotClient() {
+        this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
 

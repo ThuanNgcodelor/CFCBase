@@ -36,7 +36,7 @@ public class HrPayrollService {
     private final HrPayrollImportRowRepository rowRepository;
     private final HrEmployeeRepository employeeRepository;
     private final HrEmployeeTelegramBindingRepository bindingRepository;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
     public HrPayrollDtos.ImportResponse upload(String fileName, byte[] bytes, HrImportActor actor) {

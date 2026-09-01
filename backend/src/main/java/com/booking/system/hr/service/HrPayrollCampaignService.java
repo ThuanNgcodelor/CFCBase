@@ -38,7 +38,7 @@ public class HrPayrollCampaignService {
     private final HrPayrollImportRepository importRepository;
     private final HrPayrollImportRowRepository rowRepository;
     private final TelegramBotClient botClient;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final TransactionTemplate transactionTemplate;
     private static final int MAX_ATTEMPTS = 3;
 
