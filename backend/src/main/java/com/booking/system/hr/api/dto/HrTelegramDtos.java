@@ -43,6 +43,22 @@ public final class HrTelegramDtos {
     ) {
     }
 
+    public record EmployeeStatusResponse(
+            String employeeId,
+            String registrationId,
+            String employeeCode,
+            String employeeName,
+            String phoneNumber,
+            Long telegramUserId,
+            String telegramUsername,
+            String status,
+            LocalDateTime registeredAt,
+            LocalDateTime reviewedAt,
+            String reviewedByActor,
+            String reviewNote
+    ) {
+    }
+
     public record ReviewRequest(@Size(max = 1000) String note) {
     }
 

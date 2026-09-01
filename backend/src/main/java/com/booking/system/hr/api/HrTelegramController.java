@@ -77,6 +77,19 @@ public class HrTelegramController {
                 "Lấy danh sách đăng ký Telegram thành công"));
     }
 
+    @GetMapping("/employees")
+    public ResponseEntity<ApiResponse<HrPageResponse<HrTelegramDtos.EmployeeStatusResponse>>> employees(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status) {
+        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(size, 1), 50),
+                Sort.by(Sort.Direction.ASC, "employeeCode"));
+        return ResponseEntity.ok(ApiResponse.success(
+                HrPageResponse.from(service.employeeStatuses(keyword, status, pageable), Function.identity()),
+                "Lấy trạng thái Telegram toàn bộ nhân viên thành công"));
+    }
+
     @GetMapping("/summary")
     public ResponseEntity<ApiResponse<HrTelegramDtos.SummaryResponse>> summary() {
         return ResponseEntity.ok(ApiResponse.success(service.summary(), "Lấy tổng hợp đăng ký Telegram thành công"));

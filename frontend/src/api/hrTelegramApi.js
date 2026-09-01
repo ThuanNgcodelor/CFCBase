@@ -22,6 +22,10 @@ export const hrTelegramApi = {
     params,
     signal: options.signal,
   })),
+  getEmployeeStatuses: async (params, options = {}) => unwrapApiData(await baseApi.get('/hr/telegram/employees', {
+    params,
+    signal: options.signal,
+  })),
   verify: async (id, note = '') => unwrapApiData(await baseApi.post(`/hr/telegram/registrations/${id}/verify`, { note })),
   reject: async (id, note = '') => unwrapApiData(await baseApi.post(`/hr/telegram/registrations/${id}/reject`, { note })),
   revoke: async (employeeId, note = '') => unwrapApiData(await baseApi.post(`/hr/telegram/employees/${employeeId}/revoke`, { note })),

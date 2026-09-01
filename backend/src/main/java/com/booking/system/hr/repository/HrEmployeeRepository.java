@@ -28,6 +28,8 @@ public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
 
     long countByEmploymentStatus(HrEmploymentStatus status);
 
+    List<HrEmployee> findAllByEmploymentStatusOrderByEmployeeCode(HrEmploymentStatus status);
+
     @EntityGraph(attributePaths = {
             "employment", "employment.department", "employment.position", "employment.workingCondition"
     })

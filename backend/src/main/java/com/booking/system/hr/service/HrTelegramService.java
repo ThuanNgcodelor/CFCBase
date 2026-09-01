@@ -8,6 +8,7 @@ import com.booking.system.hr.entity.HrEmployeeTelegramBinding;
 import com.booking.system.hr.entity.HrSystemSetting;
 import com.booking.system.hr.entity.HrTelegramRegistration;
 import com.booking.system.hr.enums.HrTelegramBindingStatus;
+import com.booking.system.hr.enums.HrEmploymentStatus;
 import com.booking.system.hr.enums.HrTelegramRegistrationStatus;
 import com.booking.system.hr.importer.HrImportActor;
 import com.booking.system.hr.importer.HrImportJsonCodec;
@@ -19,6 +20,7 @@ import com.booking.system.hr.repository.HrTelegramRegistrationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -93,6 +97,59 @@ public class HrTelegramService {
     }
 
     @Transactional(readOnly = true)
+    public Page<HrTelegramDtos.EmployeeStatusResponse> employeeStatuses(String keyword, String status, Pageable pageable) {
+        List<HrEmployee> employees = employeeRepository.findAllByEmploymentStatusOrderByEmployeeCode(HrEmploymentStatus.ACTIVE);
+        List<String> employeeIds = employees.stream().map(HrEmployee::getId).toList();
+        Map<String, HrEmployeeTelegramBinding> bindings = new HashMap<>();
+        if (!employeeIds.isEmpty()) {
+            bindingRepository.findAllByEmployeeIdIn(employeeIds).forEach(binding -> bindings.put(binding.getEmployee().getId(), binding));
+        }
+        Map<String, HrTelegramRegistration> latestRegistrations = new HashMap<>();
+        if (!employeeIds.isEmpty()) {
+            registrationRepository.findAllByEmployeeIdInOrderByCreatedAtDesc(employeeIds)
+                    .forEach(registration -> latestRegistrations.putIfAbsent(registration.getEmployee().getId(), registration));
+        }
+        String needle = keyword == null || keyword.isBlank() ? null : keyword.trim().toLowerCase(Locale.ROOT);
+        String requestedStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase(Locale.ROOT);
+        List<HrTelegramDtos.EmployeeStatusResponse> filtered = new ArrayList<>();
+        for (HrEmployee employee : employees) {
+            HrEmployeeTelegramBinding binding = bindings.get(employee.getId());
+            HrTelegramRegistration registration = latestRegistrations.get(employee.getId());
+            String resolvedStatus = binding != null && binding.getStatus() == HrTelegramBindingStatus.ACTIVE
+                    ? HrTelegramRegistrationStatus.VERIFIED.name()
+                    : registration != null ? registration.getStatus().name()
+                    : binding != null ? HrTelegramRegistrationStatus.REVOKED.name()
+                    : "NOT_REGISTERED";
+            String phone = binding != null && binding.getPhoneNumber() != null ? binding.getPhoneNumber()
+                    : registration == null ? null : registration.getPhoneNumber();
+            String username = binding != null && binding.getTelegramUsername() != null ? binding.getTelegramUsername()
+                    : registration == null ? null : registration.getTelegramUsername();
+            if (requestedStatus != null && !requestedStatus.equals(resolvedStatus)) continue;
+            if (needle != null && !containsIgnoreCase(employee.getEmployeeCode(), needle)
+                    && !containsIgnoreCase(employee.getFullName(), needle)
+                    && !containsIgnoreCase(phone, needle)
+                    && !containsIgnoreCase(username, needle)) continue;
+            filtered.add(new HrTelegramDtos.EmployeeStatusResponse(
+                    employee.getId(), registration == null ? null : registration.getId(), employee.getEmployeeCode(), employee.getFullName(), phone,
+                    binding != null && binding.getTelegramUserId() != null ? binding.getTelegramUserId()
+                            : registration == null ? null : registration.getTelegramUserId(),
+                    username, resolvedStatus,
+                    binding != null && binding.getLinkedAt() != null ? binding.getLinkedAt()
+                            : registration == null ? null : registration.getCreatedAt(),
+                    registration == null ? null : registration.getReviewedAt(),
+                    registration == null ? null : registration.getReviewedByActor(),
+                    registration == null ? null : registration.getReviewNote()));
+        }
+        int from = (int) Math.min((long) pageable.getPageNumber() * pageable.getPageSize(), filtered.size());
+        int to = Math.min(from + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(from, to), pageable, filtered.size());
+    }
+
+    private static boolean containsIgnoreCase(String value, String needle) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(needle);
+    }
+
+    @Transactional(readOnly = true)
     public HrTelegramDtos.SummaryResponse summary() {
         return new HrTelegramDtos.SummaryResponse(
                 registrationRepository.count(),
@@ -148,12 +205,18 @@ public class HrTelegramService {
         if (existingUser != null && !existingUser.getEmployee().getId().equals(employee.getId())) {
             throw HrApiException.conflict("TELEGRAM_ACCOUNT_ALREADY_BOUND", "Tài khoản Telegram đã liên kết với nhân sự khác.");
         }
-        HrEmployeeTelegramBinding binding = bindingRepository.findByEmployeeIdForUpdate(employee.getId()).orElseGet(() -> {
+        HrEmployeeTelegramBinding binding = bindingRepository.findByEmployeeIdForUpdate(employee.getId()).orElse(null);
+        if (binding != null && binding.getStatus() == HrTelegramBindingStatus.ACTIVE
+                && binding.getTelegramUserId() != null
+                && !Objects.equals(binding.getTelegramUserId(), registration.getTelegramUserId())) {
+            throw HrApiException.conflict("EMPLOYEE_ALREADY_HAS_TELEGRAM", "Nhân sự này đã được liên kết với một tài khoản Telegram khác.");
+        }
+        if (binding == null) {
             HrEmployeeTelegramBinding value = new HrEmployeeTelegramBinding();
             value.setEmployee(employee);
             value.setCreatedByActor(actor.subject());
-            return value;
-        });
+            binding = value;
+        }
         binding.setTelegramUserId(registration.getTelegramUserId());
         binding.setTelegramChatId(registration.getTelegramChatId());
         binding.setTelegramUsername(registration.getTelegramUsername());
