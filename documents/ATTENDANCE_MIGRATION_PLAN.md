@@ -14,8 +14,9 @@ liệu, quyền truy cập và file đầu ra được quản lý trong CFCBase.
    viên theo mã, lấy lượt vào sớm nhất và lượt ra muộn nhất trong khung cấu
    hình.
 4. Nếu chỉ có một lượt chấm, hệ thống tự điền lượt còn thiếu theo giờ mặc định
-   (mặc định giao diện là 07:30 và 17:00) và đánh dấu `AUTO_FILLED` để người
-   dùng biết đây là dữ liệu suy ra.
+   (07:30 hoặc 16:30) và đánh dấu `AUTO_FILLED` để người dùng biết đây là dữ
+   liệu suy ra. Nếu không có lượt chấm, dòng vẫn được giữ nguyên với trạng thái
+   `NO_PUNCH`.
 5. Mã nhân viên nằm trong danh sách **miễn chấm công** được lưu để đối soát,
    nhưng không tính công và không xuất vào file sạch.
 6. Mỗi lần import có bản xem trước, lý do lỗi theo từng dòng, tải file đã format,
@@ -29,7 +30,8 @@ liệu, quyền truy cập và file đầu ra được quản lý trong CFCBase.
 | Nhiều file | Có | Có qua endpoint batch |
 | File sạch | Archive 8 cột | `*-da-format.xlsx` |
 | Bảng Công | `CONG_...` pivot | `CONG_...xlsx` theo nhân viên/ngày |
-| Dòng thiếu một lượt | Có thể 0.5 hoặc tự điền tùy cấu hình | Tự điền mặc định nếu đã cấu hình; nếu không thể thì báo lỗi |
+| Dòng thiếu một lượt | Có thể 0.5 hoặc tự điền tùy cấu hình | Tự điền mặc định 07:30/16:30 |
+| Dòng không có lượt | Giữ ngày để đối soát | Giữ nguyên dòng, không tính lỗi |
 | Người đi thị trường | Xử lý thủ công sau file tổng hợp | Danh sách mã miễn chấm công trong cấu hình |
 
 ## Giai đoạn tiếp theo

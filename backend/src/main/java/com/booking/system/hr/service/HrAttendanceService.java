@@ -176,9 +176,14 @@ public class HrAttendanceService {
                     months.add(rowMonth);
                     if (month == null) month = rowMonth;
                 }
-                if (record.getStatus() == HrAttendanceRecordStatus.VALID || record.getStatus() == HrAttendanceRecordStatus.AUTO_FILLED) valid++;
-                else if (record.getStatus() == HrAttendanceRecordStatus.EXCLUDED) excluded++;
-                else errors++;
+                // A row with a valid employee/date is still a usable attendance
+                // row even when it has no punches (weekend/leave). Keep it in
+                // the preview/export instead of treating it as an error.
+                if (record.getStatus() == HrAttendanceRecordStatus.EXCLUDED) excluded++;
+                else if (record.getStatus() == HrAttendanceRecordStatus.EMPLOYEE_NOT_FOUND
+                        || record.getStatus() == HrAttendanceRecordStatus.DATE_INVALID
+                        || record.getStatus() == HrAttendanceRecordStatus.ROW_INVALID) errors++;
+                else valid++;
                 records.add(record);
             }
             if (total == 0) throw HrApiException.badRequest("ATTENDANCE_NO_ROWS", "Không tìm thấy dòng chấm công hợp lệ sau dòng tiêu đề.");
@@ -231,9 +236,10 @@ public class HrAttendanceService {
     public ExportFile export(String importId) {
         HrAttendanceImport batch = importRepository.findById(importId)
                 .orElseThrow(() -> HrApiException.notFound("ATTENDANCE_IMPORT_NOT_FOUND", "Không tìm thấy lần import chấm công."));
-        List<HrAttendanceRecord> records = recordRepository.findByImportIdOrderBySourceRowNumber(importId).stream()
-                .filter(record -> (record.getStatus() == HrAttendanceRecordStatus.VALID || record.getStatus() == HrAttendanceRecordStatus.AUTO_FILLED) && record.getWorkDate() != null)
-                .toList();
+        // Do not drop rows with no punches. They represent weekends, leave or
+        // a day the machine did not receive a punch and must remain visible in
+        // the normalized monthly file.
+        List<HrAttendanceRecord> records = recordRepository.findByImportIdOrderBySourceRowNumber(importId);
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("Chấm công");
             CellStyle title = workbook.createCellStyle(); title.setAlignment(HorizontalAlignment.CENTER);
@@ -244,7 +250,7 @@ public class HrAttendanceService {
             for (int i = 0; i < headers.length; i++) { headerRow.createCell(i).setCellValue(headers[i]); headerRow.getCell(i).setCellStyle(header); }
             int rowNumber = 2, serial = 1;
             for (HrAttendanceRecord record : records) {
-                Row row = sheet.createRow(rowNumber++); row.createCell(0).setCellValue(serial++); row.createCell(1).setCellValue(record.getEmployeeCode()); row.createCell(2).setCellValue(record.getEmployeeName() == null ? "" : record.getEmployeeName()); row.createCell(3).setCellValue(""); row.createCell(4).setCellValue(record.getWorkDate().format(EXPORT_DATE_FORMAT)); row.createCell(5).setCellValue(dayName(record.getWorkDate().getDayOfWeek())); row.createCell(6).setCellValue(record.getCheckIn() == null ? "" : record.getCheckIn().toString().substring(0, 5)); row.createCell(7).setCellValue(record.getCheckOut() == null ? "" : record.getCheckOut().toString().substring(0, 5));
+                Row row = sheet.createRow(rowNumber++); row.createCell(0).setCellValue(serial++); row.createCell(1).setCellValue(record.getEmployeeCode() == null ? "" : record.getEmployeeCode()); row.createCell(2).setCellValue(record.getEmployeeName() == null ? "" : record.getEmployeeName()); row.createCell(3).setCellValue(""); row.createCell(4).setCellValue(record.getWorkDate() == null ? "" : record.getWorkDate().format(EXPORT_DATE_FORMAT)); row.createCell(5).setCellValue(record.getWorkDate() == null ? "" : dayName(record.getWorkDate().getDayOfWeek())); row.createCell(6).setCellValue(record.getCheckIn() == null ? "" : record.getCheckIn().toString().substring(0, 5)); row.createCell(7).setCellValue(record.getCheckOut() == null ? "" : record.getCheckOut().toString().substring(0, 5));
             }
             int[] widths = {8, 16, 28, 20, 14, 14, 14, 14}; for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i] * 256);
             workbook.write(output);
@@ -321,8 +327,12 @@ public class HrAttendanceService {
         LocalTime actualCheckOut = times.stream().filter(time -> inRange(time, config.checkOutStart(), config.checkOutEnd())).reduce((first, second) -> second).orElse(null);
         // Match the Apps Script workflow: if one side is missing, fill it with
         // the configured default (07:30 / 17:00 when the optional fields are blank).
-        LocalTime defaultCheckIn = config.defaultCheckIn() == null ? LocalTime.of(7, 30) : config.defaultCheckIn();
-        LocalTime defaultCheckOut = config.defaultCheckOut() == null ? LocalTime.of(17, 0) : config.defaultCheckOut();
+        LocalTime defaultCheckIn = config.defaultCheckIn() == null
+                ? (config.standardCheckIn() == null ? LocalTime.of(7, 30) : config.standardCheckIn())
+                : config.defaultCheckIn();
+        LocalTime defaultCheckOut = config.defaultCheckOut() == null
+                ? (config.standardCheckOut() == null ? LocalTime.of(16, 30) : config.standardCheckOut())
+                : config.defaultCheckOut();
         LocalTime checkIn = actualCheckIn;
         LocalTime checkOut = actualCheckOut;
         boolean autoFilled = false;
@@ -334,7 +344,7 @@ public class HrAttendanceService {
             LocalTime filledTime = actualCheckIn == null ? checkIn : checkOut;
             result.setStatus(HrAttendanceRecordStatus.AUTO_FILLED); result.setErrorMessage(filled + " được tự điền mặc định " + filledTime.toString().substring(0, 5) + ".");
         } else if (date != null && employee != null && actualCheckIn == null && actualCheckOut == null) {
-            result.setStatus(HrAttendanceRecordStatus.NO_PUNCH); result.setErrorMessage("Không có giờ chấm trong các cột đã cấu hình (" + String.join(", ", config.punchColumns()) + ").");
+            result.setStatus(HrAttendanceRecordStatus.NO_PUNCH); result.setErrorMessage("Không có giờ chấm; giữ nguyên dòng (có thể là ngày nghỉ hoặc không làm việc).");
         } else if (date != null && employee != null && checkIn == null) {
             result.setStatus(HrAttendanceRecordStatus.MISSING_CHECK_IN); result.setErrorMessage("Thiếu Check in và không thể tự điền.");
         } else if (date != null && employee != null && checkOut == null) {

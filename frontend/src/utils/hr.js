@@ -21,7 +21,7 @@ const STATUS_LABELS = {
   ROW_INVALID: 'Dòng không hợp lệ',
   MISSING_CHECK_IN: 'Thiếu Check in',
   MISSING_CHECK_OUT: 'Thiếu Check out',
-  NO_PUNCH: 'Không có lượt chấm',
+  NO_PUNCH: 'Không chấm (giữ dòng)',
   WARNING: 'Cần lưu ý',
   INVALID: 'Không hợp lệ',
   IMPORTED: 'Đã nhập',
