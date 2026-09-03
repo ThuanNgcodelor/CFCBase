@@ -38,9 +38,11 @@ export function buildNavigation({ isAdmin, isHrUser = false, pendingRegistration
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
   ];
 
+  // Nhóm nghiệp vụ đặt trước vì đây là khu vực sử dụng hằng ngày.
+  // Các công cụ quản trị đặt cuối và có đường phân cách riêng, tránh trộn với HR.
   const sections = [];
-  if (adminItems.length > 0) sections.push({ label: 'Quản trị tài khoản', items: adminItems });
-  if (isHrUser) sections.push({ label: 'Quản lý nhân sự', items: hrItems });
+  if (isHrUser) sections.push({ label: 'Nhân sự', items: hrItems });
+  if (adminItems.length > 0) sections.push({ label: 'Quản trị hệ thống', items: adminItems });
 
   return { sections, primaryItems, adminItems, hrItems };
 }
@@ -55,8 +57,8 @@ export function buildMobileNavigation({ isHrUser = false, primaryItems, adminIte
         { name: 'Thêm', action: 'more', icon: MoreHorizontal },
       ],
       moreSections: [
-        { label: 'Vận hành nhân sự', items: hrItems.slice(3) },
-        ...(adminItems.length > 0 ? [{ label: 'Quản trị tài khoản', items: adminItems }] : []),
+        { label: 'Vận hành', items: hrItems.slice(3) },
+        ...(adminItems.length > 0 ? [{ label: 'Quản trị hệ thống', items: adminItems }] : []),
       ],
     };
   }
@@ -65,7 +67,7 @@ export function buildMobileNavigation({ isHrUser = false, primaryItems, adminIte
     primary: primaryItems.slice(0, 4),
     moreSections: [
       ...(isHrUser ? [{ label: 'Quản lý nhân sự', items: hrItems }] : []),
-      ...(adminItems.length > 0 ? [{ label: 'Quản trị tài khoản', items: adminItems }] : []),
+      ...(adminItems.length > 0 ? [{ label: 'Quản trị hệ thống', items: adminItems }] : []),
     ],
   };
 }

@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface HrAttendanceImportRepository extends HrRepository<HrAttendanceImport, String> {
     Optional<HrAttendanceImport> findByFileSha256(String fileSha256);
     Page<HrAttendanceImport> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<HrAttendanceImport> findAllByAttendanceMonthOrderByCreatedAtDesc(String attendanceMonth, Pageable pageable);
 }

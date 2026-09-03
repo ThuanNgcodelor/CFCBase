@@ -48,12 +48,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class HrAttendanceService {
     private static final int MAX_FILE_BYTES = 15 * 1024 * 1024;
     private static final String CATEGORY = "ATTENDANCE";
+    private static final Pattern MONTH_PATTERN = Pattern.compile("^(0[1-9]|1[0-2])/\\d{4}$");
     private static final DateTimeFormatter[] DATE_FORMATS = {
             DateTimeFormatter.ofPattern("d/M/uuuu"), DateTimeFormatter.ofPattern("d-M-uuuu"),
             DateTimeFormatter.ofPattern("uuuu/M/d"), DateTimeFormatter.ISO_LOCAL_DATE
@@ -106,18 +109,24 @@ public class HrAttendanceService {
 
     @Transactional
     public HrAttendanceDtos.ImportResponse upload(String fileName, byte[] bytes, HrImportActor actor) {
+        return upload(fileName, bytes, actor, null);
+    }
+
+    @Transactional
+    public HrAttendanceDtos.ImportResponse upload(String fileName, byte[] bytes, HrImportActor actor, String requestedMonth) {
         if (bytes == null || bytes.length == 0) throw HrApiException.badRequest("ATTENDANCE_FILE_EMPTY", "Vui lòng chọn file Excel chấm công.");
         if (bytes.length > MAX_FILE_BYTES) throw HrApiException.badRequest("ATTENDANCE_FILE_TOO_LARGE", "File chấm công không được vượt quá 15 MB.");
         String hash = sha256(bytes);
         Optional<HrAttendanceImport> duplicate = importRepository.findByFileSha256(hash);
         if (duplicate.isPresent()) return toImportResponse(duplicate.get());
+        String targetMonth = normalizeMonth(requestedMonth);
         HrAttendanceDtos.Config config = getConfig();
         HrAttendanceImport batch = new HrAttendanceImport();
         batch.setSourceFileName(fileName == null || fileName.isBlank() ? "attendance.xlsx" : fileName);
         batch.setFileSha256(hash); batch.setFileSize(bytes.length); batch.setHeaderRow(config.headerRow());
         batch.setConfigurationJson(writeConfigJson(config)); batch.setStatus(HrAttendanceImportStatus.PREVIEWED);
         batch.setCreatedByActor(actor.subject()); batch.setUpdatedByActor(actor.subject());
-        int total = 0, valid = 0, errors = 0; String month = null; String sheetName = "";
+        int total = 0, valid = 0, errors = 0; String month = null; Set<String> months = new java.util.HashSet<>(); String sheetName = "";
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
             Sheet sheet = workbook.getSheetAt(0); sheetName = sheet.getSheetName();
             DataFormatter formatter = new DataFormatter(Locale.US);
@@ -126,11 +135,19 @@ public class HrAttendanceService {
                 Row row = sheet.getRow(index); if (isBlank(row, config, formatter)) continue;
                 total++;
                 HrAttendanceRecord record = parseRow(row, index + 1, config, formatter, actor);
-                if (record.getWorkDate() != null && month == null) month = String.format("%02d/%04d", record.getWorkDate().getMonthValue(), record.getWorkDate().getYear());
+                if (record.getWorkDate() != null) {
+                    String rowMonth = String.format("%02d/%04d", record.getWorkDate().getMonthValue(), record.getWorkDate().getYear());
+                    months.add(rowMonth);
+                    if (month == null) month = rowMonth;
+                }
                 if (record.getStatus() == HrAttendanceRecordStatus.VALID) valid++; else errors++;
                 records.add(record);
             }
             if (total == 0) throw HrApiException.badRequest("ATTENDANCE_NO_ROWS", "Không tìm thấy dòng chấm công hợp lệ sau dòng tiêu đề.");
+            if (targetMonth != null && (!months.isEmpty() && (months.size() != 1 || !months.contains(targetMonth)))) {
+                throw HrApiException.badRequest("ATTENDANCE_MONTH_MISMATCH", "File có ngày không thuộc tháng đã chọn (" + targetMonth + ").");
+            }
+            if (months.size() > 1) month = null;
             batch.setSourceSheetName(sheetName); batch.setAttendanceMonth(month); batch.setTotalRows(total); batch.setValidRows(valid); batch.setErrorRows(errors);
             batch = importRepository.save(batch);
             for (HrAttendanceRecord record : records) { record.setImportId(batch.getId()); recordRepository.save(record); }
@@ -139,8 +156,25 @@ public class HrAttendanceService {
         catch (Exception ex) { throw HrApiException.badRequest("ATTENDANCE_XLSX_INVALID", "Không thể đọc file Excel chấm công. Hãy kiểm tra định dạng file."); }
     }
 
-    public HrPageResponse<HrAttendanceDtos.ImportResponse> imports(int page, int size) {
-        return HrPageResponse.from(importRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 50))), this::toImportResponse);
+    public HrPageResponse<HrAttendanceDtos.ImportResponse> imports(int page, int size, String month) {
+        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 50), Sort.by(Sort.Direction.DESC, "createdAt"));
+        String normalizedMonth = normalizeMonth(month);
+        var result = normalizedMonth == null
+                ? importRepository.findAllByOrderByCreatedAtDesc(pageable)
+                : importRepository.findAllByAttendanceMonthOrderByCreatedAtDesc(normalizedMonth, pageable);
+        return HrPageResponse.from(result, this::toImportResponse);
+    }
+
+    private String normalizeMonth(String value) {
+        if (value == null || value.isBlank()) return null;
+        String raw = value.trim();
+        if (raw.matches("^\\d{4}-\\d{2}$")) {
+            raw = raw.substring(5) + "/" + raw.substring(0, 4);
+        }
+        if (!MONTH_PATTERN.matcher(raw).matches()) {
+            throw HrApiException.badRequest("ATTENDANCE_MONTH_INVALID", "Tháng phải có định dạng MM/YYYY hoặc YYYY-MM.");
+        }
+        return raw;
     }
 
     public HrAttendanceDtos.PreviewResponse preview(String importId, int page, int size) {

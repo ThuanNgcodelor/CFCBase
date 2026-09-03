@@ -43,9 +43,9 @@ export function AppSidebar({ expanded, onToggle, sections, pathname }) {
         <BrandMark compact={!expanded} dark />
       </div>
 
-      <nav className="cfc-scrollbar relative z-10 flex-1 space-y-6 overflow-y-auto px-3 py-5" aria-label="Điều hướng chính">
-        {sections.map((section) => (
-          <section key={section.label}>
+      <nav className="cfc-scrollbar relative z-10 flex-1 space-y-4 overflow-y-auto px-3 py-5" aria-label="Điều hướng chính">
+        {sections.map((section, index) => (
+          <section key={section.label} className={index > 0 ? 'border-t border-white/10 pt-5' : ''}>
             {expanded && (
               <h2 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-white/38">
                 {section.label}

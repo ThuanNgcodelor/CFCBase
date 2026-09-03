@@ -47,18 +47,20 @@ public class HrAttendanceController {
     @PostMapping(value = "/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<HrAttendanceDtos.ImportResponse>> upload(
             @AuthenticationPrincipal User principal,
+            @RequestParam(required = false) String month,
             @RequestPart("file") MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) throw HrApiException.badRequest("ATTENDANCE_FILE_EMPTY", "Vui lòng chọn file Excel chấm công.");
-        return ResponseEntity.ok(ApiResponse.success(attendanceService.upload(file.getOriginalFilename(), file.getBytes(), actorResolver.fromPrincipal(principal)), "Đã đọc file chấm công, vui lòng kiểm tra xem trước"));
+        return ResponseEntity.ok(ApiResponse.success(attendanceService.upload(file.getOriginalFilename(), file.getBytes(), actorResolver.fromPrincipal(principal), month), "Đã đọc file chấm công, vui lòng kiểm tra xem trước"));
     }
 
     @GetMapping("/imports")
     public ResponseEntity<ApiResponse<com.booking.system.hr.api.dto.HrPageResponse<HrAttendanceDtos.ImportResponse>>> imports(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String month,
             @AuthenticationPrincipal User principal) {
         actorResolver.fromPrincipal(principal);
-        return ResponseEntity.ok(ApiResponse.success(attendanceService.imports(page, size), "Lấy danh sách file chấm công thành công"));
+        return ResponseEntity.ok(ApiResponse.success(attendanceService.imports(page, size, month), "Lấy danh sách file chấm công thành công"));
     }
 
     @GetMapping("/imports/{importId}/preview")
