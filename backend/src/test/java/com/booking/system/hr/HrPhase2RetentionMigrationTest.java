@@ -61,7 +61,7 @@ class HrPhase2RetentionMigrationTest {
             MigrateResult phaseTwo = latestFlyway.migrate();
             MigrateResult noOp = latestFlyway.migrate();
 
-            assertThat(phaseTwo.migrationsExecuted).isEqualTo(13);
+            assertThat(phaseTwo.migrationsExecuted).isEqualTo(14);
             assertThat(noOp.migrationsExecuted).isZero();
             assertThat(singleInt(statement, """
                     SELECT COUNT(*)
