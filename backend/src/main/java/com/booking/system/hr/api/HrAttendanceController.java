@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
+import java.util.ArrayList;
 
 import java.io.IOException;
 
@@ -56,6 +58,19 @@ public class HrAttendanceController {
         return ResponseEntity.ok(ApiResponse.success(attendanceService.upload(file.getOriginalFilename(), file.getBytes(), actorResolver.fromPrincipal(principal), month), "Đã đọc file chấm công, vui lòng kiểm tra xem trước"));
     }
 
+    @PostMapping(value = "/imports/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<HrAttendanceDtos.BatchImportResponse>> uploadBatch(
+            @AuthenticationPrincipal User principal,
+            @RequestParam(required = false) String month,
+            @RequestPart("files") List<MultipartFile> files) throws IOException {
+        HrImportActor actor = actorResolver.fromPrincipal(principal);
+        List<HrAttendanceService.BatchFile> payload = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) payload.add(new HrAttendanceService.BatchFile(file.getOriginalFilename(), file.getBytes()));
+        }
+        return ResponseEntity.ok(ApiResponse.success(attendanceService.uploadBatch(payload, actor, month), "Đã đọc các file chấm công, vui lòng kiểm tra xem trước"));
+    }
+
     @GetMapping("/imports")
     public ResponseEntity<ApiResponse<com.booking.system.hr.api.dto.HrPageResponse<HrAttendanceDtos.ImportResponse>>> imports(
             @RequestParam(defaultValue = "0") int page,
@@ -80,6 +95,16 @@ public class HrAttendanceController {
     public ResponseEntity<byte[]> export(@PathVariable String importId, @AuthenticationPrincipal User principal) {
         actorResolver.fromPrincipal(principal);
         HrAttendanceService.ExportFile file = attendanceService.export(importId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.fileName()).build().toString())
+                .body(file.content());
+    }
+
+    @GetMapping("/imports/{importId}/cong-export")
+    public ResponseEntity<byte[]> exportCong(@PathVariable String importId, @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        HrAttendanceService.ExportFile file = attendanceService.exportCong(importId);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.fileName()).build().toString())

@@ -46,6 +46,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.DayOfWeek;
+import java.util.HashMap;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -67,7 +68,8 @@ public class HrAttendanceService {
     private static final String CATEGORY = "ATTENDANCE";
     private static final Pattern MONTH_PATTERN = Pattern.compile("^(0[1-9]|1[0-2])/\\d{4}$");
     private static final DateTimeFormatter[] DATE_FORMATS = {
-            DateTimeFormatter.ofPattern("d/M/uuuu"), DateTimeFormatter.ofPattern("d-M-uuuu"),
+            DateTimeFormatter.ofPattern("d/M/uuuu"), DateTimeFormatter.ofPattern("d/M/uu"),
+            DateTimeFormatter.ofPattern("d-M-uuuu"), DateTimeFormatter.ofPattern("d-M-uu"),
             DateTimeFormatter.ofPattern("uuuu/M/d"), DateTimeFormatter.ISO_LOCAL_DATE,
             new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("d-MMM-uu").toFormatter(Locale.ENGLISH),
             new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("d-MMM-uuuu").toFormatter(Locale.ENGLISH),
@@ -129,6 +131,24 @@ public class HrAttendanceService {
     }
 
     @Transactional
+    public HrAttendanceDtos.BatchImportResponse uploadBatch(List<BatchFile> files, HrImportActor actor, String requestedMonth) {
+        if (files == null || files.isEmpty()) {
+            throw HrApiException.badRequest("ATTENDANCE_FILES_EMPTY", "Vui lòng chọn ít nhất một file Excel chấm công.");
+        }
+        List<HrAttendanceDtos.ImportResponse> imports = new ArrayList<>();
+        int totalRows = 0, validRows = 0, excludedRows = 0, errorRows = 0;
+        for (BatchFile file : files) {
+            HrAttendanceDtos.ImportResponse item = upload(file.fileName(), file.bytes(), actor, requestedMonth);
+            imports.add(item);
+            totalRows += item.totalRows(); validRows += item.validRows();
+            excludedRows += item.excludedRows(); errorRows += item.errorRows();
+        }
+        return new HrAttendanceDtos.BatchImportResponse(imports, imports.size(), totalRows, validRows, excludedRows, errorRows);
+    }
+
+    public record BatchFile(String fileName, byte[] bytes) {}
+
+    @Transactional
     public HrAttendanceDtos.ImportResponse upload(String fileName, byte[] bytes, HrImportActor actor, String requestedMonth) {
         if (bytes == null || bytes.length == 0) throw HrApiException.badRequest("ATTENDANCE_FILE_EMPTY", "Vui lòng chọn file Excel chấm công.");
         if (bytes.length > MAX_FILE_BYTES) throw HrApiException.badRequest("ATTENDANCE_FILE_TOO_LARGE", "File chấm công không được vượt quá 15 MB.");
@@ -156,7 +176,7 @@ public class HrAttendanceService {
                     months.add(rowMonth);
                     if (month == null) month = rowMonth;
                 }
-                if (record.getStatus() == HrAttendanceRecordStatus.VALID) valid++;
+                if (record.getStatus() == HrAttendanceRecordStatus.VALID || record.getStatus() == HrAttendanceRecordStatus.AUTO_FILLED) valid++;
                 else if (record.getStatus() == HrAttendanceRecordStatus.EXCLUDED) excluded++;
                 else errors++;
                 records.add(record);
@@ -212,7 +232,7 @@ public class HrAttendanceService {
         HrAttendanceImport batch = importRepository.findById(importId)
                 .orElseThrow(() -> HrApiException.notFound("ATTENDANCE_IMPORT_NOT_FOUND", "Không tìm thấy lần import chấm công."));
         List<HrAttendanceRecord> records = recordRepository.findByImportIdOrderBySourceRowNumber(importId).stream()
-                .filter(record -> record.getStatus() == HrAttendanceRecordStatus.VALID && record.getWorkDate() != null)
+                .filter(record -> (record.getStatus() == HrAttendanceRecordStatus.VALID || record.getStatus() == HrAttendanceRecordStatus.AUTO_FILLED) && record.getWorkDate() != null)
                 .toList();
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("Chấm công");
@@ -228,9 +248,52 @@ public class HrAttendanceService {
             }
             int[] widths = {8, 16, 28, 20, 14, 14, 14, 14}; for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i] * 256);
             workbook.write(output);
-            String safeName = (batch.getSourceFileName() == null ? "attendance" : batch.getSourceFileName()).replaceAll("(?i)\\.(xlsx|xls)$", "");
+            String safeName = (batch.getSourceFileName() == null ? "attendance" : batch.getSourceFileName()).replaceAll("(?i)\\.(xlsx|xls|xlsm)$", "");
             return new ExportFile(safeName + "-da-format.xlsx", output.toByteArray());
         } catch (IOException ex) { throw HrApiException.badRequest("ATTENDANCE_EXPORT_FAILED", "Không thể tạo file Excel chấm công."); }
+    }
+
+    @Transactional(readOnly = true)
+    public ExportFile exportCong(String importId) {
+        HrAttendanceImport batch = importRepository.findById(importId)
+                .orElseThrow(() -> HrApiException.notFound("ATTENDANCE_IMPORT_NOT_FOUND", "Không tìm thấy lần import chấm công."));
+        List<HrAttendanceRecord> source = recordRepository.findByImportIdOrderBySourceRowNumber(importId).stream()
+                .filter(record -> record.getWorkDate() != null && record.getEmployeeCode() != null && !record.getEmployeeCode().isBlank())
+                .toList();
+        List<LocalDate> dates = source.stream().map(HrAttendanceRecord::getWorkDate).distinct().sorted().toList();
+        Map<String, HrAttendanceRecord> lookup = new HashMap<>();
+        Map<String, String> names = new LinkedHashMap<>();
+        for (HrAttendanceRecord record : source) {
+            String key = record.getEmployeeCode() + "|" + record.getWorkDate();
+            lookup.put(key, record); names.putIfAbsent(record.getEmployeeCode(), record.getEmployeeName() == null ? "" : record.getEmployeeName());
+        }
+        List<String> employeeCodes = new ArrayList<>(names.keySet());
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("Công");
+            CellStyle title = workbook.createCellStyle(); title.setAlignment(HorizontalAlignment.CENTER); title.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex()); title.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            CellStyle header = workbook.createCellStyle(); header.setAlignment(HorizontalAlignment.CENTER); header.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex()); header.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            Row titleRow = sheet.createRow(0); titleRow.createCell(0).setCellValue("BẢNG CÔNG" + (batch.getAttendanceMonth() == null ? "" : " - " + batch.getAttendanceMonth())); titleRow.getCell(0).setCellStyle(title); sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, dates.size() + 3));
+            Row headerRow = sheet.createRow(1); String[] fixed = {"STT", "Mã nhân viên", "Tên nhân viên"};
+            for (int i = 0; i < fixed.length; i++) { headerRow.createCell(i).setCellValue(fixed[i]); headerRow.getCell(i).setCellStyle(header); }
+            for (int i = 0; i < dates.size(); i++) { headerRow.createCell(i + 3).setCellValue(dates.get(i).format(EXPORT_DATE_FORMAT)); headerRow.getCell(i + 3).setCellStyle(header); }
+            headerRow.createCell(dates.size() + 3).setCellValue("Tổng ngày công"); headerRow.getCell(dates.size() + 3).setCellStyle(header);
+            int rowNumber = 2, serial = 1;
+            for (String code : employeeCodes) {
+                Row row = sheet.createRow(rowNumber++); row.createCell(0).setCellValue(serial++); row.createCell(1).setCellValue(code); row.createCell(2).setCellValue(names.get(code)); double total = 0;
+                for (int i = 0; i < dates.size(); i++) { HrAttendanceRecord record = lookup.get(code + "|" + dates.get(i)); double value = attendanceValue(record); row.createCell(i + 3).setCellValue(value); total += value; }
+                row.createCell(dates.size() + 3).setCellValue(total);
+            }
+            for (int i = 0; i < dates.size() + 4; i++) sheet.setColumnWidth(i, (i == 2 ? 28 : 14) * 256);
+            workbook.write(output);
+            String safeName = (batch.getSourceFileName() == null ? "attendance" : batch.getSourceFileName()).replaceAll("(?i)\\.(xlsx|xls|xlsm)$", "");
+            return new ExportFile("CONG_" + safeName + ".xlsx", output.toByteArray());
+        } catch (IOException ex) { throw HrApiException.badRequest("ATTENDANCE_EXPORT_FAILED", "Không thể tạo file Bảng Công."); }
+    }
+
+    private static double attendanceValue(HrAttendanceRecord record) {
+        if (record == null || record.getStatus() == HrAttendanceRecordStatus.EXCLUDED || record.getStatus() == HrAttendanceRecordStatus.NO_PUNCH) return 0;
+        if (record.getStatus() == HrAttendanceRecordStatus.MISSING_CHECK_IN || record.getStatus() == HrAttendanceRecordStatus.MISSING_CHECK_OUT) return 0.5;
+        return record.getWorkValue() == null ? 0 : record.getWorkValue().doubleValue();
     }
 
     public record ExportFile(String fileName, byte[] content) {}
@@ -247,15 +310,36 @@ public class HrAttendanceService {
         LocalDate date = parseDate(row.getCell(columnNumber(config.dateColumn())), formatter); result.setWorkDate(date);
         if (date == null) { result.setStatus(HrAttendanceRecordStatus.DATE_INVALID); result.setErrorMessage("Ngày chấm công không hợp lệ."); }
         if (employee != null) result.setEmployeeId(employee.getId());
-        if (config.excludedEmployeeCodes().stream().map(codeValue -> codeValue.toUpperCase(Locale.ROOT)).anyMatch(code::equals)) {
+        List<String> excludedCodes = normalizeCodes(config.excludedEmployeeCodes());
+        if (excludedCodes.stream().anyMatch(code::equals)) {
             result.setStatus(HrAttendanceRecordStatus.EXCLUDED); result.setErrorMessage("Mã nhân viên được cấu hình miễn chấm công."); result.setWorkValue(BigDecimal.ZERO); return result;
         }
         List<String> punches = config.punchColumns().stream().map(column -> value(row, column, formatter)).map(String::trim).filter(value -> !value.isBlank()).toList();
         result.setPunchesJson(writeJson(punches));
         List<LocalTime> times = punches.stream().map(this::parseTime).filter(Optional::isPresent).map(Optional::get).sorted().toList();
-        LocalTime checkIn = times.stream().filter(time -> inRange(time, config.checkInStart(), config.checkInEnd())).findFirst().orElse(config.defaultCheckIn());
-        LocalTime checkOut = times.stream().filter(time -> inRange(time, config.checkOutStart(), config.checkOutEnd())).reduce((first, second) -> second).orElse(config.defaultCheckOut());
+        LocalTime actualCheckIn = times.stream().filter(time -> inRange(time, config.checkInStart(), config.checkInEnd())).findFirst().orElse(null);
+        LocalTime actualCheckOut = times.stream().filter(time -> inRange(time, config.checkOutStart(), config.checkOutEnd())).reduce((first, second) -> second).orElse(null);
+        // Match the Apps Script workflow: if one side is missing, fill it with
+        // the configured default (07:30 / 17:00 when the optional fields are blank).
+        LocalTime defaultCheckIn = config.defaultCheckIn() == null ? LocalTime.of(7, 30) : config.defaultCheckIn();
+        LocalTime defaultCheckOut = config.defaultCheckOut() == null ? LocalTime.of(17, 0) : config.defaultCheckOut();
+        LocalTime checkIn = actualCheckIn;
+        LocalTime checkOut = actualCheckOut;
+        boolean autoFilled = false;
+        if (checkIn == null && checkOut != null) { checkIn = defaultCheckIn; autoFilled = true; }
+        if (checkIn != null && checkOut == null) { checkOut = defaultCheckOut; autoFilled = true; }
         result.setCheckIn(checkIn); result.setCheckOut(checkOut);
+        if (date != null && employee != null && autoFilled) {
+            String filled = actualCheckIn == null ? "Check in" : "Check out";
+            LocalTime filledTime = actualCheckIn == null ? checkIn : checkOut;
+            result.setStatus(HrAttendanceRecordStatus.AUTO_FILLED); result.setErrorMessage(filled + " được tự điền mặc định " + filledTime.toString().substring(0, 5) + ".");
+        } else if (date != null && employee != null && actualCheckIn == null && actualCheckOut == null) {
+            result.setStatus(HrAttendanceRecordStatus.NO_PUNCH); result.setErrorMessage("Không có giờ chấm trong các cột đã cấu hình (" + String.join(", ", config.punchColumns()) + ").");
+        } else if (date != null && employee != null && checkIn == null) {
+            result.setStatus(HrAttendanceRecordStatus.MISSING_CHECK_IN); result.setErrorMessage("Thiếu Check in và không thể tự điền.");
+        } else if (date != null && employee != null && checkOut == null) {
+            result.setStatus(HrAttendanceRecordStatus.MISSING_CHECK_OUT); result.setErrorMessage("Thiếu Check out và không thể tự điền.");
+        }
         if (checkIn != null && checkOut != null) { result.setWorkValue(BigDecimal.ONE); result.setLateMinutes(Math.max(0, minutesBetween(config.standardCheckIn(), checkIn) - config.graceMinutes())); result.setEarlyMinutes(Math.max(0, minutesBetween(checkOut, config.standardCheckOut()) - config.graceMinutes())); }
         return result;
     }
@@ -263,7 +347,20 @@ public class HrAttendanceService {
     private boolean isBlank(Row row, HrAttendanceDtos.Config config, DataFormatter formatter) { if (row == null) return true; return value(row, config.employeeCodeColumn(), formatter).isBlank() && value(row, config.employeeNameColumn(), formatter).isBlank() && value(row, config.dateColumn(), formatter).isBlank(); }
     private String value(Row row, String column, DataFormatter formatter) { Cell cell = row.getCell(columnNumber(column)); return cell == null ? "" : formatter.formatCellValue(cell); }
     private static int columnNumber(String letters) { String normalized = letters.trim().toUpperCase(Locale.ROOT); int result = 0; for (char c : normalized.toCharArray()) { if (c < 'A' || c > 'Z') throw HrApiException.badRequest("ATTENDANCE_COLUMN_INVALID", "Tên cột Excel không hợp lệ: " + letters); result = result * 26 + c - 'A' + 1; } return result - 1; }
-    private LocalDate parseDate(Cell cell, DataFormatter formatter) { if (cell == null) return null; if (cell.getCellType() == org.apache.poi.ss.usermodel.CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) return cell.getLocalDateTimeCellValue().toLocalDate(); String raw = formatter.formatCellValue(cell).trim(); for (DateTimeFormatter format : DATE_FORMATS) try { return LocalDate.parse(raw, format); } catch (DateTimeParseException ignored) {} return null; }
+    private LocalDate parseDate(Cell cell, DataFormatter formatter) {
+        if (cell == null) return null;
+        if (cell.getCellType() == org.apache.poi.ss.usermodel.CellType.NUMERIC) {
+            if (DateUtil.isValidExcelDate(cell.getNumericCellValue())) {
+                try { return DateUtil.getLocalDateTime(cell.getNumericCellValue()).toLocalDate(); } catch (Exception ignored) { }
+            }
+        }
+        String raw = formatter.formatCellValue(cell).trim();
+        if (raw.isBlank()) return null;
+        for (DateTimeFormatter format : DATE_FORMATS) {
+            try { return LocalDate.parse(raw, format); } catch (DateTimeParseException ignored) { }
+        }
+        return null;
+    }
     private Optional<LocalTime> parseTime(String raw) { try { if (raw.matches("\\d{1,2}:\\d{2}(:\\d{2})?")) return Optional.of(LocalTime.parse(raw.length() == 5 ? raw : raw.substring(0, 8))); double value = Double.parseDouble(raw); if (value >= 0 && value < 1) return Optional.of(LocalTime.ofSecondOfDay(Math.round(value * 86400))); } catch (Exception ignored) {} return Optional.empty(); }
     private static boolean inRange(LocalTime value, LocalTime start, LocalTime end) { return value != null && !value.isBefore(start) && !value.isAfter(end); }
     private static int minutesBetween(LocalTime start, LocalTime end) { return (int) Math.max(0, java.time.Duration.between(start, end).toMinutes()); }

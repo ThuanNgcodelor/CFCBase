@@ -53,4 +53,7 @@ public final class HrAttendanceDtos {
                                  HrAttendanceRecordStatus status, String errorMessage) {}
 
     public record PreviewResponse(ImportResponse batch, HrPageResponse<RecordResponse> rows) {}
+
+    public record BatchImportResponse(List<ImportResponse> imports, int totalFiles, int totalRows,
+                                      int validRows, int excludedRows, int errorRows) {}
 }
