@@ -29,12 +29,23 @@ public final class HrAttendanceDtos {
             LocalTime defaultCheckOut,
             LocalTime standardCheckIn,
             LocalTime standardCheckOut,
-            @Min(0) @Max(120) int graceMinutes
-    ) {}
+            @Min(0) @Max(120) int graceMinutes,
+            List<String> excludedEmployeeCodes
+    ) {
+        public Config(int headerRow, String employeeCodeColumn, String employeeNameColumn, String dateColumn,
+                      List<String> punchColumns, LocalTime checkInStart, LocalTime checkInEnd,
+                      LocalTime checkOutStart, LocalTime checkOutEnd, LocalTime defaultCheckIn,
+                      LocalTime defaultCheckOut, LocalTime standardCheckIn, LocalTime standardCheckOut,
+                      int graceMinutes) {
+            this(headerRow, employeeCodeColumn, employeeNameColumn, dateColumn, punchColumns,
+                    checkInStart, checkInEnd, checkOutStart, checkOutEnd, defaultCheckIn, defaultCheckOut,
+                    standardCheckIn, standardCheckOut, graceMinutes, List.of());
+        }
+    }
 
     public record ImportResponse(String id, String fileName, String sheetName, String attendanceMonth,
                                  HrAttendanceImportStatus status, Config configuration, int totalRows,
-                                 int validRows, int errorRows, String lastError, LocalDateTime createdAt) {}
+                                 int validRows, int errorRows, int excludedRows, String lastError, LocalDateTime createdAt) {}
 
     public record RecordResponse(String id, int sourceRowNumber, String employeeCode, String employeeName,
                                  LocalDate workDate, List<String> punches, LocalTime checkIn, LocalTime checkOut,

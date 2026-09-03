@@ -10,4 +10,5 @@ public interface HrAttendanceImportRepository extends HrRepository<HrAttendanceI
     Optional<HrAttendanceImport> findByFileSha256(String fileSha256);
     Page<HrAttendanceImport> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Page<HrAttendanceImport> findAllByAttendanceMonthOrderByCreatedAtDesc(String attendanceMonth, Pageable pageable);
+    void deleteById(String id);
 }

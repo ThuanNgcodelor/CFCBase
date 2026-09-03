@@ -25,6 +25,12 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -32,12 +38,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.DayOfWeek;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -66,6 +74,7 @@ public class HrAttendanceService {
             new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("d MMM uu").toFormatter(Locale.ENGLISH),
             new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("d MMM uuuu").toFormatter(Locale.ENGLISH)
     };
+    private static final DateTimeFormatter EXPORT_DATE_FORMAT = DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.ENGLISH);
     private final HrAttendanceImportRepository importRepository;
     private final HrAttendanceRecordRepository recordRepository;
     private final HrEmployeeRepository employeeRepository;
@@ -88,7 +97,8 @@ public class HrAttendanceService {
                 optionalTimeSetting("attendance.defaultCheckOut"),
                 timeSetting("attendance.standardCheckIn", LocalTime.of(7, 30)),
                 timeSetting("attendance.standardCheckOut", LocalTime.of(16, 30)),
-                intSetting("attendance.graceMinutes", 10)
+                intSetting("attendance.graceMinutes", 10),
+                listSetting("attendance.excludedEmployeeCodes", List.of())
         );
     }
 
@@ -109,6 +119,7 @@ public class HrAttendanceService {
         put("attendance.standardCheckIn", formatOptional(request.standardCheckIn()), actor, "Giờ chuẩn tính đi trễ");
         put("attendance.standardCheckOut", formatOptional(request.standardCheckOut()), actor, "Giờ chuẩn tính về sớm");
         put("attendance.graceMinutes", String.valueOf(request.graceMinutes()), actor, "Số phút miễn trừ");
+        put("attendance.excludedEmployeeCodes", String.join(",", normalizeCodes(request.excludedEmployeeCodes())), actor, "Mã nhân viên miễn chấm công");
         return getConfig();
     }
 
@@ -131,7 +142,7 @@ public class HrAttendanceService {
         batch.setFileSha256(hash); batch.setFileSize(bytes.length); batch.setHeaderRow(config.headerRow());
         batch.setConfigurationJson(writeConfigJson(config)); batch.setStatus(HrAttendanceImportStatus.PREVIEWED);
         batch.setCreatedByActor(actor.subject()); batch.setUpdatedByActor(actor.subject());
-        int total = 0, valid = 0, errors = 0; String month = null; Set<String> months = new java.util.HashSet<>(); String sheetName = "";
+        int total = 0, valid = 0, errors = 0, excluded = 0; String month = null; Set<String> months = new java.util.HashSet<>(); String sheetName = "";
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
             Sheet sheet = workbook.getSheetAt(0); sheetName = sheet.getSheetName();
             DataFormatter formatter = new DataFormatter(Locale.US);
@@ -145,7 +156,9 @@ public class HrAttendanceService {
                     months.add(rowMonth);
                     if (month == null) month = rowMonth;
                 }
-                if (record.getStatus() == HrAttendanceRecordStatus.VALID) valid++; else errors++;
+                if (record.getStatus() == HrAttendanceRecordStatus.VALID) valid++;
+                else if (record.getStatus() == HrAttendanceRecordStatus.EXCLUDED) excluded++;
+                else errors++;
                 records.add(record);
             }
             if (total == 0) throw HrApiException.badRequest("ATTENDANCE_NO_ROWS", "Không tìm thấy dòng chấm công hợp lệ sau dòng tiêu đề.");
@@ -153,7 +166,7 @@ public class HrAttendanceService {
                 throw HrApiException.badRequest("ATTENDANCE_MONTH_MISMATCH", "File có ngày không thuộc tháng đã chọn (" + targetMonth + ").");
             }
             if (months.size() > 1) month = null;
-            batch.setSourceSheetName(sheetName); batch.setAttendanceMonth(month); batch.setTotalRows(total); batch.setValidRows(valid); batch.setErrorRows(errors);
+            batch.setSourceSheetName(sheetName); batch.setAttendanceMonth(month); batch.setTotalRows(total); batch.setValidRows(valid); batch.setErrorRows(errors); batch.setExcludedRows(excluded);
             batch = importRepository.save(batch);
             for (HrAttendanceRecord record : records) { record.setImportId(batch.getId()); recordRepository.save(record); }
             return toImportResponse(batch);
@@ -187,6 +200,43 @@ public class HrAttendanceService {
         return new HrAttendanceDtos.PreviewResponse(toImportResponse(batch), HrPageResponse.from(recordRepository.findByImportIdOrderBySourceRowNumber(importId, PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100))), this::toRecordResponse));
     }
 
+    @Transactional
+    public void deleteImport(String importId, HrImportActor actor) {
+        HrAttendanceImport batch = importRepository.findById(importId)
+                .orElseThrow(() -> HrApiException.notFound("ATTENDANCE_IMPORT_NOT_FOUND", "Không tìm thấy lần import chấm công."));
+        importRepository.deleteById(batch.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public ExportFile export(String importId) {
+        HrAttendanceImport batch = importRepository.findById(importId)
+                .orElseThrow(() -> HrApiException.notFound("ATTENDANCE_IMPORT_NOT_FOUND", "Không tìm thấy lần import chấm công."));
+        List<HrAttendanceRecord> records = recordRepository.findByImportIdOrderBySourceRowNumber(importId).stream()
+                .filter(record -> record.getStatus() == HrAttendanceRecordStatus.VALID && record.getWorkDate() != null)
+                .toList();
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("Chấm công");
+            CellStyle title = workbook.createCellStyle(); title.setAlignment(HorizontalAlignment.CENTER);
+            title.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex()); title.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            CellStyle header = workbook.createCellStyle(); header.setAlignment(HorizontalAlignment.CENTER); header.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex()); header.setFillPattern(FillPatternType.SOLID_FOREGROUND); header.setBorderBottom(BorderStyle.THIN);
+            Row titleRow = sheet.createRow(0); titleRow.createCell(0).setCellValue("GIỜ CHẤM CÔNG" + (batch.getAttendanceMonth() == null ? "" : " - " + batch.getAttendanceMonth())); titleRow.getCell(0).setCellStyle(title); sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, 7));
+            Row headerRow = sheet.createRow(1); String[] headers = {"STT", "Mã nhân viên", "Tên nhân viên", "Phòng ban", "Ngày", "Thứ", "Lần chấm 1", "Lần chấm 2"};
+            for (int i = 0; i < headers.length; i++) { headerRow.createCell(i).setCellValue(headers[i]); headerRow.getCell(i).setCellStyle(header); }
+            int rowNumber = 2, serial = 1;
+            for (HrAttendanceRecord record : records) {
+                Row row = sheet.createRow(rowNumber++); row.createCell(0).setCellValue(serial++); row.createCell(1).setCellValue(record.getEmployeeCode()); row.createCell(2).setCellValue(record.getEmployeeName() == null ? "" : record.getEmployeeName()); row.createCell(3).setCellValue(""); row.createCell(4).setCellValue(record.getWorkDate().format(EXPORT_DATE_FORMAT)); row.createCell(5).setCellValue(dayName(record.getWorkDate().getDayOfWeek())); row.createCell(6).setCellValue(record.getCheckIn() == null ? "" : record.getCheckIn().toString().substring(0, 5)); row.createCell(7).setCellValue(record.getCheckOut() == null ? "" : record.getCheckOut().toString().substring(0, 5));
+            }
+            int[] widths = {8, 16, 28, 20, 14, 14, 14, 14}; for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i] * 256);
+            workbook.write(output);
+            String safeName = (batch.getSourceFileName() == null ? "attendance" : batch.getSourceFileName()).replaceAll("(?i)\\.(xlsx|xls)$", "");
+            return new ExportFile(safeName + "-da-format.xlsx", output.toByteArray());
+        } catch (IOException ex) { throw HrApiException.badRequest("ATTENDANCE_EXPORT_FAILED", "Không thể tạo file Excel chấm công."); }
+    }
+
+    public record ExportFile(String fileName, byte[] content) {}
+
+    private static String dayName(DayOfWeek day) { return day.getDisplayName(java.time.format.TextStyle.FULL, Locale.forLanguageTag("vi-VN")); }
+
     private HrAttendanceRecord parseRow(Row row, int sourceRow, HrAttendanceDtos.Config config, DataFormatter formatter, HrImportActor actor) {
         HrAttendanceRecord result = new HrAttendanceRecord(); result.setSourceRowNumber(sourceRow); result.setStatus(HrAttendanceRecordStatus.VALID); result.setWorkValue(BigDecimal.ZERO); result.setCreatedByActor(actor.subject()); result.setUpdatedByActor(actor.subject());
         String code = value(row, config.employeeCodeColumn(), formatter).trim().toUpperCase(Locale.ROOT);
@@ -197,6 +247,9 @@ public class HrAttendanceService {
         LocalDate date = parseDate(row.getCell(columnNumber(config.dateColumn())), formatter); result.setWorkDate(date);
         if (date == null) { result.setStatus(HrAttendanceRecordStatus.DATE_INVALID); result.setErrorMessage("Ngày chấm công không hợp lệ."); }
         if (employee != null) result.setEmployeeId(employee.getId());
+        if (config.excludedEmployeeCodes().stream().map(codeValue -> codeValue.toUpperCase(Locale.ROOT)).anyMatch(code::equals)) {
+            result.setStatus(HrAttendanceRecordStatus.EXCLUDED); result.setErrorMessage("Mã nhân viên được cấu hình miễn chấm công."); result.setWorkValue(BigDecimal.ZERO); return result;
+        }
         List<String> punches = config.punchColumns().stream().map(column -> value(row, column, formatter)).map(String::trim).filter(value -> !value.isBlank()).toList();
         result.setPunchesJson(writeJson(punches));
         List<LocalTime> times = punches.stream().map(this::parseTime).filter(Optional::isPresent).map(Optional::get).sorted().toList();
@@ -215,7 +268,7 @@ public class HrAttendanceService {
     private static boolean inRange(LocalTime value, LocalTime start, LocalTime end) { return value != null && !value.isBefore(start) && !value.isAfter(end); }
     private static int minutesBetween(LocalTime start, LocalTime end) { return (int) Math.max(0, java.time.Duration.between(start, end).toMinutes()); }
 
-    private HrAttendanceDtos.ImportResponse toImportResponse(HrAttendanceImport item) { return new HrAttendanceDtos.ImportResponse(item.getId(), item.getSourceFileName(), item.getSourceSheetName(), item.getAttendanceMonth(), item.getStatus(), readConfig(item.getConfigurationJson()), item.getTotalRows(), item.getValidRows(), item.getErrorRows(), item.getLastError(), item.getCreatedAt()); }
+    private HrAttendanceDtos.ImportResponse toImportResponse(HrAttendanceImport item) { int excludedRows = item.getExcludedRows(); if (item.getId() != null) excludedRows = (int) recordRepository.countByImportIdAndStatus(item.getId(), HrAttendanceRecordStatus.EXCLUDED); return new HrAttendanceDtos.ImportResponse(item.getId(), item.getSourceFileName(), item.getSourceSheetName(), item.getAttendanceMonth(), item.getStatus(), readConfig(item.getConfigurationJson()), item.getTotalRows(), item.getValidRows(), item.getErrorRows(), excludedRows, item.getLastError(), item.getCreatedAt()); }
     private HrAttendanceDtos.RecordResponse toRecordResponse(HrAttendanceRecord item) { return new HrAttendanceDtos.RecordResponse(item.getId(), item.getSourceRowNumber(), item.getEmployeeCode(), item.getEmployeeName(), item.getWorkDate(), readList(item.getPunchesJson()), item.getCheckIn(), item.getCheckOut(), item.getWorkValue(), item.getLateMinutes(), item.getEarlyMinutes(), item.getStatus(), item.getErrorMessage()); }
     private HrAttendanceDtos.Config readConfig(String value) {
         try {
@@ -227,12 +280,12 @@ public class HrAttendanceService {
                     parseJsonTime(node, "checkInEnd", LocalTime.of(9, 0)), parseJsonTime(node, "checkOutStart", LocalTime.of(15, 0)),
                     parseJsonTime(node, "checkOutEnd", LocalTime.of(20, 0)), parseJsonTime(node, "defaultCheckIn", null),
                     parseJsonTime(node, "defaultCheckOut", null), parseJsonTime(node, "standardCheckIn", LocalTime.of(7, 30)),
-                    parseJsonTime(node, "standardCheckOut", LocalTime.of(16, 30)), node.path("graceMinutes").asInt(10));
+                    parseJsonTime(node, "standardCheckOut", LocalTime.of(16, 30)), node.path("graceMinutes").asInt(10), readList(node.path("excludedEmployeeCodes").toString()));
         } catch (Exception ex) { return getConfig(); }
     }
     private LocalTime parseJsonTime(JsonNode node, String field, LocalTime fallback) { String value = node.path(field).asText(""); try { return value.isBlank() ? fallback : LocalTime.parse(value); } catch (Exception ex) { return fallback; } }
     private String writeConfigJson(HrAttendanceDtos.Config config) {
-        Map<String, Object> snapshot = new LinkedHashMap<>(); snapshot.put("headerRow", config.headerRow()); snapshot.put("employeeCodeColumn", config.employeeCodeColumn()); snapshot.put("employeeNameColumn", config.employeeNameColumn()); snapshot.put("dateColumn", config.dateColumn()); snapshot.put("punchColumns", config.punchColumns()); snapshot.put("checkInStart", formatOptional(config.checkInStart())); snapshot.put("checkInEnd", formatOptional(config.checkInEnd())); snapshot.put("checkOutStart", formatOptional(config.checkOutStart())); snapshot.put("checkOutEnd", formatOptional(config.checkOutEnd())); snapshot.put("defaultCheckIn", formatOptional(config.defaultCheckIn())); snapshot.put("defaultCheckOut", formatOptional(config.defaultCheckOut())); snapshot.put("standardCheckIn", formatOptional(config.standardCheckIn())); snapshot.put("standardCheckOut", formatOptional(config.standardCheckOut())); snapshot.put("graceMinutes", config.graceMinutes()); return writeJson(snapshot);
+        Map<String, Object> snapshot = new LinkedHashMap<>(); snapshot.put("headerRow", config.headerRow()); snapshot.put("employeeCodeColumn", config.employeeCodeColumn()); snapshot.put("employeeNameColumn", config.employeeNameColumn()); snapshot.put("dateColumn", config.dateColumn()); snapshot.put("punchColumns", config.punchColumns()); snapshot.put("checkInStart", formatOptional(config.checkInStart())); snapshot.put("checkInEnd", formatOptional(config.checkInEnd())); snapshot.put("checkOutStart", formatOptional(config.checkOutStart())); snapshot.put("checkOutEnd", formatOptional(config.checkOutEnd())); snapshot.put("defaultCheckIn", formatOptional(config.defaultCheckIn())); snapshot.put("defaultCheckOut", formatOptional(config.defaultCheckOut())); snapshot.put("standardCheckIn", formatOptional(config.standardCheckIn())); snapshot.put("standardCheckOut", formatOptional(config.standardCheckOut())); snapshot.put("graceMinutes", config.graceMinutes()); snapshot.put("excludedEmployeeCodes", normalizeCodes(config.excludedEmployeeCodes())); return writeJson(snapshot);
     }
     private List<String> readList(String value) { try { return value == null ? List.of() : objectMapper.readValue(value, objectMapper.getTypeFactory().constructCollectionType(List.class, String.class)); } catch (Exception ex) { return List.of(); } }
     private String writeJson(Object value) { try { return objectMapper.writeValueAsString(value); } catch (JsonProcessingException ex) { throw new IllegalStateException(ex); } }
@@ -245,4 +298,5 @@ public class HrAttendanceService {
     private LocalTime optionalTimeSetting(String key) { String value = stringSetting(key, ""); try { return value.isBlank() ? null : LocalTime.parse(value); } catch (Exception ex) { return null; } }
     private List<String> listSetting(String key, List<String> fallback) { String value = stringSetting(key, ""); return value.isBlank() ? fallback : java.util.Arrays.stream(value.split(",")).map(String::trim).filter(v -> !v.isBlank()).toList(); }
     private String formatOptional(LocalTime value) { return value == null ? "" : value.toString(); }
+    private List<String> normalizeCodes(List<String> values) { return values == null ? List.of() : values.stream().flatMap(value -> java.util.Arrays.stream(value.split(","))).map(value -> value.trim().toUpperCase(Locale.ROOT)).filter(value -> !value.isBlank()).distinct().toList(); }
 }

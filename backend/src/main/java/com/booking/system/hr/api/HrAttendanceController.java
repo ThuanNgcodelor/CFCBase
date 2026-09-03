@@ -8,9 +8,12 @@ import com.booking.system.hr.service.HrAttendanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -71,5 +74,22 @@ public class HrAttendanceController {
             @AuthenticationPrincipal User principal) {
         actorResolver.fromPrincipal(principal);
         return ResponseEntity.ok(ApiResponse.success(attendanceService.preview(importId, page, size), "Lấy bản xem trước chấm công thành công"));
+    }
+
+    @GetMapping("/imports/{importId}/export")
+    public ResponseEntity<byte[]> export(@PathVariable String importId, @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        HrAttendanceService.ExportFile file = attendanceService.export(importId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.fileName()).build().toString())
+                .body(file.content());
+    }
+
+    @DeleteMapping("/imports/{importId}")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable String importId, @AuthenticationPrincipal User principal) {
+        HrImportActor actor = actorResolver.fromPrincipal(principal);
+        attendanceService.deleteImport(importId, actor);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã xoá file import chấm công"));
     }
 }

@@ -27,3 +27,13 @@
 .rbc-event-content {
   height: 100% !important;
 }
+
+/* Keep month picker above cards, tables and sticky containers. */
+#attendance-month-picker .react-datepicker-popper,
+.cfc-month-picker-popper {
+  z-index: 1000 !important;
+}
+
+#attendance-month-picker .react-datepicker {
+  font-family: var(--cfc-font-sans);
+}

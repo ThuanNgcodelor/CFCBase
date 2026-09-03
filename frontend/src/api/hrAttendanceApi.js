@@ -13,4 +13,6 @@ export const hrAttendanceApi = {
   },
   listImports: async (params, options = {}) => unwrapApiData(await baseApi.get('/hr/attendance/imports', { params, signal: options.signal })),
   preview: async (id, params, options = {}) => unwrapApiData(await baseApi.get(`/hr/attendance/imports/${id}/preview`, { params, signal: options.signal })),
+  exportFile: async (id) => baseApi.get(`/hr/attendance/imports/${id}/export`, { responseType: 'blob' }),
+  deleteImport: async (id) => unwrapApiData(await baseApi.delete(`/hr/attendance/imports/${id}`)),
 };

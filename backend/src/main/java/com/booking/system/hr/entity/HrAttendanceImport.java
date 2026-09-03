@@ -38,6 +38,8 @@ public class HrAttendanceImport extends HrBaseEntity {
     private int validRows;
     @Column(name = "error_rows", nullable = false)
     private int errorRows;
+    @jakarta.persistence.Transient
+    private int excludedRows;
     @Column(name = "last_error", length = 1000)
     private String lastError;
 }
