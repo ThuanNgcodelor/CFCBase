@@ -32,7 +32,7 @@ public class HrOcrService {
      * 1.5/2.0 model names can remain in an existing database after an
      * upgrade, so they are normalized before calling Google as well.
      */
-    private static final String DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+    private static final String DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
     private static final String DEFAULT_GROQ_MODEL = "qwen/qwen3.6-27b";
 
     private final HrSystemSettingRepository systemSettingRepository;
@@ -111,7 +111,7 @@ public class HrOcrService {
             saveSetting("ocr.provider", request.provider().trim().toUpperCase(), "OCR", "Nhà cung cấp OCR", actor);
         }
 
-        if (request.geminiApiKey() != null && !request.geminiApiKey().isBlank() && !request.geminiApiKey().contains("****")) {
+        if (isNewApiKey(request.geminiApiKey())) {
             saveSetting("ocr.gemini.apiKey", request.geminiApiKey().trim(), "OCR", "Google Gemini API Key", actor);
         }
 
@@ -119,7 +119,7 @@ public class HrOcrService {
             saveSetting("ocr.gemini.model", normalizeGeminiModel(request.geminiModel()), "OCR", "Google Gemini Model", actor);
         }
 
-        if (request.groqApiKey() != null && !request.groqApiKey().isBlank() && !request.groqApiKey().contains("****")) {
+        if (isNewApiKey(request.groqApiKey())) {
             saveSetting("ocr.groq.apiKey", request.groqApiKey().trim(), "OCR", "Groq API Key", actor);
         }
 
@@ -182,7 +182,7 @@ public class HrOcrService {
 
             if (response.statusCode() != 200) {
                 log.error("Gemini OCR error: status={}, body={}", response.statusCode(), response.body());
-                throw HrApiException.badRequest("OCR_GEMINI_ERROR", "Lỗi từ dịch vụ Google Gemini: " + response.body());
+                throw geminiProviderError(response);
             }
 
             JsonNode rootNode = objectMapper.readTree(response.body());
@@ -245,7 +245,7 @@ public class HrOcrService {
 
             if (response.statusCode() != 200) {
                 log.error("Groq OCR error: status={}, body={}", response.statusCode(), response.body());
-                throw HrApiException.badRequest("OCR_GROQ_ERROR", "Lỗi từ dịch vụ Groq: " + response.body());
+                throw groqProviderError(response);
             }
 
             JsonNode rootNode = objectMapper.readTree(response.body());
@@ -311,12 +311,11 @@ public class HrOcrService {
     private String normalizeGeminiModel(String raw) {
         String model = raw == null ? "" : raw.trim();
         if (model.isBlank()) return DEFAULT_GEMINI_MODEL;
-        // These names are retired for new API calls. Map them to the stable
-        // replacement so an existing production setting does not keep failing
-        // with a 404 after Google retires a model.
+        // These names are unavailable to new users. Map them to the model
+        // explicitly recommended by the Gemini API response.
         return switch (model) {
             case "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-001",
-                    "gemini-2.0-flash-lite", "gemini-2.0-flash-lite-001" -> DEFAULT_GEMINI_MODEL;
+                    "gemini-2.0-flash-lite", "gemini-2.0-flash-lite-001", "gemini-2.5-flash" -> DEFAULT_GEMINI_MODEL;
             default -> model;
         };
     }
@@ -331,6 +330,32 @@ public class HrOcrService {
                     "meta-llama/llama-4-scout-17b-16e-instruct" -> DEFAULT_GROQ_MODEL;
             default -> model;
         };
+    }
+
+    private HrApiException geminiProviderError(HttpResponse<String> response) {
+        if (response.statusCode() == 401 || response.statusCode() == 403) {
+            return HrApiException.badRequest("OCR_GEMINI_KEY_INVALID",
+                    "Google Gemini API Key không hợp lệ hoặc đã bị thu hồi. Hãy tạo/copy lại key đầy đủ trong Google AI Studio rồi lưu lại.");
+        }
+        if (response.statusCode() == 404) {
+            return HrApiException.badRequest("OCR_GEMINI_MODEL_UNAVAILABLE",
+                    "Model Gemini hiện tại không khả dụng cho tài khoản này. Hãy chọn gemini-3.6-flash trong Cài đặt OCR.");
+        }
+        return HrApiException.badRequest("OCR_GEMINI_ERROR", "Lỗi từ dịch vụ Google Gemini (HTTP "
+                + response.statusCode() + "). Vui lòng kiểm tra lại cấu hình OCR.");
+    }
+
+    private HrApiException groqProviderError(HttpResponse<String> response) {
+        if (response.statusCode() == 401 || response.statusCode() == 403) {
+            return HrApiException.badRequest("OCR_GROQ_KEY_INVALID",
+                    "Groq API Key không hợp lệ hoặc đã bị thu hồi. Hãy tạo key mới, copy toàn bộ chuỗi gsk_... và dán lại trong Cài đặt OCR.");
+        }
+        if (response.statusCode() == 404) {
+            return HrApiException.badRequest("OCR_GROQ_MODEL_UNAVAILABLE",
+                    "Model Groq hiện tại không khả dụng. Hãy chọn qwen/qwen3.6-27b trong Cài đặt OCR.");
+        }
+        return HrApiException.badRequest("OCR_GROQ_ERROR", "Lỗi từ dịch vụ Groq (HTTP "
+                + response.statusCode() + "). Vui lòng kiểm tra lại cấu hình OCR.");
     }
 
     private String normalizeGender(String raw) {
@@ -388,7 +413,7 @@ public class HrOcrService {
     private String getEffectiveKey(String settingKey, String defaultEnvVal) {
         return systemSettingRepository.findBySettingKey(settingKey)
                 .map(HrSystemSetting::getSettingValue)
-                .filter(val -> val != null && !val.isBlank())
+                .filter(this::isNewApiKey)
                 .orElse(defaultEnvVal != null ? defaultEnvVal : "");
     }
 
@@ -407,6 +432,19 @@ public class HrOcrService {
             setting.setCreatedByActor(actor.subject());
         }
         systemSettingRepository.save(setting);
+    }
+
+    /**
+     * Settings responses deliberately return masked values such as
+     * {@code gsk_...X4Xg}. If the user changes only the provider/model, the
+     * frontend sends that masked value back; never persist it over the real
+     * secret. A new key must be a complete, unmasked value.
+     */
+    private boolean isNewApiKey(String value) {
+        return value != null
+                && !value.isBlank()
+                && !value.contains("...")
+                && !value.contains("*");
     }
 
     private String maskKey(String key) {

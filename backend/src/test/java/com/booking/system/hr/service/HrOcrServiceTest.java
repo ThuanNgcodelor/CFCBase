@@ -51,7 +51,7 @@ class HrOcrServiceTest {
         assertThat(settings.geminiApiKey()).isEqualTo("AIza...3456");
         assertThat(settings.hasGeminiKey()).isTrue();
         assertThat(settings.hasGroqKey()).isFalse();
-        assertThat(settings.geminiModel()).isEqualTo("gemini-2.5-flash");
+        assertThat(settings.geminiModel()).isEqualTo("gemini-3.6-flash");
         assertThat(settings.groqModel()).isEqualTo("qwen/qwen3.6-27b");
     }
 
@@ -72,5 +72,39 @@ class HrOcrServiceTest {
         ocrService.updateSettings(request, actor);
 
         verify(systemSettingRepository, atLeast(4)).save(any(HrSystemSetting.class));
+    }
+
+    @Test
+    void updateSettingsDoesNotOverwriteSecretsWithMaskedValues() {
+        HrSystemSetting existingGemini = HrSystemSetting.builder()
+                .settingKey("ocr.gemini.apiKey")
+                .settingValue("AIzaSyRealGeminiSecret")
+                .build();
+        HrSystemSetting existingGroq = HrSystemSetting.builder()
+                .settingKey("ocr.groq.apiKey")
+                .settingValue("gsk_real_groq_secret")
+                .build();
+        when(systemSettingRepository.findBySettingKey("ocr.gemini.apiKey")).thenReturn(Optional.of(existingGemini));
+        when(systemSettingRepository.findBySettingKey("ocr.groq.apiKey")).thenReturn(Optional.of(existingGroq));
+        when(systemSettingRepository.findBySettingKey("ocr.provider")).thenReturn(Optional.empty());
+        when(systemSettingRepository.findBySettingKey("ocr.gemini.model")).thenReturn(Optional.empty());
+        when(systemSettingRepository.findBySettingKey("ocr.groq.model")).thenReturn(Optional.empty());
+
+        HrOcrSettingsDto request = new HrOcrSettingsDto(
+                "GROQ",
+                "AIza...cret",
+                "gemini-3.6-flash",
+                "gsk_...cret",
+                "qwen/qwen3.6-27b",
+                false,
+                false
+        );
+
+        ocrService.updateSettings(request, actor);
+
+        assertThat(existingGemini.getSettingValue()).isEqualTo("AIzaSyRealGeminiSecret");
+        assertThat(existingGroq.getSettingValue()).isEqualTo("gsk_real_groq_secret");
+        verify(systemSettingRepository, never()).save(existingGemini);
+        verify(systemSettingRepository, never()).save(existingGroq);
     }
 }

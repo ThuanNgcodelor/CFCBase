@@ -10,7 +10,7 @@ export default function HrOcrSettingsModal({ isOpen, onClose }) {
   const [settings, setSettings] = useState({
     provider: 'GEMINI',
     geminiApiKey: '',
-    geminiModel: 'gemini-2.5-flash',
+    geminiModel: 'gemini-3.6-flash',
     groqApiKey: '',
     groqModel: 'qwen/qwen3.6-27b',
     hasGeminiKey: false,
@@ -151,9 +151,7 @@ export default function HrOcrSettingsModal({ isOpen, onClose }) {
                 onChange={(e) => setForm((prev) => ({ ...prev, geminiModel: e.target.value }))}
                 className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="gemini-2.5-flash">gemini-2.5-flash (Khuyên dùng - Nhanh & Chuẩn)</option>
-                <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Tiết kiệm)</option>
-                <option value="gemini-3.6-flash">gemini-3.6-flash (Mới hơn)</option>
+                <option value="gemini-3.6-flash">gemini-3.6-flash (Khuyên dùng - theo API hiện tại)</option>
                 <option value="gemini-3.7-flash">gemini-3.7-flash (Mới nhất)</option>
               </select>
             </div>

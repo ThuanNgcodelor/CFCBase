@@ -31,7 +31,7 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
   const [settings, setSettings] = useState({
     provider: 'GEMINI',
     geminiApiKey: '',
-    geminiModel: 'gemini-2.5-flash',
+    geminiModel: 'gemini-3.6-flash',
     groqApiKey: '',
     groqModel: 'qwen/qwen3.6-27b',
     hasGeminiKey: false,
@@ -242,7 +242,7 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
               title="Bấm để chuyển đổi nhanh giữa Gemini và Groq"
             >
               {settings.provider === 'GEMINI' ? <Sparkles className="h-3.5 w-3.5 text-blue-600" /> : <Zap className="h-3.5 w-3.5 text-amber-600" />}
-              {settings.provider === 'GEMINI' ? `Google Gemini ${settings.geminiModel || '2.5 Flash'}` : `Groq Cloud (${settings.groqModel || 'Qwen 3.6 Vision'})`}
+              {settings.provider === 'GEMINI' ? `Google Gemini ${settings.geminiModel || '3.6 Flash'}` : `Groq Cloud (${settings.groqModel || 'Qwen 3.6 Vision'})`}
               <span className="ml-1 text-[10px] text-gray-500 underline">(Đổi)</span>
             </button>
           </div>
@@ -516,9 +516,7 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
                   onChange={(e) => setSettingsForm((prev) => ({ ...prev, geminiModel: e.target.value }))}
                   className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="gemini-2.5-flash">gemini-2.5-flash (Khuyên dùng - Nhanh & Chuẩn)</option>
-                  <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Tiết kiệm)</option>
-                  <option value="gemini-3.6-flash">gemini-3.6-flash (Mới hơn)</option>
+                  <option value="gemini-3.6-flash">gemini-3.6-flash (Khuyên dùng - theo API hiện tại)</option>
                   <option value="gemini-3.7-flash">gemini-3.7-flash (Mới nhất)</option>
                 </select>
               </div>
