@@ -15,6 +15,7 @@ import com.booking.system.hr.repository.HrAttendanceRecordRepository;
 import com.booking.system.hr.repository.HrEmployeeRepository;
 import com.booking.system.hr.repository.HrSystemSettingRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
@@ -61,7 +62,8 @@ public class HrAttendanceService {
     private final HrAttendanceRecordRepository recordRepository;
     private final HrEmployeeRepository employeeRepository;
     private final HrSystemSettingRepository settingRepository;
-    private final ObjectMapper objectMapper;
+    /** Spring Boot 4 in this project does not expose a Jackson 2 ObjectMapper bean. */
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public HrAttendanceDtos.Config getConfig() {
         return new HrAttendanceDtos.Config(
@@ -113,7 +115,7 @@ public class HrAttendanceService {
         HrAttendanceImport batch = new HrAttendanceImport();
         batch.setSourceFileName(fileName == null || fileName.isBlank() ? "attendance.xlsx" : fileName);
         batch.setFileSha256(hash); batch.setFileSize(bytes.length); batch.setHeaderRow(config.headerRow());
-        batch.setConfigurationJson(writeJson(config)); batch.setStatus(HrAttendanceImportStatus.PREVIEWED);
+        batch.setConfigurationJson(writeConfigJson(config)); batch.setStatus(HrAttendanceImportStatus.PREVIEWED);
         batch.setCreatedByActor(actor.subject()); batch.setUpdatedByActor(actor.subject());
         int total = 0, valid = 0, errors = 0; String month = null; String sheetName = "";
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
@@ -176,7 +178,23 @@ public class HrAttendanceService {
 
     private HrAttendanceDtos.ImportResponse toImportResponse(HrAttendanceImport item) { return new HrAttendanceDtos.ImportResponse(item.getId(), item.getSourceFileName(), item.getSourceSheetName(), item.getAttendanceMonth(), item.getStatus(), readConfig(item.getConfigurationJson()), item.getTotalRows(), item.getValidRows(), item.getErrorRows(), item.getLastError(), item.getCreatedAt()); }
     private HrAttendanceDtos.RecordResponse toRecordResponse(HrAttendanceRecord item) { return new HrAttendanceDtos.RecordResponse(item.getId(), item.getSourceRowNumber(), item.getEmployeeCode(), item.getEmployeeName(), item.getWorkDate(), readList(item.getPunchesJson()), item.getCheckIn(), item.getCheckOut(), item.getWorkValue(), item.getLateMinutes(), item.getEarlyMinutes(), item.getStatus(), item.getErrorMessage()); }
-    private HrAttendanceDtos.Config readConfig(String value) { try { return objectMapper.readValue(value, HrAttendanceDtos.Config.class); } catch (Exception ex) { return getConfig(); } }
+    private HrAttendanceDtos.Config readConfig(String value) {
+        try {
+            JsonNode node = objectMapper.readTree(value);
+            return new HrAttendanceDtos.Config(
+                    node.path("headerRow").asInt(2), node.path("employeeCodeColumn").asText("B"),
+                    node.path("employeeNameColumn").asText("C"), node.path("dateColumn").asText("E"),
+                    readList(node.path("punchColumns").toString()), parseJsonTime(node, "checkInStart", LocalTime.of(4, 0)),
+                    parseJsonTime(node, "checkInEnd", LocalTime.of(9, 0)), parseJsonTime(node, "checkOutStart", LocalTime.of(15, 0)),
+                    parseJsonTime(node, "checkOutEnd", LocalTime.of(20, 0)), parseJsonTime(node, "defaultCheckIn", null),
+                    parseJsonTime(node, "defaultCheckOut", null), parseJsonTime(node, "standardCheckIn", LocalTime.of(7, 30)),
+                    parseJsonTime(node, "standardCheckOut", LocalTime.of(16, 30)), node.path("graceMinutes").asInt(10));
+        } catch (Exception ex) { return getConfig(); }
+    }
+    private LocalTime parseJsonTime(JsonNode node, String field, LocalTime fallback) { String value = node.path(field).asText(""); try { return value.isBlank() ? fallback : LocalTime.parse(value); } catch (Exception ex) { return fallback; } }
+    private String writeConfigJson(HrAttendanceDtos.Config config) {
+        Map<String, Object> snapshot = new LinkedHashMap<>(); snapshot.put("headerRow", config.headerRow()); snapshot.put("employeeCodeColumn", config.employeeCodeColumn()); snapshot.put("employeeNameColumn", config.employeeNameColumn()); snapshot.put("dateColumn", config.dateColumn()); snapshot.put("punchColumns", config.punchColumns()); snapshot.put("checkInStart", formatOptional(config.checkInStart())); snapshot.put("checkInEnd", formatOptional(config.checkInEnd())); snapshot.put("checkOutStart", formatOptional(config.checkOutStart())); snapshot.put("checkOutEnd", formatOptional(config.checkOutEnd())); snapshot.put("defaultCheckIn", formatOptional(config.defaultCheckIn())); snapshot.put("defaultCheckOut", formatOptional(config.defaultCheckOut())); snapshot.put("standardCheckIn", formatOptional(config.standardCheckIn())); snapshot.put("standardCheckOut", formatOptional(config.standardCheckOut())); snapshot.put("graceMinutes", config.graceMinutes()); return writeJson(snapshot);
+    }
     private List<String> readList(String value) { try { return value == null ? List.of() : objectMapper.readValue(value, objectMapper.getTypeFactory().constructCollectionType(List.class, String.class)); } catch (Exception ex) { return List.of(); } }
     private String writeJson(Object value) { try { return objectMapper.writeValueAsString(value); } catch (JsonProcessingException ex) { throw new IllegalStateException(ex); } }
     private String sha256(byte[] bytes) { try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); } catch (Exception ex) { throw new IllegalStateException(ex); } }
