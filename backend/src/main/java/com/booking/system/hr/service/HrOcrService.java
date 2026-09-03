@@ -27,6 +27,14 @@ import java.util.*;
 @Service
 public class HrOcrService {
 
+    /**
+     * Keep the default on a currently supported multimodal model. The old
+     * 1.5/2.0 model names can remain in an existing database after an
+     * upgrade, so they are normalized before calling Google as well.
+     */
+    private static final String DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+    private static final String DEFAULT_GROQ_MODEL = "qwen/qwen3.6-27b";
+
     private final HrSystemSettingRepository systemSettingRepository;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
@@ -82,9 +90,9 @@ public class HrOcrService {
     public HrOcrSettingsDto getSettings() {
         String provider = getSettingValue("ocr.provider", "GEMINI").toUpperCase();
         String geminiApiKey = getEffectiveKey("ocr.gemini.apiKey", defaultGeminiApiKey);
-        String geminiModel = getSettingValue("ocr.gemini.model", "gemini-1.5-flash");
+        String geminiModel = normalizeGeminiModel(getSettingValue("ocr.gemini.model", DEFAULT_GEMINI_MODEL));
         String groqApiKey = getEffectiveKey("ocr.groq.apiKey", defaultGroqApiKey);
-        String groqModel = getSettingValue("ocr.groq.model", "llama-3.2-11b-vision-preview");
+        String groqModel = normalizeGroqModel(getSettingValue("ocr.groq.model", DEFAULT_GROQ_MODEL));
 
         return new HrOcrSettingsDto(
                 provider,
@@ -108,7 +116,7 @@ public class HrOcrService {
         }
 
         if (request.geminiModel() != null && !request.geminiModel().isBlank()) {
-            saveSetting("ocr.gemini.model", request.geminiModel().trim(), "OCR", "Google Gemini Model", actor);
+            saveSetting("ocr.gemini.model", normalizeGeminiModel(request.geminiModel()), "OCR", "Google Gemini Model", actor);
         }
 
         if (request.groqApiKey() != null && !request.groqApiKey().isBlank() && !request.groqApiKey().contains("****")) {
@@ -116,7 +124,7 @@ public class HrOcrService {
         }
 
         if (request.groqModel() != null && !request.groqModel().isBlank()) {
-            saveSetting("ocr.groq.model", request.groqModel().trim(), "OCR", "Groq Model", actor);
+            saveSetting("ocr.groq.model", normalizeGroqModel(request.groqModel()), "OCR", "Groq Model", actor);
         }
 
         return getSettings();
@@ -142,7 +150,7 @@ public class HrOcrService {
             throw HrApiException.badRequest("OCR_KEY_MISSING", "Chưa cấu hình Google Gemini API Key. Vui lòng vào Cài đặt để thêm API Key (hoàn toàn miễn phí).");
         }
 
-        String model = getSettingValue("ocr.gemini.model", "gemini-1.5-flash");
+        String model = normalizeGeminiModel(getSettingValue("ocr.gemini.model", DEFAULT_GEMINI_MODEL));
         String endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
 
         try {
@@ -200,7 +208,7 @@ public class HrOcrService {
             throw HrApiException.badRequest("OCR_KEY_MISSING", "Chưa cấu hình Groq API Key. Vui lòng vào Cài đặt để thêm API Key.");
         }
 
-        String model = getSettingValue("ocr.groq.model", "llama-3.2-11b-vision-preview");
+        String model = normalizeGroqModel(getSettingValue("ocr.groq.model", DEFAULT_GROQ_MODEL));
         String endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
         try {
@@ -298,6 +306,31 @@ public class HrOcrService {
             return node.get(fieldName).asText("").trim();
         }
         return "";
+    }
+
+    private String normalizeGeminiModel(String raw) {
+        String model = raw == null ? "" : raw.trim();
+        if (model.isBlank()) return DEFAULT_GEMINI_MODEL;
+        // These names are retired for new API calls. Map them to the stable
+        // replacement so an existing production setting does not keep failing
+        // with a 404 after Google retires a model.
+        return switch (model) {
+            case "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-001",
+                    "gemini-2.0-flash-lite", "gemini-2.0-flash-lite-001" -> DEFAULT_GEMINI_MODEL;
+            default -> model;
+        };
+    }
+
+    private String normalizeGroqModel(String raw) {
+        String model = raw == null ? "" : raw.trim();
+        if (model.isBlank()) return DEFAULT_GROQ_MODEL;
+        // Groq retired the older Llama vision preview IDs. Qwen 3.6 is the
+        // currently documented multimodal replacement and supports JSON mode.
+        return switch (model) {
+            case "llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview",
+                    "meta-llama/llama-4-scout-17b-16e-instruct" -> DEFAULT_GROQ_MODEL;
+            default -> model;
+        };
     }
 
     private String normalizeGender(String raw) {

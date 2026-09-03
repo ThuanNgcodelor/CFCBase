@@ -51,8 +51,8 @@ class HrOcrServiceTest {
         assertThat(settings.geminiApiKey()).isEqualTo("AIza...3456");
         assertThat(settings.hasGeminiKey()).isTrue();
         assertThat(settings.hasGroqKey()).isFalse();
-        assertThat(settings.geminiModel()).isEqualTo("gemini-1.5-flash");
-        assertThat(settings.groqModel()).isEqualTo("llama-3.2-11b-vision-preview");
+        assertThat(settings.geminiModel()).isEqualTo("gemini-2.5-flash");
+        assertThat(settings.groqModel()).isEqualTo("qwen/qwen3.6-27b");
     }
 
     @Test

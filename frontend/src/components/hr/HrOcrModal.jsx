@@ -31,9 +31,9 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
   const [settings, setSettings] = useState({
     provider: 'GEMINI',
     geminiApiKey: '',
-    geminiModel: 'gemini-1.5-flash',
+    geminiModel: 'gemini-2.5-flash',
     groqApiKey: '',
-    groqModel: 'llama-3.2-11b-vision-preview',
+    groqModel: 'qwen/qwen3.6-27b',
     hasGeminiKey: false,
     hasGroqKey: false,
   });
@@ -242,7 +242,7 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
               title="Bấm để chuyển đổi nhanh giữa Gemini và Groq"
             >
               {settings.provider === 'GEMINI' ? <Sparkles className="h-3.5 w-3.5 text-blue-600" /> : <Zap className="h-3.5 w-3.5 text-amber-600" />}
-              {settings.provider === 'GEMINI' ? 'Google Gemini 1.5 Flash' : 'Groq Cloud (Llama 3.2 Vision)'}
+              {settings.provider === 'GEMINI' ? `Google Gemini ${settings.geminiModel || '2.5 Flash'}` : `Groq Cloud (${settings.groqModel || 'Qwen 3.6 Vision'})`}
               <span className="ml-1 text-[10px] text-gray-500 underline">(Đổi)</span>
             </button>
           </div>
@@ -474,7 +474,7 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
                     <Zap className="h-4 w-4 text-amber-600" />
                     Groq Cloud
                   </span>
-                  <span className="mt-1 text-xs text-gray-500">Free Tier. Tốc độ cực nhanh (&lt;1s). Dùng Llama 3.2 Vision.</span>
+                  <span className="mt-1 text-xs text-gray-500">Nhận diện hình ảnh nhanh, hỗ trợ JSON. Dùng Qwen 3.6 Vision.</span>
                 </button>
               </div>
             </div>
@@ -516,9 +516,10 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
                   onChange={(e) => setSettingsForm((prev) => ({ ...prev, geminiModel: e.target.value }))}
                   className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
-                  <option value="gemini-1.5-flash">gemini-1.5-flash (Khuyên dùng - Nhanh & Chuẩn)</option>
-                  <option value="gemini-2.0-flash">gemini-2.0-flash (Thế hệ mới nhất)</option>
-                  <option value="gemini-1.5-pro">gemini-1.5-pro (Độ chính xác cao)</option>
+                  <option value="gemini-2.5-flash">gemini-2.5-flash (Khuyên dùng - Nhanh & Chuẩn)</option>
+                  <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Tiết kiệm)</option>
+                  <option value="gemini-3.6-flash">gemini-3.6-flash (Mới hơn)</option>
+                  <option value="gemini-3.7-flash">gemini-3.7-flash (Mới nhất)</option>
                 </select>
               </div>
             </div>
@@ -560,8 +561,8 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
                   onChange={(e) => setSettingsForm((prev) => ({ ...prev, groqModel: e.target.value }))}
                   className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
                 >
-                  <option value="llama-3.2-11b-vision-preview">llama-3.2-11b-vision-preview (Mặc định)</option>
-                  <option value="llama-3.2-90b-vision-preview">llama-3.2-90b-vision-preview (Bản lớn)</option>
+                  <option value="qwen/qwen3.6-27b">qwen/qwen3.6-27b (Khuyên dùng - Vision & OCR)</option>
+                  <option value="qwen/qwen3.8-27b">qwen/qwen3.8-27b (Bản mới hơn)</option>
                 </select>
               </div>
             </div>
