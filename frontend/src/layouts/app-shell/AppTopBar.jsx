@@ -1,7 +1,6 @@
 import React from 'react';
 import { Grid2X2 } from 'lucide-react';
 import { BrandMark } from './BrandMark';
-import { NotificationMenu } from './NotificationMenu';
 import { UserMenu } from './UserMenu';
 
 export function AppTopBar({ pageTitle, user, navigate, onLogout, onOpenMore, hasMoreItems }) {
@@ -9,12 +8,10 @@ export function AppTopBar({ pageTitle, user, navigate, onLogout, onOpenMore, has
     <>
       <header className="hidden h-[var(--cfc-topbar-height)] shrink-0 items-center justify-between border-b border-[var(--cfc-border)] bg-white px-6 md:flex xl:px-8">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--cfc-emerald-dark)]">Hệ thống điều phối nội bộ</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--cfc-emerald-dark)]">Hệ thống quản lý nhân sự</p>
           <p className="mt-1 truncate text-sm font-semibold text-[var(--cfc-ink)]">{pageTitle}</p>
         </div>
         <div className="flex items-center gap-2">
-          <NotificationMenu navigate={navigate} />
-          <span className="mx-1 h-8 w-px bg-[var(--cfc-border)]" aria-hidden="true" />
           <UserMenu user={user} navigate={navigate} onLogout={onLogout} />
         </div>
       </header>
@@ -23,7 +20,6 @@ export function AppTopBar({ pageTitle, user, navigate, onLogout, onOpenMore, has
         <div className="flex h-[var(--cfc-mobile-bar-height)] items-center gap-2 px-3">
           <BrandMark compact dark />
           <h1 className="min-w-0 flex-1 truncate text-base font-bold">{pageTitle}</h1>
-          <NotificationMenu navigate={navigate} dark />
           {hasMoreItems && (
             <button
               type="button"

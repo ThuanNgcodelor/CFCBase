@@ -61,15 +61,15 @@ class DashboardSecurityContractTest {
     }
 
     @Test
-    void employeeCanReadClientDashboardButGets403ForAdminDashboard() throws Exception {
+    void employeeTokenCannotAccessApplicationApis() throws Exception {
         stubToken("employee-token", user("employee-id", RoleEnum.EMPLOYEE));
 
         mockMvc.perform(get("/api/v1/dashboard/client")
                         .header("Authorization", "Bearer employee-token"))
-                .andExpect(status().isOk());
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/dashboard/admin")
                         .header("Authorization", "Bearer employee-token"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

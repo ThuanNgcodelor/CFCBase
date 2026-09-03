@@ -1,6 +1,7 @@
 package com.booking.system.security;
 
 import com.booking.system.entity.User;
+import com.booking.system.enums.RoleEnum;
 import com.booking.system.enums.UserStatus;
 import com.booking.system.repository.UserRepository;
 import jakarta.servlet.FilterChain;
@@ -52,13 +53,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // A token may remain cryptographically valid after an account is
                 // disabled. Never rebuild an authenticated principal for such an
                 // account; protected endpoints must treat that request as anonymous.
-                if (user.getStatus() == UserStatus.ACTIVE) {
-                    // HR authentication no longer depends on a role. Keep an
-                    // authority when one exists for legacy admin/approval APIs,
-                    // but do not fail authentication when role is null.
-                    List<SimpleGrantedAuthority> authorities = user.getRole() == null
-                            ? Collections.emptyList()
-                            : Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+                boolean loginRole = user.getRole() == RoleEnum.ADMIN || user.getRole() == RoleEnum.MANAGER;
+                if (user.getStatus() == UserStatus.ACTIVE && loginRole) {
+                    List<SimpleGrantedAuthority> authorities = Collections.singletonList(
+                            new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             user, null, authorities);
 
@@ -66,7 +64,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 } else if (protectedApi) {
-                    System.err.println("[JWT] Active authentication refused for inactive user on "
+                    System.err.println("[JWT] Authentication refused for inactive or disallowed user on "
                             + request.getRequestURI());
                 }
             }

@@ -2,9 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi';
 import { userApi } from '../api/userApi';
-import RequiredPushNotificationGate from '../components/RequiredPushNotificationGate';
-import { NotificationProvider } from '../contexts/NotificationContext';
-import { usePushNotifications } from '../hooks/usePushNotifications';
 import { AppFooter } from './app-shell/AppFooter';
 import { AppSidebar } from './app-shell/AppSidebar';
 import { AppTopBar } from './app-shell/AppTopBar';
@@ -19,11 +16,7 @@ import {
 } from './app-shell/navigation';
 
 export default function DashboardLayout() {
-  return (
-    <NotificationProvider>
-      <DashboardLayoutContent />
-    </NotificationProvider>
-  );
+  return <DashboardLayoutContent />;
 }
 
 function DashboardLayoutContent() {
@@ -37,9 +30,6 @@ function DashboardLayoutContent() {
   const [pendingRegistrationCount, setPendingRegistrationCount] = useState(0);
 
   const isAdmin = user.role === 'ADMIN';
-  const isManager = user.role === 'MANAGER';
-  const isApprover = user.role === 'ADMIN' || user.role === 'MANAGER';
-  const pushState = usePushNotifications({ autoRegister: true });
 
   useEffect(() => {
     let active = true;
@@ -73,22 +63,19 @@ function DashboardLayoutContent() {
   const navigation = useMemo(
     () => buildNavigation({
       isAdmin,
-      isManager,
-      isApprover,
       isHrUser: true,
       pendingRegistrationCount,
     }),
-    [isAdmin, isApprover, isManager, pendingRegistrationCount],
+    [isAdmin, pendingRegistrationCount],
   );
   const mobileNavigation = useMemo(
     () => buildMobileNavigation({
-      isManager,
       isHrUser: true,
       primaryItems: navigation.primaryItems,
       adminItems: navigation.adminItems,
       hrItems: navigation.hrItems,
     }),
-    [isManager, navigation],
+    [navigation],
   );
 
   const allNavigationItems = useMemo(
@@ -96,11 +83,6 @@ function DashboardLayoutContent() {
     [navigation.sections],
   );
   const pageTitle = getPageTitle(location.pathname, allNavigationItems);
-  const isCalendarRoute = location.pathname.startsWith('/cars')
-    || location.pathname.startsWith('/rooms');
-  const isBookingDetailRoute = /^\/admin\/approvals\/[^/]+$/.test(location.pathname);
-  const isBookingFullBleedRoute = isCalendarRoute || isBookingDetailRoute;
-  const isHrRoute = location.pathname.startsWith('/manager/hr');
   const hideMobileNavigation = shouldHideMobileBottomNavigation(location.pathname);
   const moreActive = mobileNavigation.moreSections
     .flatMap((section) => section.items)
@@ -119,16 +101,10 @@ function DashboardLayoutContent() {
     navigate('/login');
   };
 
-  const contentPadding = isBookingFullBleedRoute
-    ? 'p-0'
-    : isHrRoute
-      ? 'px-4 py-5 sm:px-6 sm:py-6 xl:px-8 xl:py-7 2xl:px-10'
-      : 'px-4 py-5 sm:px-6 sm:py-7 xl:px-8';
+  const contentPadding = 'px-4 py-5 sm:px-6 sm:py-6 xl:px-8 xl:py-7 2xl:px-10';
 
   return (
     <div className="relative flex h-[100dvh] overflow-hidden bg-[var(--cfc-canvas)] text-[var(--cfc-ink)]">
-      <RequiredPushNotificationGate pushState={pushState} />
-
       <AppSidebar
         expanded={sidebarExpanded}
         onToggle={handleSidebarToggle}
@@ -148,13 +124,13 @@ function DashboardLayoutContent() {
 
         <main
           className={`cfc-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto
-            ${isCalendarRoute ? 'bg-white' : 'bg-[var(--cfc-canvas)]'}
+            bg-[var(--cfc-canvas)]
           `}
         >
           <div className={`flex flex-1 flex-col ${contentPadding} ${hideMobileNavigation ? '' : 'pb-[calc(var(--cfc-mobile-nav-height)+env(safe-area-inset-bottom,0px)+1rem)] md:pb-7'}`}>
             <Outlet />
           </div>
-          {!isBookingFullBleedRoute && <AppFooter />}
+          <AppFooter />
         </main>
       </div>
 

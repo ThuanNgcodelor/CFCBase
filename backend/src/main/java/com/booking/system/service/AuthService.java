@@ -22,6 +22,7 @@ import com.booking.system.enums.NotificationPriority;
 import com.booking.system.enums.NotificationType;
 
 import java.util.Collections;
+import java.util.Set;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
@@ -53,6 +54,7 @@ public class AuthService {
         }
 
         requireActiveAccount(user);
+        requireLoginRole(user);
 
         return generateTokensForUser(user);
     }
@@ -68,7 +70,7 @@ public class AuthService {
         otpMailService.sendRegisterOtp(normalizedEmail, otp);
     }
 
-    // Xác thực OTP và tạo tài khoản email/password mặc định quyền nhân viên.
+    // Xác thực OTP và tạo tài khoản quản lý đang chờ Admin phê duyệt.
     @Transactional
     public void verifyRegisterOtp(String email, String otp, String fullName, String password) {
         String normalizedEmail = normalizeEmail(email);
@@ -83,7 +85,7 @@ public class AuthService {
         user.setEmail(normalizedEmail);
         user.setFullName(fullName.trim());
         user.setPassword(passwordEncoder.encode(password));
-        user.setRole(RoleEnum.EMPLOYEE);
+        user.setRole(RoleEnum.MANAGER);
         user.setStatus(UserStatus.PENDING_APPROVAL);
         User saved = userRepository.save(user);
 
@@ -121,9 +123,9 @@ public class AuthService {
     // Gửi OTP đặt lại mật khẩu cho email đang tồn tại.
     public void requestForgotPasswordOtp(String email) {
         String normalizedEmail = normalizeEmail(email);
-        if (!userRepository.existsByEmail(normalizedEmail)) {
-            throw new RuntimeException("Email không tồn tại trong hệ thống");
-        }
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống"));
+        requireLoginRole(user);
 
         String otp = otpService.generateAndStoreOtp(otpService.forgotPasswordKey(normalizedEmail));
         otpMailService.sendForgotPasswordOtp(normalizedEmail, otp);
@@ -134,6 +136,7 @@ public class AuthService {
         String normalizedEmail = normalizeEmail(email);
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống"));
+        requireLoginRole(user);
 
         otpService.verifyOtp(otpService.forgotPasswordKey(normalizedEmail), otp);
 
@@ -176,6 +179,7 @@ public class AuthService {
         if (userOpt.isPresent()) {
             user = userOpt.get();
             requireActiveAccount(user);
+            requireLoginRole(user);
             // Cập nhật tên/avatar mới nhất từ Google
             user.setFullName(name);
             user.setAvatarUrl(pictureUrl);
@@ -188,6 +192,7 @@ public class AuthService {
     }
 
     private AuthResponse generateTokensForUser(User user) {
+        requireLoginRole(user);
         String accessToken = jwtUtils.generateAccessToken(user.getEmail(), user.getRole().name());
         String sessionId = UUID.randomUUID().toString();
         String refreshToken = jwtUtils.generateRefreshToken(user.getEmail(), sessionId);
@@ -233,6 +238,7 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
         requireActiveAccount(user);
+        requireLoginRole(user);
 
         // Cấp lại token mới
         String newAccessToken = jwtUtils.generateAccessToken(user.getEmail(), user.getRole().name());
@@ -277,6 +283,15 @@ public class AuthService {
         }
     }
 
+    public void revokeAllSessions(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        redisTemplate.delete(legacyRefreshTokenKey(normalizedEmail));
+        Set<String> deviceKeys = redisTemplate.keys(refreshTokenKey(normalizedEmail, "*"));
+        if (deviceKeys != null && !deviceKeys.isEmpty()) {
+            redisTemplate.delete(deviceKeys);
+        }
+    }
+
     private String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase();
     }
@@ -293,6 +308,12 @@ public class AuthService {
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new RuntimeException("Tài khoản chưa được kích hoạt");
+        }
+    }
+
+    private void requireLoginRole(User user) {
+        if (user.getRole() != RoleEnum.ADMIN && user.getRole() != RoleEnum.MANAGER) {
+            throw new RuntimeException("Tài khoản nhân viên không được phép đăng nhập hệ thống quản lý nhân sự");
         }
     }
 

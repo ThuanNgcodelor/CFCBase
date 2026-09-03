@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -43,12 +44,12 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(authService, "refreshExpirationMs", NINETY_DAYS_MS);
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
     void loginStoresRefreshTokenForNinetyDaysInDeviceSpecificSession() {
         User user = activeUser();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("123456", user.getPassword())).thenReturn(true);
         when(jwtUtils.generateAccessToken(user.getEmail(), user.getRole().name())).thenReturn("access-token");
@@ -67,6 +68,7 @@ class AuthServiceTest {
     @Test
     void refreshKeepsTheSameDeviceSessionWithoutInvalidatingOtherDevices() {
         User user = activeUser();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         String oldToken = "old-refresh-token";
         String sessionId = "ios-device-session";
         String key = "refreshToken:" + user.getEmail() + ":" + sessionId;
@@ -88,6 +90,7 @@ class AuthServiceTest {
     @Test
     void refreshMigratesLegacyTokenWithoutForcingExistingUserToLoginAgain() {
         User user = activeUser();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         String oldToken = "legacy-refresh-token";
         String legacyKey = "refreshToken:" + user.getEmail();
 
@@ -109,13 +112,44 @@ class AuthServiceTest {
         verify(redisTemplate).delete(legacyKey);
     }
 
+    @Test
+    void employeeCannotLoginEvenWithCorrectPassword() {
+        User user = activeUser();
+        user.setRole(RoleEnum.EMPLOYEE);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("123456", user.getPassword())).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.authenticate(user.getEmail(), "123456"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("nhân viên không được phép đăng nhập");
+    }
+
+    @Test
+    void employeeCannotRefreshAnExistingSession() {
+        User user = activeUser();
+        user.setRole(RoleEnum.EMPLOYEE);
+        String refreshToken = "employee-refresh-token";
+        String sessionId = "old-employee-session";
+        String key = "refreshToken:" + user.getEmail() + ":" + sessionId;
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(jwtUtils.validateJwtToken(refreshToken)).thenReturn(true);
+        when(jwtUtils.getEmailFromJwtToken(refreshToken)).thenReturn(user.getEmail());
+        when(jwtUtils.getSessionIdFromRefreshToken(refreshToken)).thenReturn(sessionId);
+        when(valueOperations.get(key)).thenReturn(refreshToken);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.refreshToken(refreshToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("nhân viên không được phép đăng nhập");
+    }
+
     private User activeUser() {
         User user = new User();
         user.setId("user-1");
         user.setEmail("user@example.com");
         user.setFullName("Người dùng");
         user.setPassword("encoded-password");
-        user.setRole(RoleEnum.EMPLOYEE);
+        user.setRole(RoleEnum.MANAGER);
         user.setStatus(UserStatus.ACTIVE);
         return user;
     }

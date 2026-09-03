@@ -1,14 +1,9 @@
 import {
   ArrowUpDown,
   Clock3,
-  Bell,
-  CalendarRange,
-  CarFront,
-  CheckSquare,
   ContactRound,
   FileCheck2,
   HardHat,
-  Home,
   LayoutDashboard,
   Library,
   MoreHorizontal,
@@ -18,17 +13,9 @@ import {
   Users,
 } from 'lucide-react';
 
-export function buildNavigation({ isAdmin, isManager, isApprover, isHrUser = false, pendingRegistrationCount = 0 }) {
-  const primaryItems = isManager
-    ? []
-    : [
-        { name: 'Trang chủ', path: '/', icon: Home, exact: true },
-        { name: 'Phòng họp', path: '/rooms', icon: CalendarRange },
-        { name: 'Xe công tác', path: '/cars', icon: CarFront },
-      ];
-
+export function buildNavigation({ isAdmin, isHrUser = false, pendingRegistrationCount = 0 }) {
+  const primaryItems = [];
   const adminItems = [
-    { name: 'Duyệt đặt chỗ', path: '/admin/approvals', icon: CheckSquare, show: isApprover && !isManager },
     { name: 'Duyệt hồ sơ', path: '/admin/profile-approvals', icon: FileCheck2, show: isAdmin },
     {
       name: 'Tài khoản',
@@ -52,17 +39,14 @@ export function buildNavigation({ isAdmin, isManager, isApprover, isHrUser = fal
   ];
 
   const sections = [];
-  if (primaryItems.length > 0) {
-    sections.push({ label: isManager ? 'Hệ thống' : 'Điều phối', items: primaryItems });
-  }
-  if (adminItems.length > 0) sections.push({ label: 'Quản trị hệ thống', items: adminItems });
+  if (adminItems.length > 0) sections.push({ label: 'Quản trị tài khoản', items: adminItems });
   if (isHrUser) sections.push({ label: 'Quản lý nhân sự', items: hrItems });
 
   return { sections, primaryItems, adminItems, hrItems };
 }
 
-export function buildMobileNavigation({ isManager, isHrUser = false, primaryItems, adminItems, hrItems }) {
-  if (isManager) {
+export function buildMobileNavigation({ isHrUser = false, primaryItems, adminItems, hrItems }) {
+  if (isHrUser) {
     return {
       primary: [
         hrItems[0],
@@ -72,7 +56,7 @@ export function buildMobileNavigation({ isManager, isHrUser = false, primaryItem
       ],
       moreSections: [
         { label: 'Vận hành nhân sự', items: hrItems.slice(3) },
-        ...(adminItems.length > 0 ? [{ label: 'Quản trị hệ thống', items: adminItems }] : []),
+        ...(adminItems.length > 0 ? [{ label: 'Quản trị tài khoản', items: adminItems }] : []),
       ],
     };
   }
@@ -81,7 +65,7 @@ export function buildMobileNavigation({ isManager, isHrUser = false, primaryItem
     primary: primaryItems.slice(0, 4),
     moreSections: [
       ...(isHrUser ? [{ label: 'Quản lý nhân sự', items: hrItems }] : []),
-      ...(adminItems.length > 0 ? [{ label: 'Quản trị hệ thống', items: adminItems }] : []),
+      ...(adminItems.length > 0 ? [{ label: 'Quản trị tài khoản', items: adminItems }] : []),
     ],
   };
 }
@@ -104,9 +88,6 @@ export function getPageTitle(pathname, items) {
     ['/manager/hr/payroll', 'Gửi phiếu lương'],
     ['/manager/hr/attendance', 'Chấm công'],
     ['/admin/profile-approvals/', 'Chi tiết hồ sơ'],
-    ['/admin/approvals/', 'Chi tiết đặt chỗ'],
-    ['/rooms/create', 'Đặt phòng họp'],
-    ['/cars/create', 'Đặt xe công tác'],
     ['/profile', 'Hồ sơ cá nhân'],
   ];
   const specialTitle = routeTitles.find(([prefix]) => pathname.startsWith(prefix));
@@ -119,13 +100,10 @@ export function getPageTitle(pathname, items) {
 
 export function shouldHideMobileBottomNavigation(pathname) {
   return [
-    '/rooms/create',
-    '/cars/create',
     '/manager/hr/employees/new',
     '/manager/hr/employees/',
     '/manager/hr/probation/templates/',
     '/manager/hr/general-labor/new',
-    '/admin/approvals/',
     '/admin/profile-approvals/',
   ].some((prefix) => pathname.startsWith(prefix));
 }

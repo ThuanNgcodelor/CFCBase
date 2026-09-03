@@ -41,6 +41,7 @@ public class AccountRegistrationService {
     public AccountRegistrationResponse approve(User principal, String userId) {
         User admin = requireAdmin(principal);
         User account = requirePending(userId);
+        account.setRole(RoleEnum.MANAGER);
         account.setStatus(UserStatus.ACTIVE);
         account.setRegistrationReviewedBy(admin);
         account.setRegistrationReviewedAt(LocalDateTime.now());
@@ -73,7 +74,7 @@ public class AccountRegistrationService {
                 : NotificationEvent.EmailType.ACCOUNT_REGISTRATION_REJECTED;
         String title = approved ? "Tài khoản đã được phê duyệt" : "Đăng ký tài khoản bị từ chối";
         String message = approved
-                ? "Tài khoản của bạn đã được kích hoạt. Bạn có thể đăng nhập vào CFC Base."
+                ? "Tài khoản quản lý nhân sự của bạn đã được kích hoạt. Bạn có thể đăng nhập vào CFC Base."
                 : "Yêu cầu đăng ký tài khoản của bạn không được chấp thuận."
                         + (reason == null ? "" : " Lý do: " + reason);
 

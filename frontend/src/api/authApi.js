@@ -90,6 +90,11 @@ export const authApi = {
     await clearAppBadge();
   },
 
+  discardSession: () => {
+    clearAuthCookies();
+    currentUserCache = null;
+  },
+
   getUser: () => {
     const storedUser = getStoredUser();
     if (currentUserCache && storedUser) {

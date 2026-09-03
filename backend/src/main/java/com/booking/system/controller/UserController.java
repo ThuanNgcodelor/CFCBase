@@ -1,6 +1,9 @@
 package com.booking.system.controller;
 
 import com.booking.system.dto.AdminCreateUserRequest;
+import com.booking.system.dto.AdminResetPasswordRequest;
+import com.booking.system.dto.AdminUpdateUserRequest;
+import com.booking.system.dto.AdminUserResponse;
 import com.booking.system.dto.ApiResponse;
 import com.booking.system.dto.AuthResponse;
 import com.booking.system.dto.ChangePasswordRequest;
@@ -13,6 +16,7 @@ import com.booking.system.repository.DepartmentRepository;
 import com.booking.system.repository.UserRepository;
 import com.booking.system.service.UserProfileService;
 import com.booking.system.service.AccountRegistrationService;
+import com.booking.system.service.UserAdminService;
 import com.booking.system.dto.AccountRegistrationResponse;
 import com.booking.system.dto.AccountRegistrationReviewRequest;
 import jakarta.validation.Valid;
@@ -33,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 
@@ -46,6 +51,25 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final UserProfileService userProfileService;
     private final AccountRegistrationService accountRegistrationService;
+    private final UserAdminService userAdminService;
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<Page<AdminUserResponse>>> getUsers(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) RoleEnum role,
+            @RequestParam(required = false) UserStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+            return ResponseEntity.ok(ApiResponse.success(
+                    userAdminService.list(currentUser, query, role, status, pageable),
+                    "Lấy danh sách tài khoản thành công"));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(403, e.getMessage()));
+        }
+    }
 
     @GetMapping("/registration-approvals")
     public ResponseEntity<ApiResponse<Page<AccountRegistrationResponse>>> getPendingRegistrations(
@@ -155,30 +179,74 @@ public class UserController {
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody AdminCreateUserRequest request
     ) {
-        requireAdmin(currentUser);
+        try {
+            requireAdmin(currentUser);
 
-        String email = normalizeEmail(request.email());
-        if (userRepository.existsByEmail(email)) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(400, "Email đã tồn tại trong hệ thống"));
+            String email = normalizeEmail(request.email());
+            if (userRepository.existsByEmail(email)) {
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, "Email đã tồn tại trong hệ thống"));
+            }
+
+            RoleEnum role = request.role() == null ? RoleEnum.MANAGER : request.role();
+            if (role == RoleEnum.EMPLOYEE) {
+                return ResponseEntity.badRequest().body(ApiResponse.error(
+                        400,
+                        "EMPLOYEE không được phép đăng nhập; hãy tạo tài khoản MANAGER hoặc ADMIN"));
+            }
+
+            Department department = null;
+            if (request.departmentId() != null && !request.departmentId().isBlank()) {
+                department = departmentRepository.findById(request.departmentId())
+                        .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng ban"));
+            }
+
+            User user = new User();
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode(request.password()));
+            user.setFullName(resolveFullName(request.fullName(), email));
+            user.setRole(role);
+            user.setStatus(UserStatus.ACTIVE);
+            user.setDepartment(department);
+            user.setJobPosition(request.jobPosition());
+
+            User savedUser = userRepository.save(user);
+            return ResponseEntity.ok(ApiResponse.success(toUserDto(savedUser), "Tạo tài khoản thành công"));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(403, e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }
+    }
 
-        Department department = null;
-        if (request.departmentId() != null && !request.departmentId().isBlank()) {
-            department = departmentRepository.findById(request.departmentId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy phòng ban"));
+    @PatchMapping("/{id}")
+    public ResponseEntity<ApiResponse<AdminUserResponse>> updateUser(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable String id,
+            @Valid @RequestBody AdminUpdateUserRequest request) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success(
+                    userAdminService.update(currentUser, id, request),
+                    "Cập nhật tài khoản thành công"));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(403, e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }
+    }
 
-        User user = new User();
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(request.password()));
-        user.setFullName(resolveFullName(request.fullName(), email));
-        user.setRole(request.role() == null ? RoleEnum.EMPLOYEE : request.role());
-        user.setStatus(UserStatus.ACTIVE);
-        user.setDepartment(department);
-        user.setJobPosition(request.jobPosition());
-
-        User savedUser = userRepository.save(user);
-        return ResponseEntity.ok(ApiResponse.success(toUserDto(savedUser), "Tạo tài khoản thành công"));
+    @PatchMapping("/{id}/password")
+    public ResponseEntity<ApiResponse<Void>> resetUserPassword(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable String id,
+            @Valid @RequestBody AdminResetPasswordRequest request) {
+        try {
+            userAdminService.resetPassword(currentUser, id, request);
+            return ResponseEntity.ok(ApiResponse.success(null, "Đặt lại mật khẩu thành công"));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(403, e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
+        }
     }
 
     private User requireUser(User user) {
@@ -191,7 +259,7 @@ public class UserController {
     private void requireAdmin(User user) {
         User current = requireUser(user);
         if (current.getRole() != RoleEnum.ADMIN) {
-            throw new RuntimeException("Chỉ quản trị viên được thực hiện thao tác này");
+            throw new AccessDeniedException("Chỉ quản trị viên được thực hiện thao tác này");
         }
     }
 

@@ -61,23 +61,23 @@ class HrSecurityContractTest {
     }
 
     @Test
-    void hrApiAllowsAuthenticatedEmployee() throws Exception {
+    void hrApiRejectsEmployeeToken() throws Exception {
         stubToken("employee-token", user("employee@example.test", RoleEnum.EMPLOYEE));
 
         mockMvc.perform(get("/api/v1/hr/security-contract")
                         .header("Authorization", "Bearer employee-token"))
-                .andExpect(status().isOk());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void hrApiAllowsActiveUserWhenRoleIsUnset() throws Exception {
+    void hrApiRejectsActiveUserWhenRoleIsUnset() throws Exception {
         User user = user("no-role@example.test", RoleEnum.EMPLOYEE);
         user.setRole(null);
         stubToken("no-role-token", user);
 
         mockMvc.perform(get("/api/v1/hr/security-contract")
                         .header("Authorization", "Bearer no-role-token"))
-                .andExpect(status().isOk());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

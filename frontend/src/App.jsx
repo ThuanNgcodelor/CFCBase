@@ -5,18 +5,10 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import DashboardLayout from './layouts/DashboardLayout';
-import Dashboard from './pages/Dashboard';
-import RoomBooking from './pages/RoomBooking';
-import CarBooking from './pages/CarBooking';
-import AdminApprovals from './pages/AdminApprovals';
 import AdminProfileApprovals from './pages/AdminProfileApprovals';
 import AdminProfileApprovalDetail from './pages/AdminProfileApprovalDetail';
 import AdminUsers from './pages/AdminUsers';
-import BookingDetail from './pages/BookingDetail';
-import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
-import CreateRoomBooking from './pages/CreateRoomBooking';
-import CreateCarBooking from './pages/CreateCarBooking';
 import ServiceWorkerNavigateListener from './components/ServiceWorkerNavigateListener';
 import Cookies from 'js-cookie';
 import { authApi } from './api/authApi';
@@ -50,6 +42,12 @@ const SessionCheckScreen = ({ unavailable = false }) => (
   </div>
 );
 
+const LOGIN_ROLES = new Set(['ADMIN', 'MANAGER']);
+
+function hasManagementRole() {
+  return LOGIN_ROLES.has(authApi.getRole());
+}
+
 // Trang login cũng phải khôi phục phiên bằng refresh token, đặc biệt khi iOS mở PWA lại.
 const LoginRoute = ({ children }) => {
   const accessToken = Cookies.get('accessToken');
@@ -65,7 +63,12 @@ const LoginRoute = ({ children }) => {
 
   if (status === 'refreshing') return <SessionCheckScreen />;
   if (status === 'unavailable') return <SessionCheckScreen unavailable />;
-  if (status === 'authenticated') return <Navigate to={getRoleLandingPath(authApi.getRole())} replace />;
+  if (status === 'authenticated' && hasManagementRole()) {
+    return <Navigate to={getRoleLandingPath(authApi.getRole())} replace />;
+  }
+  if (status === 'authenticated') {
+    authApi.discardSession();
+  }
   return children;
 };
 
@@ -91,14 +94,9 @@ const ProtectedRoute = ({ children }) => {
   if (status === 'denied') {
     return <Navigate to="/login" replace />;
   }
-  return children;
-};
-
-// Component bảo vệ Route chỉ dành cho Admin hoặc Manager (Duyệt yêu cầu)
-const ApproverRoute = ({ children }) => {
-  const role = authApi.getRole();
-  if (role !== 'ADMIN' && role !== 'MANAGER') {
-    return <Navigate to="/" replace />;
+  if (!hasManagementRole()) {
+    authApi.discardSession();
+    return <Navigate to="/login" replace />;
   }
   return children;
 };
@@ -112,15 +110,11 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
-// HR chỉ yêu cầu tài khoản đã đăng nhập; backend vẫn kiểm tra principal ACTIVE.
+// HR chỉ dành cho ADMIN/MANAGER; backend tiếp tục enforce cùng một quy tắc.
 const ManagerRoute = ({ children }) => <ProtectedRoute>{children}</ProtectedRoute>;
 
 const RoleHome = () => {
-  const role = authApi.getRole();
-  if (role === 'MANAGER') {
-    return <Navigate to="/manager/hr" replace />;
-  }
-  return <Dashboard />;
+  return <Navigate to="/manager/hr" replace />;
 };
 
 const HrRoute = ({ children }) => (
@@ -161,14 +155,9 @@ function App() {
         </ProtectedRoute>
       }>
         <Route index element={<RoleHome />} />
-        <Route path="rooms" element={<RoomBooking />} />
-        <Route path="rooms/create" element={<CreateRoomBooking />} />
-        <Route path="cars" element={<CarBooking />} />
-        <Route path="cars/create" element={<CreateCarBooking />} />
-        <Route path="notifications" element={<Notifications />} />
         <Route path="profile" element={<Profile />} />
 
-        {/* Phân hệ HR yêu cầu đăng nhập, không khóa theo role. */}
+        {/* Phân hệ HR dành cho ADMIN và MANAGER. */}
         <Route path="manager/hr" element={<HrRoute><HrOverview /></HrRoute>} />
         <Route path="manager/hr/employees" element={<HrRoute><HrEmployees /></HrRoute>} />
         <Route path="manager/hr/employees/new" element={<HrRoute><HrEmployeeForm /></HrRoute>} />
@@ -191,16 +180,8 @@ function App() {
         <Route path="manager/hr/payroll" element={<HrRoute><HrPayroll /></HrRoute>} />
         <Route path="manager/hr/attendance" element={<HrRoute><HrAttendance /></HrRoute>} />
 
-        {/* Booking Details (Approvals / Logs) */}
-        <Route path="admin/approvals/:id" element={<BookingDetail />} />
-
-        {/* Admin Routes */}
+        {/* Quản trị tài khoản */}
         <Route path="admin">
-          <Route path="approvals" element={
-            <ApproverRoute>
-              <AdminApprovals />
-            </ApproverRoute>
-          } />
           <Route path="profile-approvals" element={
             <AdminRoute>
               <AdminProfileApprovals />
@@ -216,8 +197,13 @@ function App() {
               <AdminUsers />
             </AdminRoute>
           } />
-          {/* Bạn có thể thêm các route quản lý tài nguyên khác vào đây */}
         </Route>
+
+        {/* Booking đã đóng băng: giữ URL cũ không lỗi nhưng đưa về HR. */}
+        <Route path="rooms/*" element={<Navigate to="/manager/hr" replace />} />
+        <Route path="cars/*" element={<Navigate to="/manager/hr" replace />} />
+        <Route path="notifications" element={<Navigate to="/manager/hr" replace />} />
+        <Route path="admin/approvals/*" element={<Navigate to="/manager/hr" replace />} />
       </Route>
     </Routes>
     </>
