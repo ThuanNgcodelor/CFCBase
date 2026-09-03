@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -224,24 +225,32 @@ public class HrOcrService {
             }
 
             Map<String, Object> message = Map.of("role", "user", "content", contentList);
-            Map<String, Object> payload = Map.of(
-                    "model", model,
-                    "messages", List.of(message),
-                    "temperature", 0.1,
-                    "response_format", Map.of("type", "json_object")
-            );
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("model", model);
+            payload.put("messages", List.of(message));
+            payload.put("temperature", 0.1);
+            payload.put("max_completion_tokens", 2048);
+            payload.put("response_format", Map.of("type", "json_object"));
+            // Qwen reasoning output cannot be mixed into a JSON-mode response.
+            // Explicitly request the final answer only for deterministic OCR.
+            if (model.startsWith("qwen/")) {
+                payload.put("reasoning_effort", "none");
+                payload.put("reasoning_format", "hidden");
+            }
 
             String requestBody = objectMapper.writeValueAsString(payload);
+            HttpResponse<String> response = postGroq(endpoint, apiKey, requestBody);
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .timeout(Duration.ofSeconds(45))
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            // JSON mode is supported by Qwen, but Groq can still reject an
+            // occasional empty/malformed generation. Retry once without the
+            // server-side validator; the prompt still requires JSON and the
+            // normal parser below validates the returned content.
+            if (isGroqJsonValidationFailure(response)) {
+                log.warn("Groq JSON mode rejected generation for model={}; retrying with prompt-only JSON", model);
+                payload.remove("response_format");
+                payload.put("temperature", 0.0);
+                response = postGroq(endpoint, apiKey, objectMapper.writeValueAsString(payload));
+            }
 
             if (response.statusCode() != 200) {
                 log.error("Groq OCR error: status={}, body={}", response.statusCode(), response.body());
@@ -356,6 +365,24 @@ public class HrOcrService {
         }
         return HrApiException.badRequest("OCR_GROQ_ERROR", "Lỗi từ dịch vụ Groq (HTTP "
                 + response.statusCode() + "). Vui lòng kiểm tra lại cấu hình OCR.");
+    }
+
+    private HttpResponse<String> postGroq(String endpoint, String apiKey, String requestBody)
+            throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(endpoint))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + apiKey)
+                .timeout(Duration.ofSeconds(45))
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private boolean isGroqJsonValidationFailure(HttpResponse<String> response) {
+        return response.statusCode() == 400
+                && response.body() != null
+                && response.body().contains("json_validate_failed");
     }
 
     private String normalizeGender(String raw) {
