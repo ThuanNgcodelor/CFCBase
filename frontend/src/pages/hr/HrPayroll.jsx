@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FileUp, Play, RefreshCw, Send } from 'lucide-react';
+import { FileUp, Play, RefreshCw, Send, Settings2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
@@ -16,6 +17,7 @@ const STATUS_LABELS = {
 const statusLabel = (status) => STATUS_LABELS[status] || status || '—';
 
 export default function HrPayroll() {
+  const navigate = useNavigate();
   const [imports, setImports] = useState(normalizePage(null));
   const [selected, setSelected] = useState(null);
   const [preview, setPreview] = useState(normalizePage(null));
@@ -93,7 +95,7 @@ export default function HrPayroll() {
   return (
     <HrPageShell size="wide">
       <SEOHead title="CFC Base | Gửi phiếu lương" url="https://cfcbooking.io.vn/manager/hr/payroll" />
-      <HrPageHeader title="Gửi phiếu lương Telegram" description="Import file lương .xlsx, kiểm tra người nhận và gửi trực tiếp từ CFCBase." actions={<Button type="button" variant="secondary" onClick={loadImports}><RefreshCw className="mr-1.5 h-4 w-4" />Tải lại</Button>} />
+      <HrPageHeader title="Gửi phiếu lương Telegram" description="Import file lương .xlsx, kiểm tra người nhận và gửi trực tiếp từ CFCBase." actions={<><Button type="button" variant="secondary" onClick={() => navigate('/manager/hr/telegram')}><Settings2 className="mr-1.5 h-4 w-4" />Cấu hình Telegram</Button><Button type="button" variant="secondary" onClick={loadImports}><RefreshCw className="mr-1.5 h-4 w-4" />Tải lại</Button></>} />
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-gray-900">1. Import file lương</h2>

@@ -13,7 +13,21 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [sourceBlob, setSourceBlob] = useState(null);
+  const [officePreviewLoading, setOfficePreviewLoading] = useState(false);
+  const [officePreviewError, setOfficePreviewError] = useState('');
+  const [spreadsheetRows, setSpreadsheetRows] = useState([]);
   const blobUrlRef = useRef(null);
+  const docxContainerRef = useRef(null);
+
+  const fileName = doc?.fileName?.toLowerCase() || '';
+  const isImage = Boolean(fileName.match(/\.(jpg|jpeg|png|webp)$/i) || doc?.fileType?.startsWith('image/'));
+  const isPdf = fileName.endsWith('.pdf') || doc?.fileType === 'application/pdf';
+  const isDocx = fileName.endsWith('.docx')
+    || doc?.fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  const isSpreadsheet = Boolean(fileName.match(/\.(xlsx|xls)$/i)
+    || doc?.fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    || doc?.fileType === 'application/vnd.ms-excel');
 
   useEffect(() => {
     if (!isOpen || !doc?.id) {
@@ -23,12 +37,18 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
         setBlobUrl(null);
       }
       setError('');
+      setSourceBlob(null);
+      setSpreadsheetRows([]);
+      setOfficePreviewError('');
       return undefined;
     }
 
     const controller = new AbortController();
     setLoading(true);
     setError('');
+    setSourceBlob(null);
+    setSpreadsheetRows([]);
+    setOfficePreviewError('');
 
     hrEmployeeDocumentApi.viewDocumentBlob(doc.id)
       .then((response) => {
@@ -36,14 +56,19 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
           if (blobUrlRef.current) {
             URL.revokeObjectURL(blobUrlRef.current);
           }
-          const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+          const responseType = response.headers?.['content-type']?.split(';')[0]?.trim();
+          const blob = response.data instanceof Blob
+            ? response.data
+            : new Blob([response.data], { type: responseType || doc.fileType || 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
           blobUrlRef.current = url;
+          setSourceBlob(blob);
           setBlobUrl(url);
         }
       })
       .catch((requestError) => {
         if (!controller.signal.aborted) {
-          setError(apiErrorMessage(requestError, 'Không thể tải nội dung file PDF.'));
+          setError(apiErrorMessage(requestError, 'Không thể tải nội dung tài liệu.'));
         }
       })
       .finally(() => {
@@ -65,7 +90,57 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
         blobUrlRef.current = null;
       }
     };
-  }, [isOpen, doc?.id, onClose]);
+  }, [isOpen, doc?.id, doc?.fileType, onClose]);
+
+  useEffect(() => {
+    if (!sourceBlob || (!isDocx && !isSpreadsheet)) return undefined;
+
+    let cancelled = false;
+    const container = docxContainerRef.current;
+    setOfficePreviewLoading(true);
+    setOfficePreviewError('');
+
+    const renderOfficePreview = async () => {
+      try {
+        if (isDocx) {
+          if (!container) return;
+          const { renderAsync } = await import('docx-preview');
+          container.innerHTML = '';
+          await renderAsync(sourceBlob, container, container, {
+            breakPages: true,
+            ignoreLastRenderedPageBreak: false,
+            experimental: true,
+          });
+        } else {
+          const XLSX = await import('xlsx');
+          const workbook = XLSX.read(await sourceBlob.arrayBuffer(), { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = firstSheet
+            ? XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', raw: false })
+                .slice(0, 10000)
+                .map((row) => Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : [])
+            : [];
+          if (!cancelled) setSpreadsheetRows(rows);
+        }
+      } catch {
+        if (!cancelled) {
+          setOfficePreviewError(
+            isDocx
+              ? 'Không thể dựng bản xem trước Word. Bạn vẫn có thể tải file gốc về máy.'
+              : 'Không thể dựng bản xem trước Excel. Bạn vẫn có thể tải file gốc về máy.'
+          );
+        }
+      } finally {
+        if (!cancelled) setOfficePreviewLoading(false);
+      }
+    };
+
+    renderOfficePreview();
+    return () => {
+      cancelled = true;
+      if (container) container.innerHTML = '';
+    };
+  }, [sourceBlob, isDocx, isSpreadsheet]);
 
   if (!isOpen || !doc) return null;
 
@@ -79,10 +154,10 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
     setDownloading(true);
     try {
       const response = await hrEmployeeDocumentApi.downloadDocument(doc.id);
-      downloadResponseBlob(response, doc.fileName || `${doc.documentName}.pdf`);
-      toast.success('Đã tải file PDF về máy.');
+      downloadResponseBlob(response, doc.fileName || doc.documentName || 'tai-lieu');
+      toast.success('Đã tải file gốc về máy.');
     } catch (requestError) {
-      toast.error(apiErrorMessage(requestError, 'Không thể tải file PDF.'));
+      toast.error(apiErrorMessage(requestError, 'Không thể tải file gốc.'));
     } finally {
       setDownloading(false);
     }
@@ -96,7 +171,7 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
       />
 
       <section
-        aria-labelledby="pdf-viewer-title"
+        aria-labelledby="document-viewer-title"
         aria-modal="true"
         className="relative z-50 flex h-[94dvh] w-full max-w-6xl flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden"
         role="dialog"
@@ -109,7 +184,7 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 id="pdf-viewer-title" className="truncate font-semibold text-gray-900 text-base sm:text-lg">
+                <h2 id="document-viewer-title" className="truncate font-semibold text-gray-900 text-base sm:text-lg">
                   {doc.documentName}
                 </h2>
                 <HrStatusBadge
@@ -141,7 +216,7 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
               size="sm"
               onClick={handleDownload}
               disabled={downloading}
-              title="Tải file PDF về máy tính"
+              title="Tải file gốc về máy tính"
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
               {downloading ? 'Đang tải...' : 'Tải về'}
@@ -157,12 +232,12 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
           </div>
         </header>
 
-        {/* PDF Frame Viewer Area */}
+        {/* Document preview area */}
         <div className="relative min-h-0 flex-1 bg-slate-100">
           {loading && (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-500">
               <LoaderCircle className="h-8 w-8 animate-spin text-emerald-600" />
-              <p className="text-sm font-medium">Đang tải và hiển thị file PDF...</p>
+              <p className="text-sm font-medium">Đang tải và hiển thị tài liệu...</p>
             </div>
           )}
 
@@ -179,10 +254,15 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
                     setLoading(true);
                     hrEmployeeDocumentApi.viewDocumentBlob(doc.id)
                       .then((response) => {
-                        const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                        const responseType = response.headers?.['content-type']?.split(';')[0]?.trim();
+                        const blob = response.data instanceof Blob
+                          ? response.data
+                          : new Blob([response.data], { type: responseType || doc.fileType || 'application/octet-stream' });
+                        const url = URL.createObjectURL(blob);
+                        setSourceBlob(blob);
                         setBlobUrl(url);
                       })
-                      .catch((err) => setError(apiErrorMessage(err, 'Không thể tải file PDF.')))
+                      .catch((err) => setError(apiErrorMessage(err, 'Không thể tải tài liệu.')))
                       .finally(() => setLoading(false));
                   }}
                 >
@@ -197,7 +277,7 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
 
           {blobUrl && !loading && !error && (
             <>
-              {doc.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i) || doc.fileType?.startsWith('image/') ? (
+              {isImage ? (
                 <div className="flex h-full items-center justify-center overflow-auto p-4 bg-slate-900/10">
                   <img
                     src={blobUrl}
@@ -205,12 +285,68 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
                     className="max-h-full max-w-full rounded-lg shadow-lg object-contain"
                   />
                 </div>
-              ) : doc.fileName?.toLowerCase().endsWith('.pdf') || doc.fileType === 'application/pdf' ? (
+              ) : isPdf ? (
                 <iframe
                   src={blobUrl}
                   className="h-full w-full border-0"
                   title={doc.documentName}
                 />
+              ) : isDocx ? (
+                <div className="h-full overflow-auto bg-slate-200 p-3 sm:p-6">
+                  {officePreviewLoading && (
+                    <div className="flex h-full min-h-48 items-center justify-center gap-3 text-slate-500">
+                      <LoaderCircle className="h-7 w-7 animate-spin text-emerald-600" />
+                      <p className="text-sm font-medium">Đang dựng bản xem trước Word...</p>
+                    </div>
+                  )}
+                  {officePreviewError && !officePreviewLoading && (
+                    <div className="flex h-full min-h-48 flex-col items-center justify-center gap-3 p-6 text-center">
+                      <p className="max-w-md text-sm text-rose-600">{officePreviewError}</p>
+                      <Button type="button" onClick={handleDownload} disabled={downloading}>
+                        <Download className="mr-1.5 h-4 w-4" /> Tải file Word
+                      </Button>
+                    </div>
+                  )}
+                  {!officePreviewError && <div ref={docxContainerRef} className="min-h-full rounded bg-white p-4 shadow-sm sm:p-8" />}
+                </div>
+              ) : isSpreadsheet ? (
+                <div className="h-full overflow-auto bg-white p-3 sm:p-6">
+                  {officePreviewLoading && (
+                    <div className="flex h-full min-h-48 items-center justify-center gap-3 text-slate-500">
+                      <LoaderCircle className="h-7 w-7 animate-spin text-emerald-600" />
+                      <p className="text-sm font-medium">Đang dựng bản xem trước Excel...</p>
+                    </div>
+                  )}
+                  {officePreviewError && !officePreviewLoading && (
+                    <div className="flex h-full min-h-48 flex-col items-center justify-center gap-3 p-6 text-center">
+                      <p className="max-w-md text-sm text-rose-600">{officePreviewError}</p>
+                      <Button type="button" onClick={handleDownload} disabled={downloading}>
+                        <Download className="mr-1.5 h-4 w-4" /> Tải file Excel
+                      </Button>
+                    </div>
+                  )}
+                  {!officePreviewError && !officePreviewLoading && (
+                    spreadsheetRows.length > 0 ? (
+                      <div className="overflow-auto rounded border border-slate-200">
+                        <table className="min-w-full border-collapse text-sm">
+                          <tbody>
+                            {spreadsheetRows.map((row, rowIndex) => (
+                              <tr key={`row-${rowIndex}`} className={rowIndex === 0 ? 'bg-emerald-50 font-semibold' : 'odd:bg-white even:bg-slate-50'}>
+                                {row.map((cell, cellIndex) => (
+                                  rowIndex === 0 ? (
+                                    <th key={`cell-${rowIndex}-${cellIndex}`} className="whitespace-nowrap border border-slate-200 px-3 py-2 text-left text-slate-700">{cell}</th>
+                                  ) : (
+                                    <td key={`cell-${rowIndex}-${cellIndex}`} className="whitespace-nowrap border border-slate-200 px-3 py-2 text-slate-700">{cell}</td>
+                                  )
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p className="p-6 text-center text-sm text-slate-500">File Excel không có dữ liệu để hiển thị.</p>
+                  )}
+                </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center p-6 text-center">
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 shadow-sm mb-4">
@@ -221,12 +357,12 @@ export function HrDocumentViewerModal({ isOpen, onClose, document: doc }) {
                     File {doc.fileName} ({formatFileSize(doc.fileSizeBytes)})
                   </p>
                   <p className="mt-2 text-xs text-slate-600 max-w-md bg-blue-50/70 border border-blue-200 rounded-lg p-3">
-                    Định dạng tài liệu Word / Office. Hãy bấm nút bên dưới để tải về và chỉnh sửa trực tiếp trên Microsoft Word / WPS Office.
+                    Định dạng này chưa có trình xem trực tiếp trên trình duyệt. Hãy bấm nút bên dưới để tải file gốc về máy.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Button type="button" onClick={handleDownload} disabled={downloading}>
                       <Download className="mr-1.5 h-4 w-4" />
-                      {downloading ? 'Đang tải...' : 'Tải file Word về máy'}
+                      {downloading ? 'Đang tải...' : 'Tải file gốc về máy'}
                     </Button>
                     <Button type="button" variant="secondary" onClick={handleOpenInNewTab}>
                       <ExternalLink className="mr-1.5 h-4 w-4" />

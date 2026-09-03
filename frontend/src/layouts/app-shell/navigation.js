@@ -46,7 +46,6 @@ export function buildNavigation({ isAdmin, isManager, isApprover, isHrUser = fal
     { name: 'LĐ phổ thông', path: '/manager/hr/general-labor', icon: HardHat },
     { name: 'Tăng / Giảm', path: '/manager/hr/movements', icon: ArrowUpDown },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
-    { name: 'Telegram nhân viên', path: '/manager/hr/telegram', icon: Send },
     { name: 'Gửi phiếu lương', path: '/manager/hr/payroll', icon: Send },
     { name: 'Chấm công', path: '/manager/hr/attendance', icon: Clock3 },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
