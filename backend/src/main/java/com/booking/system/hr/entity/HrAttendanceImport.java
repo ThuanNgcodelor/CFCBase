@@ -10,6 +10,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @Entity
@@ -36,10 +38,18 @@ public class HrAttendanceImport extends HrBaseEntity {
     private int totalRows;
     @Column(name = "valid_rows", nullable = false)
     private int validRows;
+    @Column(name = "auto_filled_rows", nullable = false)
+    private int autoFilledRows;
+    @Column(name = "no_punch_rows", nullable = false)
+    private int noPunchRows;
+    @Column(name = "excluded_rows", nullable = false)
+    private int excludedRows;
     @Column(name = "error_rows", nullable = false)
     private int errorRows;
-    @jakarta.persistence.Transient
-    private int excludedRows;
     @Column(name = "last_error", length = 1000)
     private String lastError;
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+    @Column(name = "confirmed_by_actor", length = 320)
+    private String confirmedByActor;
 }

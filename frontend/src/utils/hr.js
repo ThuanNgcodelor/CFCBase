@@ -8,6 +8,7 @@ const STATUS_LABELS = {
   UPLOADED: 'Đã tải lên',
   PARSED: 'Đã đọc file',
   VALIDATED: 'Đã kiểm tra',
+  PREVIEWED: 'Chờ xác nhận',
   CONFIRMED: 'Đã xác nhận',
   FAILED: 'Thất bại',
   ROLLED_BACK: 'Đã hoàn tác',
@@ -68,9 +69,9 @@ export function movementLabel(type) {
 
 export function statusTone(status) {
   if (['ACTIVE', 'CONFIRMED', 'VALID', 'IMPORTED', 'VERIFIED', 'PASSED', 'CONVERTED', 'GENERATED'].includes(status)) return 'green';
-  if (['WARNING', 'NEEDS_REVIEW', 'OPEN', 'PARSED', 'UPLOADED', 'PENDING', 'PENDING_REVIEW', 'STARTED', 'PHONE_RECEIVED', 'CODE_RECEIVED', 'CONTRACT_CREATED', 'IN_PROBATION'].includes(status)) return 'amber';
+  if (['WARNING', 'NEEDS_REVIEW', 'OPEN', 'PARSED', 'UPLOADED', 'PREVIEWED', 'PENDING', 'PENDING_REVIEW', 'STARTED', 'PHONE_RECEIVED', 'CODE_RECEIVED', 'CONTRACT_CREATED', 'IN_PROBATION'].includes(status)) return 'amber';
   if (['FAILED', 'INVALID', 'CANCELLED', 'REJECTED', 'REVOKED', 'BLOCKED'].includes(status)) return 'red';
-  if (['CLOSED', 'EXPORTED', 'VALIDATED'].includes(status)) return 'blue';
+  if (['CLOSED', 'EXPORTED', 'VALIDATED', 'AUTO_FILLED'].includes(status)) return 'blue';
   return 'gray';
 }
 

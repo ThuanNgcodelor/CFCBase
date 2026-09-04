@@ -22,6 +22,10 @@ public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
 
     List<HrEmployee> findAllByEmployeeCodeIn(Collection<String> employeeCodes);
 
+    @EntityGraph(attributePaths = {"employment", "employment.department"})
+    @Query("select distinct employee from HrEmployee employee left join employee.employment employment left join employment.department department where employee.employeeCode in :employeeCodes")
+    List<HrEmployee> findAttendanceEmployeesByCodes(@Param("employeeCodes") Collection<String> employeeCodes);
+
     List<HrEmployee> findAllBySourceImportBatch_Id(String batchId);
 
     Page<HrEmployee> findByEmploymentStatus(HrEmploymentStatus status, Pageable pageable);

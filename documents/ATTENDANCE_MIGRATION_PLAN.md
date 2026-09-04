@@ -34,36 +34,30 @@ liệu, quyền truy cập và file đầu ra được quản lý trong CFCBase.
 | Dòng không có lượt | Giữ ngày để đối soát | Giữ nguyên dòng, không tính lỗi |
 | Người đi thị trường | Xử lý thủ công sau file tổng hợp | Danh sách mã miễn chấm công trong cấu hình |
 
-## Giai đoạn tiếp theo
+## Trạng thái triển khai Phase 2
 
-### 1. Hoàn thiện dữ liệu chấm công
+### Đã hoàn thành
 
-- Bổ sung bộ kiểm thử cho ngày dạng số Excel, `dd-MMM-yy`, ngày ISO và ngày
-  ngoài tháng đã chọn.
-- Hiển thị riêng số dòng `Hợp lệ`, `Tự điền`, `Bỏ qua` và `Lỗi`; không gộp
-  `AUTO_FILLED` vào lỗi.
-- Cân nhắc thêm tùy chọn “cho phép tự điền” thay vì chỉ dựa vào giờ mặc định.
+- Có kiểm thử cho ngày Excel numeric, `dd-MMM-yy`, ISO và `d/M/yyyy`.
+- UI tách riêng `Hợp lệ`, `Tự điền`, `Không chấm`, `Miễn chấm` và `Lỗi`.
+- Cấu hình có công tắc **Tự điền lượt chấm còn thiếu**. Quy tắc chỉ kích hoạt
+  khi dòng đã có đúng một phía; không tự tạo công cho dòng trống hoàn toàn.
+- Import có bước **Xác nhận**; báo cáo tháng chỉ đọc batch `CONFIRMED`.
+- Endpoint tổng hợp tháng tính ngày công, số lần/phút đi trễ, về sớm và tỷ lệ
+  đúng giờ; hỗ trợ lọc phòng ban/mã nhân viên.
+- UI có KPI tháng, bảng chi tiết nhân viên và xuất `TONGHOP_MM-YYYY.xlsx`.
+- Khi nhiều file đã xác nhận trùng mã nhân viên/ngày, tổng hợp chỉ lấy một dòng
+  tốt nhất, ưu tiên `VALID` hơn `AUTO_FILLED`, để không nhân đôi ngày công.
+- Ghi audit khi đổi cấu hình, import, xác nhận và xóa batch.
+- Migration `V16__complete_hr_attendance_workflow.sql` bổ sung số liệu phân loại,
+  người/thời điểm xác nhận và index theo tháng/trạng thái.
 
-### 2. Tổng hợp đi trễ/về sớm
+### Việc vận hành còn lại
 
-- Tạo endpoint tổng hợp theo tháng từ các record đã import.
-- Dùng giờ chuẩn và phút miễn trừ trong cấu hình để tính số lần/phút đi trễ,
-  về sớm.
-- Cho phép lọc theo phòng ban, mã nhân viên và xuất `TONGHOP_...xlsx`.
-
-### 3. Dashboard
-
-- KPI: tổng nhân sự, tổng ngày công, số lượt đi trễ, tổng phút trễ.
-- Bảng top nhân viên/phòng ban và tỷ lệ đúng giờ.
-- Chỉ lấy dữ liệu đã được quản trị viên xác nhận; không coi bản xem trước là
-  dữ liệu chốt.
-
-### 4. Vận hành và an toàn
-
-- Giới hạn kích thước/số file mỗi batch, chống upload trùng bằng SHA-256.
-- Ghi actor tạo/xóa/cấu hình vào activity log.
-- Phân quyền chỉ HR/Admin; giữ cascade khi xóa một lần import.
-- Thêm job dọn dữ liệu xem trước quá hạn sau khi có chính sách lưu trữ.
+- Smoke test trên file thật TCHC/PTC/XNK/KCS sau khi deploy migration V16.
+- Chốt chính sách số ngày lưu batch `PREVIEWED`; sau đó mới bật job dọn tự động.
+- Dashboard phòng ban chuyên sâu và biểu đồ xu hướng là phần mở rộng, không chặn
+  luồng chấm công tháng hiện tại.
 
 ## Tiêu chí nghiệm thu
 
@@ -73,5 +67,6 @@ liệu, quyền truy cập và file đầu ra được quản lý trong CFCBase.
 - Một dòng chỉ có check-in hoặc check-out được điền lượt còn thiếu và có lý do
   rõ ràng trong bản xem trước.
 - File sạch và file `CONG_...` tải được, mở được bằng Excel.
+- File phải được xác nhận trước khi xuất hiện trong KPI và `TONGHOP_...xlsx`.
 - Có thể xóa một file import và không còn bản ghi xem trước tương ứng.
 - `./mvnw test`, `npm run lint` và `npm run build` chạy đạt trước khi deploy.

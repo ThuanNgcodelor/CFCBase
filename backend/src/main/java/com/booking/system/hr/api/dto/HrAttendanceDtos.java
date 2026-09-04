@@ -30,7 +30,8 @@ public final class HrAttendanceDtos {
             LocalTime standardCheckIn,
             LocalTime standardCheckOut,
             @Min(0) @Max(120) int graceMinutes,
-            List<String> excludedEmployeeCodes
+            List<String> excludedEmployeeCodes,
+            boolean autoFillMissingPunches
     ) {
         public Config(int headerRow, String employeeCodeColumn, String employeeNameColumn, String dateColumn,
                       List<String> punchColumns, LocalTime checkInStart, LocalTime checkInEnd,
@@ -39,13 +40,15 @@ public final class HrAttendanceDtos {
                       int graceMinutes) {
             this(headerRow, employeeCodeColumn, employeeNameColumn, dateColumn, punchColumns,
                     checkInStart, checkInEnd, checkOutStart, checkOutEnd, defaultCheckIn, defaultCheckOut,
-                    standardCheckIn, standardCheckOut, graceMinutes, List.of());
+                    standardCheckIn, standardCheckOut, graceMinutes, List.of(), true);
         }
     }
 
     public record ImportResponse(String id, String fileName, String sheetName, String attendanceMonth,
                                  HrAttendanceImportStatus status, Config configuration, int totalRows,
-                                 int validRows, int errorRows, int excludedRows, String lastError, LocalDateTime createdAt) {}
+                                 int validRows, int autoFilledRows, int noPunchRows, int errorRows,
+                                 int excludedRows, String lastError, LocalDateTime createdAt,
+                                 LocalDateTime confirmedAt, String confirmedByActor) {}
 
     public record RecordResponse(String id, int sourceRowNumber, String employeeCode, String employeeName,
                                  LocalDate workDate, List<String> punches, LocalTime checkIn, LocalTime checkOut,
@@ -55,5 +58,19 @@ public final class HrAttendanceDtos {
     public record PreviewResponse(ImportResponse batch, HrPageResponse<RecordResponse> rows) {}
 
     public record BatchImportResponse(List<ImportResponse> imports, int totalFiles, int totalRows,
-                                      int validRows, int excludedRows, int errorRows) {}
+                                      int validRows, int autoFilledRows, int noPunchRows,
+                                      int excludedRows, int errorRows) {}
+
+    public record EmployeeSummary(
+            String employeeCode, String employeeName, String departmentId, String departmentName,
+            int workDays, int autoFilledDays, int noPunchDays,
+            int lateOccurrences, int lateMinutes, int earlyOccurrences, int earlyMinutes, int onTimeDays
+    ) {}
+
+    public record MonthlySummary(
+            String month, int confirmedImports, int totalEmployees, int workDays,
+            int autoFilledRows, int noPunchRows,
+            int lateOccurrences, int lateMinutes, int earlyOccurrences, int earlyMinutes,
+            double onTimeRate, List<EmployeeSummary> employees
+    ) {}
 }

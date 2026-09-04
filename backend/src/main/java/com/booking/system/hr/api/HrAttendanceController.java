@@ -91,6 +91,40 @@ public class HrAttendanceController {
         return ResponseEntity.ok(ApiResponse.success(attendanceService.preview(importId, page, size), "Lấy bản xem trước chấm công thành công"));
     }
 
+    @PostMapping("/imports/{importId}/confirm")
+    public ResponseEntity<ApiResponse<HrAttendanceDtos.ImportResponse>> confirm(
+            @PathVariable String importId,
+            @AuthenticationPrincipal User principal) {
+        HrImportActor actor = actorResolver.fromPrincipal(principal);
+        return ResponseEntity.ok(ApiResponse.success(attendanceService.confirmImport(importId, actor), "Đã xác nhận dữ liệu chấm công"));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<ApiResponse<HrAttendanceDtos.MonthlySummary>> summary(
+            @RequestParam String month,
+            @RequestParam(required = false) String departmentId,
+            @RequestParam(required = false) String employeeCode,
+            @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        return ResponseEntity.ok(ApiResponse.success(
+                attendanceService.monthlySummary(month, departmentId, employeeCode),
+                "Lấy tổng hợp chấm công thành công"));
+    }
+
+    @GetMapping("/summary/export")
+    public ResponseEntity<byte[]> exportSummary(
+            @RequestParam String month,
+            @RequestParam(required = false) String departmentId,
+            @RequestParam(required = false) String employeeCode,
+            @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        HrAttendanceService.ExportFile file = attendanceService.exportMonthlySummary(month, departmentId, employeeCode);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.fileName()).build().toString())
+                .body(file.content());
+    }
+
     @GetMapping("/imports/{importId}/export")
     public ResponseEntity<byte[]> export(@PathVariable String importId, @AuthenticationPrincipal User principal) {
         actorResolver.fromPrincipal(principal);
