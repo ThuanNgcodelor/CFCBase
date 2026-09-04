@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -35,8 +34,6 @@ public class HrEmployeeDocumentService {
 
     private static final long MAX_FILE_SIZE = 15 * 1024 * 1024L; // 15 MB
     private static final Pattern NON_FILE_NAME = Pattern.compile("[^a-zA-Z0-9._\\- ()]+");
-    private static final byte[] PDF_MAGIC_BYTES = new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D}; // %PDF-
-
     private final HrEmployeeRepository employeeRepository;
     private final HrEmployeeDocumentRepository documentRepository;
     private final HrAuditEventRepository auditRepository;

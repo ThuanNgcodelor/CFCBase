@@ -32,7 +32,6 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class HrPayrollCampaignService {
-    private final HrPayrollService payrollService;
     private final HrPayrollCampaignRepository campaignRepository;
     private final HrPayrollDeliveryRepository deliveryRepository;
     private final HrPayrollImportRepository importRepository;

@@ -1,6 +1,5 @@
 package com.booking.system.service;
 
-import com.booking.system.dto.DepartmentResponse;
 import com.booking.system.dto.ProfileUpdateRequestCreateRequest;
 import com.booking.system.dto.ProfileUpdateRequestResponse;
 import com.booking.system.entity.Department;

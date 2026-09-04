@@ -34,8 +34,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class HrEmployeeDocumentController {
 
-    private static final MediaType PDF_MEDIA_TYPE = MediaType.APPLICATION_PDF;
-
     private final HrEmployeeDocumentService documentService;
     private final HrActorResolver actorResolver;
 

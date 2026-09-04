@@ -538,10 +538,6 @@ public class HrExcelExportService {
         }
     }
 
-    private static byte[] readTemplateFromResources() {
-        return readTemplateFromResources(RESOURCE_TEMPLATE_PATH);
-    }
-
     private static byte[] readTemplateFromLocalDocs() {
         Path templatePath = TEMPLATE_PATHS.stream()
                 .filter(Files::isRegularFile)

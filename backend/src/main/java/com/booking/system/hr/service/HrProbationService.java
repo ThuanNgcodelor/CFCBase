@@ -6,14 +6,11 @@ import com.booking.system.hr.api.dto.HrProbationDtos;
 import com.booking.system.hr.dto.HrApiDtos;
 import com.booking.system.hr.entity.HrAuditEvent;
 import com.booking.system.hr.entity.HrCatalogEntity;
-import com.booking.system.hr.entity.HrDepartment;
 import com.booking.system.hr.entity.HrEmployee;
 import com.booking.system.hr.entity.HrEmploymentContract;
-import com.booking.system.hr.entity.HrPosition;
 import com.booking.system.hr.entity.HrProbationCandidate;
 import com.booking.system.hr.entity.HrProbationContract;
 import com.booking.system.hr.entity.HrProbationJobTemplate;
-import com.booking.system.hr.entity.HrWorkingCondition;
 import com.booking.system.hr.enums.HrCatalogStatus;
 import com.booking.system.hr.enums.HrEmployeeGender;
 import com.booking.system.hr.enums.HrIdentityVerificationStatus;
@@ -37,7 +34,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -706,14 +702,6 @@ public class HrProbationService {
         } catch (IOException exception) {
             throw new IllegalStateException("Không thể sinh hợp đồng thử việc.", exception);
         }
-    }
-
-    private String latestContractNo(HrProbationCandidate candidate) {
-        return contractRepository.findLatestByCandidateId(candidate.getId(), PageRequest.of(0, 1))
-                .stream()
-                .findFirst()
-                .map(contract -> contract.getContractNo() + "/HĐTV-PBHC-" + contract.getContractYear())
-                .orElse(null);
     }
 
     private HrProbationDtos.CandidateSummary toSummary(HrProbationCandidate candidate) {
