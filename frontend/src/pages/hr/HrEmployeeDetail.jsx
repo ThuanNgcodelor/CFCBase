@@ -18,9 +18,11 @@ import {
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { HrError, HrLoading, HrPageHeader, HrPageShell, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
+import { HrError, HrLoading, HrPageHeader, HrPageShell, HrStatusBadge } from '../../components/hr/HrUi';
 import { ContractExportButton } from '../../components/hr/HrEmploymentContractFields';
 import { HrEmployeeDocumentsTab } from '../../components/hr/HrEmployeeDocumentsTab';
+import { HrEmployeeHistoryTab } from '../../components/hr/HrEmployeeHistoryTab';
+import { HrEmployeeContractsTab } from '../../components/hr/HrEmployeeContractsTab';
 import { hrEmploymentContractApi } from '../../api/hrEmploymentContractApi';
 import { hrEmployeeDocumentApi } from '../../api/hrEmployeeDocumentApi';
 import { hrEmployeeApi } from '../../api/hrEmployeeApi';
@@ -67,7 +69,7 @@ export default function HrEmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') === 'documents' ? 'documents' : 'info';
+  const activeTab = ['documents', 'contracts', 'history'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'info';
   const currentYear = new Date().getFullYear();
 
   const [employee, setEmployee] = useState(null);
@@ -87,9 +89,12 @@ export default function HrEmployeeDetail() {
 
   useEffect(() => {
     if (!id) return;
+    let active = true;
+    setDocumentCount(0);
     hrEmployeeDocumentApi.getDocuments(id)
-      .then((docs) => setDocumentCount(Array.isArray(docs) ? docs.length : 0))
+      .then((docs) => { if (active) setDocumentCount(Array.isArray(docs) ? docs.length : 0); })
       .catch(() => {});
+    return () => { active = false; };
   }, [id, reloadKey]);
 
   useEffect(() => {
@@ -97,7 +102,7 @@ export default function HrEmployeeDetail() {
     setLoading(true);
     setError('');
     hrEmployeeApi.getEmployee(id, { signal: controller.signal })
-      .then(setEmployee)
+      .then((value) => { if (!controller.signal.aborted) setEmployee(value); })
       .catch((requestError) => {
         if (!controller.signal.aborted) setError(apiErrorMessage(requestError, 'Không thể tải hồ sơ nhân sự.'));
       })
@@ -150,6 +155,15 @@ export default function HrEmployeeDetail() {
   const identity = employee.identity || {};
   const insurance = employee.insurance || {};
   const contact = employee.contact || employee.contacts || {};
+  const missingProfileFields = [
+    [personal.dateOfBirth, 'Ngày sinh'],
+    [identity.citizenIdentityNumber || identity.legacyIdentityNumber, 'CCCD/CMND'],
+    [contact.phone, 'Số điện thoại'],
+    [contact.permanentAddress, 'Địa chỉ thường trú'],
+    [employment.department?.name || employment.departmentName, 'Phòng ban'],
+    [employment.position?.name || employment.positionName, 'Chức vụ'],
+    [employment.hireDate, 'Ngày vào làm'],
+  ].filter(([value]) => !String(value ?? '').trim()).map(([, label]) => label);
   const employmentStatus = employee.employmentStatus || personal.employmentStatus || employee.status;
   const currentContract = employee.currentContract;
   const canDeleteDraft = employmentStatus === 'DRAFT' && employee.onboardingSource !== 'PROBATION';
@@ -279,12 +293,12 @@ export default function HrEmployeeDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          <ShieldCheck className="h-4 w-4" />Đang hiển thị đầy đủ cho Manager
+          <ShieldCheck className="h-4 w-4" />Hồ sơ nhân sự 360°
         </div>
       </div>
 
       {/* Tabs navigation bar */}
-      <div className="mb-6 flex border-b border-gray-200 bg-white rounded-t-xl px-2 shadow-sm">
+      <div className="mb-6 flex flex-wrap border-b border-gray-200 bg-white rounded-t-xl px-2 shadow-sm" aria-label="Các phần hồ sơ nhân sự">
         <button
           type="button"
           onClick={() => setSearchParams({ tab: 'info' })}
@@ -315,10 +329,25 @@ export default function HrEmployeeDetail() {
             </span>
           )}
         </button>
+        {[['contracts', 'Hợp đồng'], ['history', 'Lịch sử']].map(([tab, label]) => (
+          <button key={tab} type="button" aria-current={activeTab === tab ? 'page' : undefined}
+            onClick={() => setSearchParams({ tab })}
+            className={`border-b-2 px-5 py-3 text-sm font-semibold ${activeTab === tab ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            {label}
+          </button>
+        ))}
       </div>
+
+      {activeTab === 'contracts' && <HrEmployeeContractsTab key={id} employeeId={id} />}
+      {activeTab === 'history' && <HrEmployeeHistoryTab key={id} employeeId={id} />}
 
       {activeTab === 'info' && (
         <>
+          <div className={`mb-5 rounded-xl border p-4 text-sm ${missingProfileFields.length ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>
+            <p className="font-semibold">{missingProfileFields.length ? 'Thông tin cần bổ sung' : 'Đã có các thông tin hồ sơ cơ bản'}</p>
+            <p className="mt-1">{missingProfileFields.length ? missingProfileFields.join(' · ') : 'Ngày sinh, định danh, liên hệ và thông tin công việc đã được nhập.'}</p>
+            <p className="mt-1 text-xs">Đây là kiểm tra ô trống; HR vẫn cần đối chiếu giấy tờ trước khi xác nhận thông tin.</p>
+          </div>
           <div className="grid gap-5 xl:grid-cols-2">
             <DetailSection icon={UserRound} title="Thông tin chung">
               <DetailItem label="Họ và tên" value={personal.fullName} />

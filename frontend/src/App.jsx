@@ -31,6 +31,7 @@ const HrRosterDetail = lazy(() => import('./pages/hr/HrRosterDetail'));
 const HrAudit = lazy(() => import('./pages/hr/HrAudit'));
 const HrTelegramEmployees = lazy(() => import('./pages/hr/HrTelegramEmployees'));
 const HrPayroll = lazy(() => import('./pages/hr/HrPayroll'));
+const HrDocumentTemplates = lazy(() => import('./pages/hr/HrDocumentTemplates'));
 const HrAttendance = lazy(() => import('./pages/hr/HrAttendance'));
 
 const SessionCheckScreen = ({ unavailable = false }) => (
@@ -178,6 +179,7 @@ function App() {
         <Route path="manager/hr/audit" element={<HrRoute><HrAudit /></HrRoute>} />
         <Route path="manager/hr/telegram" element={<HrRoute><HrTelegramEmployees /></HrRoute>} />
         <Route path="manager/hr/payroll" element={<HrRoute><HrPayroll /></HrRoute>} />
+        <Route path="manager/hr/document-templates" element={<HrRoute><HrDocumentTemplates /></HrRoute>} />
         <Route path="manager/hr/attendance" element={<HrRoute><HrAttendance /></HrRoute>} />
 
         {/* Quản trị tài khoản */}

@@ -61,6 +61,11 @@ public class HrPayrollController {
                 "Đã tạo hàng đợi gửi phiếu lương"));
     }
 
+    @GetMapping("/imports/{importId}/campaign")
+    public ApiResponse<HrPayrollDtos.CampaignResponse> campaignForImport(@PathVariable String importId) {
+        return ApiResponse.success(campaignService.campaignForImport(importId), "Đợt gửi của file lương");
+    }
+
     @GetMapping("/campaigns/{campaignId}")
     public ResponseEntity<ApiResponse<HrPayrollDtos.CampaignResponse>> campaign(@PathVariable String campaignId) {
         return ResponseEntity.ok(ApiResponse.success(campaignService.campaign(campaignId), "Lấy trạng thái gửi lương thành công"));
@@ -81,6 +86,12 @@ public class HrPayrollController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return ResponseEntity.ok(ApiResponse.success(campaignService.deliveries(campaignId, page, size), "Lấy kết quả gửi lương thành công"));
+    }
+
+    @GetMapping("/campaigns/{campaignId}/deliveries/{deliveryId}/message")
+    public ResponseEntity<ApiResponse<String>> previewMessage(@PathVariable String campaignId, @PathVariable String deliveryId) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store")
+                .body(ApiResponse.success(campaignService.previewMessage(campaignId, deliveryId), "Nội dung phiếu lương đã lưu"));
     }
 
     @PostMapping("/campaigns/{campaignId}/retry")

@@ -63,6 +63,15 @@ public class HrActivityQueryService {
         Pageable pageable = pageRequest(page, size,
                 Sort.by(Sort.Order.desc("effectiveDate"), Sort.Order.desc("createdAt")));
         Page<com.booking.system.hr.entity.HrEmployeeMovement> movements = movementRepository.findActivityPage(pageable);
+        return movementPage(movements);
+    }
+
+    public HrPageResponse<HrMovementResponse> employeeMovements(String employeeId, int page, int size) {
+        return movementPage(movementRepository.findByEmployee_IdOrderByEffectiveDateDesc(employeeId,
+                pageRequest(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))));
+    }
+
+    private HrPageResponse<HrMovementResponse> movementPage(Page<com.booking.system.hr.entity.HrEmployeeMovement> movements) {
         Map<String, String> actorNames = resolveUserActorNames(movements);
         Set<String> movementIds = movements.stream()
                 .map(com.booking.system.hr.entity.HrEmployeeMovement::getId)

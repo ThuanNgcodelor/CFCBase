@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "hr_payroll_deliveries", indexes = @Index(name = "idx_hr_payroll_delivery_status", columnList = "campaign_id, status, updated_at"))
 public class HrPayrollDelivery extends HrBaseEntity {
+    @Column(name = "message_snapshot", columnDefinition = "TEXT")
+    private String messageSnapshot;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "campaign_id", nullable = false, foreignKey = @ForeignKey(name = "fk_hr_payroll_delivery_campaign"))
     private HrPayrollCampaign campaign;

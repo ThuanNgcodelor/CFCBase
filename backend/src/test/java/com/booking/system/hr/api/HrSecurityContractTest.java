@@ -110,6 +110,23 @@ class HrSecurityContractTest {
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
     }
 
+    @Test
+    void employeeProfileEndpointsRequireActiveHrPrincipal() throws Exception {
+        stubToken("profile-manager", user("profile-manager@example.test", RoleEnum.MANAGER));
+        stubToken("profile-admin", user("profile-admin@example.test", RoleEnum.ADMIN));
+        stubToken("profile-employee", user("profile-employee@example.test", RoleEnum.EMPLOYEE));
+        for (String section : new String[]{"movements", "profile-audit", "contracts", "contracts/c1/documents"}) {
+            String path = "/api/v1/hr/employees/e1/" + section;
+            mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+            mockMvc.perform(get(path).header("Authorization", "Bearer profile-employee"))
+                    .andExpect(status().isUnauthorized());
+            mockMvc.perform(get(path).header("Authorization", "Bearer profile-manager"))
+                    .andExpect(status().isOk());
+            mockMvc.perform(get(path).header("Authorization", "Bearer profile-admin"))
+                    .andExpect(status().isOk());
+        }
+    }
+
     private static User user(String email, RoleEnum role) {
         User user = new User();
         user.setId(role.name().toLowerCase() + "-id");
@@ -124,6 +141,11 @@ class HrSecurityContractTest {
     @EnableWebMvc
     @Import(SecurityConfig.class)
     static class TestWebConfig {
+
+        @Bean
+        HrEmployeeProfileController employeeProfileController() {
+            return new HrEmployeeProfileController(mock(HrEmployeeProfileQueryService.class));
+        }
 
         @Bean
         JwtUtils jwtUtils() {

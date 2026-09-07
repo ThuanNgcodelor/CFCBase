@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileUp, Play, RefreshCw, Send, Settings2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -27,6 +27,8 @@ export default function HrPayroll() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [previewPage, setPreviewPage] = useState(0);
+  const selectionRequest = useRef(0);
 
   const loadImports = useCallback(async () => {
     setLoading(true); setError('');
@@ -37,14 +39,20 @@ export default function HrPayroll() {
 
   useEffect(() => { loadImports(); }, [loadImports]);
 
-  const selectImport = async (item) => {
-    setSelected(item); setCampaign(null); setBusy(true);
+  const selectImport = async (item, requestedPage = 0) => {
+    const request = ++selectionRequest.current;
+    setSelected(item); setCampaign(null); setPreview(normalizePage(null)); setBusy(true); setPreviewPage(requestedPage);
     try {
-      const result = await hrPayrollApi.preview(item.id, { page: 0, size: 50 });
+      const [result, existing] = await Promise.all([
+        hrPayrollApi.preview(item.id, { page: requestedPage, size: 50 }),
+        hrPayrollApi.campaignForImport(item.id),
+      ]);
+      if (request !== selectionRequest.current) return;
       setPreview(normalizePage(result.rows));
+      setCampaign(existing);
       if (result.batch) setSelected(result.batch);
-    } catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể đọc bản xem trước.')); }
-    finally { setBusy(false); }
+    } catch (requestError) { if (request === selectionRequest.current) toast.error(apiErrorMessage(requestError, 'Không thể đọc bản xem trước.')); }
+    finally { if (request === selectionRequest.current) setBusy(false); }
   };
 
   const upload = async (event) => {
@@ -85,11 +93,12 @@ export default function HrPayroll() {
 
   useEffect(() => {
     if (!campaign || !['QUEUED', 'SENDING'].includes(campaign.status)) return undefined;
+    let cancelled = false;
     const timer = window.setInterval(async () => {
-      try { setCampaign(await hrPayrollApi.campaign(campaign.id)); }
+      try { const result = await hrPayrollApi.campaign(campaign.id); if (!cancelled) setCampaign(current => current?.id === result.id ? result : current); }
       catch { /* giữ trạng thái hiện tại khi polling tạm thời lỗi */ }
     }, 2000);
-    return () => window.clearInterval(timer);
+    return () => { cancelled = true; window.clearInterval(timer); };
   }, [campaign]);
 
   return (
@@ -116,6 +125,28 @@ export default function HrPayroll() {
       )}
 
       {selected && <section className="mt-5 rounded-xl border border-gray-200 bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-4"><div><h2 className="font-semibold text-gray-900">3. Kiểm tra và gửi</h2><p className="text-sm text-gray-500">{selected.fileName} · {selected.readyRows} dòng đủ điều kiện · {selected.skippedRows} dòng sẽ bỏ qua</p></div><div className="flex flex-wrap gap-2"><Button type="button" disabled={busy || Boolean(campaign)} onClick={createCampaign}><Send className="mr-1.5 h-4 w-4" />Tạo hàng đợi</Button>{campaign && <Button type="button" disabled={busy || !['QUEUED'].includes(campaign.status)} onClick={startCampaign}><Play className="mr-1.5 h-4 w-4" />Bắt đầu gửi</Button>}{campaign && campaign.failed > 0 && ['COMPLETED_WITH_WARNING', 'COMPLETED'].includes(campaign.status) && <Button type="button" variant="secondary" disabled={busy} onClick={retryCampaign}>Gửi lại lỗi</Button>}</div></div><div className="p-4">{campaign && <div className="mb-4 rounded-lg bg-gray-50 p-3 text-sm">Đợt gửi: <HrStatusBadge status={campaign.status} label={statusLabel(campaign.status)} /> <span className="ml-2">Đã gửi {campaign.sent}/{campaign.total} · Lỗi {campaign.failed} · Bỏ qua {campaign.skipped}</span></div>}<div className="overflow-x-auto"><table className="min-w-[900px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Mã NV</th><th className="px-3 py-2">Họ tên</th><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">Lý do</th></tr></thead><tbody className="divide-y divide-gray-100">{preview.content.map((row) => <tr key={row.id}><td className="px-3 py-2 font-semibold">{row.employeeCode}</td><td className="px-3 py-2">{row.employeeName}</td><td className="px-3 py-2"><HrStatusBadge status={row.status} label={statusLabel(row.status)} /></td><td className="px-3 py-2 text-sm text-gray-500">{row.errorMessage || '—'}</td></tr>)}</tbody></table></div></div></section>}
+      {selected && <HrPagination page={previewPage} totalPages={preview.totalPages} totalElements={preview.totalElements} onPageChange={p => selectImport(selected, p)} />}
+      {campaign && <DeliveryResults key={campaign.id} campaign={campaign} />}
     </HrPageShell>
   );
+}
+
+function DeliveryResults({ campaign }) {
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(normalizePage(null));
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController(); setLoading(true); setError('');
+    hrPayrollApi.deliveries(campaign.id, { page, size: 50 }, { signal: controller.signal })
+      .then(r => { if (!controller.signal.aborted) setRows(normalizePage(r)); })
+      .catch(e => { if (!controller.signal.aborted) setError(apiErrorMessage(e, 'Không đọc được kết quả gửi.')); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [campaign.id, campaign.status, campaign.sent, campaign.failed, page, refresh]);
+  return <section className="mt-5 rounded-xl border bg-white p-5"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Kết quả từng người nhận</h2><Button variant="secondary" onClick={() => setRefresh(v => v + 1)}>Tải lại kết quả</Button></div>
+    {loading ? <HrLoading /> : error ? <HrError message={error} /> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[700px] text-left text-sm"><thead><tr><th>Mã NV</th><th>Họ tên</th><th>Trạng thái</th><th>Số lần thử</th><th>Gửi lúc</th><th>Lý do</th></tr></thead><tbody>{rows.content.map(r => <tr key={r.id} className="border-t"><td className="py-3">{r.employeeCode}</td><td>{r.employeeName}</td><td>{statusLabel(r.status)}</td><td>{r.attemptCount}</td><td>{formatHrDateTime(r.sentAt)}</td><td>{r.lastError || '—'}</td></tr>)}</tbody></table></div>}
+    <HrPagination page={rows.number} totalPages={rows.totalPages} totalElements={rows.totalElements} onPageChange={setPage} />
+  </section>;
 }

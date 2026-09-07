@@ -30,6 +30,16 @@ public class HrEmploymentContractController {
     private final HrEmploymentContractDocumentService documentService;
     private final HrActorResolver actorResolver;
 
+    @PostMapping(value = "/employment-contract-documents/{documentId}/revisions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<HrEmploymentContractDtos.DocumentSummary> uploadRevision(
+            @PathVariable String documentId, @AuthenticationPrincipal User principal,
+            @org.springframework.web.bind.annotation.RequestPart("file") org.springframework.web.multipart.MultipartFile file,
+            @org.springframework.web.bind.annotation.RequestParam String note) throws java.io.IOException {
+        if (file.getSize() > 15 * 1024 * 1024) throw HrApiException.badRequest("DOCUMENT_TOO_LARGE", "File tối đa 15 MB.");
+        return ApiResponse.success(documentService.uploadRevision(documentId, file.getOriginalFilename(), file.getBytes(), note,
+                actorResolver.fromPrincipal(principal)), "Đã lưu bản chỉnh sửa; hồ sơ nhân sự không thay đổi");
+    }
+
     @PostMapping("/employment-contracts/{contractId}/documents")
     public ResponseEntity<ApiResponse<HrEmploymentContractDtos.DocumentSummary>> generateDocument(
             @AuthenticationPrincipal User principal,
@@ -46,6 +56,7 @@ public class HrEmploymentContractController {
         HrEmploymentContractDtos.DocumentFile file = documentService.download(documentId);
         return ResponseEntity.ok()
                 .contentType(DOCX_MEDIA_TYPE)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(file.fileName(), StandardCharsets.UTF_8)
                         .build()

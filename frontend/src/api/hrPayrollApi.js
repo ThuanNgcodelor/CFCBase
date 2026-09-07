@@ -10,8 +10,10 @@ export const hrPayrollApi = {
   },
   preview: async (id, params, options = {}) => unwrapApiData(await baseApi.get(`/hr/payroll/imports/${id}/preview`, { params, signal: options.signal })),
   createCampaign: async (id) => unwrapApiData(await baseApi.post(`/hr/payroll/imports/${id}/campaigns`, { deliveryMode: 'TEXT' })),
+  campaignForImport: async (id, options = {}) => unwrapApiData(await baseApi.get(`/hr/payroll/imports/${id}/campaign`, { signal: options.signal })),
   campaign: async (id, options = {}) => unwrapApiData(await baseApi.get(`/hr/payroll/campaigns/${id}`, { signal: options.signal, _silent: true })),
   start: async (id) => unwrapApiData(await baseApi.post(`/hr/payroll/campaigns/${id}/start`)),
   retry: async (id) => unwrapApiData(await baseApi.post(`/hr/payroll/campaigns/${id}/retry`)),
   deliveries: async (id, params, options = {}) => unwrapApiData(await baseApi.get(`/hr/payroll/campaigns/${id}/deliveries`, { params, signal: options.signal })),
+  message: async (campaignId, deliveryId) => unwrapApiData(await baseApi.get(`/hr/payroll/campaigns/${campaignId}/deliveries/${deliveryId}/message`)),
 };

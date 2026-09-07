@@ -15,6 +15,8 @@ import java.util.Optional;
 
 public interface HrEmploymentContractRepository extends HrRepository<HrEmploymentContract, String> {
 
+    org.springframework.data.domain.Page<HrEmploymentContract> findByEmployee_Id(String employeeId, Pageable pageable);
+
     @EntityGraph(attributePaths = {"employee", "sourceProbationCandidate"})
     Optional<HrEmploymentContract> findByIdempotencyKey(String idempotencyKey);
 

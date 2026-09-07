@@ -1,6 +1,6 @@
 # CFCBase — Master Context hiện hành
 
-> **Ngày cập nhật theo source:** 04/09/2026 (Asia/Ho_Chi_Minh)
+> **Ngày cập nhật theo source:** 07/09/2026 (Asia/Ho_Chi_Minh)
 > **Mục đích:** bản đồ duy nhất để hiểu, vận hành và tiếp tục phát triển repository CFCBase.
 > **Nguyên tắc:** code, migration và cấu hình hiện tại là nguồn sự thật; tài liệu cũ hoặc ảnh giao diện chỉ dùng để đối chiếu.
 
@@ -153,6 +153,8 @@ Danh sách file đầy đủ hơn theo package nằm trực tiếp trong các th
 
 `HrManagementController` + `HrManagementService` cung cấp overview, tìm kiếm/phân trang nhân sự, CRUD hồ sơ và CRUD ba danh mục: phòng ban, chức vụ, điều kiện lao động. `HrActorResolver` lấy actor từ principal JWT; audit lưu trong `hr_audit_events`.
 
+Phase 3 bổ sung tab Lịch sử trong hồ sơ: biến động theo nhân sự và nhật ký sửa `HR_EMPLOYEE`, có phân trang và trạng thái điều chỉnh. Tab thông tin nhắc các ô hồ sơ cơ bản còn thiếu. Phase 4 bổ sung tab Hợp đồng, nhắc thời hạn 30 ngày, danh sách/tải lại các bản Word bất biến và tạo bản Word mới. API do `HrEmployeeProfileController`/`HrEmployeeProfileQueryService` cung cấp, dùng schema V16 hiện có. Hướng dẫn và giới hạn cụ thể: [HR_PHASE_3_4_GUIDE.md](HR_PHASE_3_4_GUIDE.md).
+
 ### 4.2 Import baseline/workforce và biến động
 
 - `HrImportController` nhận workbook baseline/workforce, tạo batch, preview, validate, confirm và rollback.
@@ -233,6 +235,7 @@ Frontend `App.jsx` dùng `ProtectedRoute`, `AdminRoute`, `HrRoute`; `roleNavigat
 - `/api/v1/hr/imports`: list, baseline/workforce multipart, preview, validate, confirm, rollback.
 - `/api/v1/hr/employees/{id}/documents` GET/POST/batch; `/employee-documents/{id}` GET/PATCH/DELETE, `/view`, `/download`.
 - `/api/v1/hr/employment-contracts/{id}/documents` POST; `/employment-contract-documents/{id}/download` GET.
+- `/api/v1/hr/employees/{id}/movements|profile-audit|contracts` GET có phân trang; `/employees/{id}/contracts/{contractId}/documents` GET metadata các bản Word.
 - `/api/v1/hr/ocr/settings` GET/POST; `/ocr/extract-profile` multipart POST.
 - `/api/v1/hr/probation/...` candidates, contracts/download, state transitions, job templates; `/onboarding/general-labor` POST.
 
@@ -302,7 +305,7 @@ Không ghi token Cloudflare, Telegram, JWT, SMTP, VAPID hay database password v�
 
 - Backend có test unit/API/schema/migration cho auth, dashboard, HR import/workforce/probation/document/OCR/leave và legacy service.
 - Frontend có lệnh `npm run lint` và `npm run build`; baseline gần nhất build/lint đạt, còn một số cảnh báo unused hiện hữu.
-- `HrPhase1MigrationTest` đã xác nhận 15 migration theo fixture. `./mvnw test` toàn bộ từng bị lỗi môi trường Mockito/Byte Buddy self-attach trên JDK 21 (không phải kết luận business test pass/fail); cần chạy lại trong môi trường CI/JDK được hỗ trợ.
+- Ngày 07/09/2026: `./mvnw test` đạt 139 test, 0 failure/error, 1 skipped; schema fixture đến V16. Mockito/Byte Buddy self-attach bị chặn trong sandbox; chạy ngoài sandbox đã đạt. Frontend build/lint và test JavaScript nhắc hạn đạt, còn 11 cảnh báo unused hiện hữu. Chưa nghiệm thu UI trực quan vì Browser chưa kết nối.
 - Các kiểm tra trên là static/unit; chưa chứng minh Cloudflare, Telegram, Gemini/Groq, Google Drive/Apps Script hay database production đang reachable.
 
 ## 12. Khoảng trống và roadmap ưu tiên
@@ -349,6 +352,7 @@ Không ghi token Cloudflare, Telegram, JWT, SMTP, VAPID hay database password v�
 
 - [AGENTS.md](../AGENTS.md) — luật repository và checklist bảo mật.
 - [ATTENDANCE_MIGRATION_PLAN.md](ATTENDANCE_MIGRATION_PLAN.md) — kế hoạch port Attendance chi tiết.
+- [HR_PHASE_3_4_GUIDE.md](HR_PHASE_3_4_GUIDE.md) — phạm vi, cách sử dụng hồ sơ 360°, lịch sử nhân sự và kho hợp đồng/bản Word.
 - [Attendance/TONG_HOP_DU_AN_ATTENDANCE.md](../Attendance/TONG_HOP_DU_AN_ATTENDANCE.md) — bản đồ Apps Script gốc.
 - [Attendance/docs/README.md](../Attendance/docs/README.md) — vận hành, cấu hình, quy tắc và xử lý sự cố Apps Script.
 - [DATABASE_BACKUP.md](DATABASE_BACKUP.md) — backup/restore database.
@@ -358,6 +362,7 @@ Không ghi token Cloudflare, Telegram, JWT, SMTP, VAPID hay database password v�
 
 | Ngày | Thay đổi |
 |---|---|
+| 07/09/2026 | Phase 3–4: lịch sử riêng theo nhân sự, nhắc hồ sơ thiếu, kho hợp đồng và lịch sử bản Word; hướng dẫn sử dụng. Không thay đổi schema V16. |
 | 04/09/2026 | Hoàn thiện Attendance Phase 2: V16, xác nhận batch, phân loại dòng, tổng hợp đi trễ/về sớm, KPI và xuất TONGHOP. |
 | 04/09/2026 | Viết lại toàn bộ master theo source hiện hành: Spring Boot 4/Java 21, React 19, V1–V15/31 bảng, RBAC thực tế, API HR, Attendance MVP, tree và roadmap. |
 

@@ -37,8 +37,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -58,13 +56,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 @Service
 @RequiredArgsConstructor
 public class HrProbationService {
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private HrDocumentTemplateService managedTemplates;
 
     private static final String TEMPLATE_PATH = "/hr/templates/probation-contract-template.docx";
     private static final String TEMPLATE_FILE_NAME = "probation-contract-template.docx";
@@ -156,18 +153,19 @@ public class HrProbationService {
         LocalDate signDate = request.signDate() == null ? LocalDate.now(ZoneOffset.UTC) : request.signDate();
         short contractYear = (short) signDate.getYear();
         String contractNo = resolveContractNo(request.contractNo(), contractYear);
-        byte[] template = readTemplateBytes();
+        var templateSource = managedTemplates == null ? null : managedTemplates.active("PROBATION");
+        byte[] template = templateSource == null ? readTemplateBytes() : templateSource.bytes();
         String templateSha256 = sha256(template);
 
         Map<String, String> placeholders = contractPlaceholders(candidate, signDate, contractNo, contractYear);
-        byte[] generated = fillDocxTemplate(template, placeholders);
+        byte[] generated = HrDocxEngine.fill(template, placeholders);
         String generatedSha256 = sha256(generated);
 
         HrProbationContract contract = new HrProbationContract();
         contract.setCandidate(candidate);
         contract.setContractNo(contractNo);
         contract.setContractYear(contractYear);
-        contract.setTemplateFileName(TEMPLATE_FILE_NAME);
+        contract.setTemplateFileName(templateSource == null ? TEMPLATE_FILE_NAME : templateSource.fileName());
         contract.setTemplateSha256(templateSha256);
         contract.setGeneratedFileName(contractFileName(candidate, contractNo, contractYear));
         contract.setGeneratedFileSha256(generatedSha256);
@@ -665,6 +663,7 @@ public class HrProbationService {
     }
 
     private byte[] readTemplateBytes() {
+        if (managedTemplates != null) return managedTemplates.active("PROBATION").bytes();
         try (InputStream input = HrProbationService.class.getResourceAsStream(TEMPLATE_PATH)) {
             if (input == null) {
                 throw HrApiException.badRequest("PROBATION_CONTRACT_TEMPLATE_MISSING",
@@ -676,33 +675,6 @@ public class HrProbationService {
         }
     }
 
-    private byte[] fillDocxTemplate(byte[] template, Map<String, String> placeholders) {
-        try (
-                ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(template));
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                ZipOutputStream zipOutput = new ZipOutputStream(output)
-        ) {
-            ZipEntry entry;
-            while ((entry = zipInput.getNextEntry()) != null) {
-                ZipEntry copied = new ZipEntry(entry.getName());
-                zipOutput.putNextEntry(copied);
-                byte[] data = zipInput.readAllBytes();
-                if ("word/document.xml".equals(entry.getName())) {
-                    String xml = new String(data, java.nio.charset.StandardCharsets.UTF_8);
-                    for (Map.Entry<String, String> placeholder : placeholders.entrySet()) {
-                        xml = xml.replace(placeholder.getKey(), escapeXml(placeholder.getValue()));
-                    }
-                    data = xml.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                }
-                zipOutput.write(data);
-                zipOutput.closeEntry();
-            }
-            zipOutput.finish();
-            return output.toByteArray();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Không thể sinh hợp đồng thử việc.", exception);
-        }
-    }
 
     private HrProbationDtos.CandidateSummary toSummary(HrProbationCandidate candidate) {
         return new HrProbationDtos.CandidateSummary(
@@ -951,15 +923,6 @@ public class HrProbationService {
         return slug.isBlank() ? "ung-vien" : slug;
     }
 
-    private static String escapeXml(String value) {
-        if (value == null) return "";
-        return value
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;");
-    }
 
     private static String sha256(byte[] value) {
         try {

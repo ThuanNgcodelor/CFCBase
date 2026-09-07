@@ -36,6 +36,7 @@ export function buildNavigation({ isAdmin, isHrUser = false, pendingRegistration
     { name: 'Gửi phiếu lương', path: '/manager/hr/payroll', icon: Send },
     { name: 'Chấm công', path: '/manager/hr/attendance', icon: Clock3 },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
+    { name: 'Mẫu Word', path: '/manager/hr/document-templates', icon: FileCheck2 },
   ];
 
   // Nhóm nghiệp vụ đặt trước vì đây là khu vực sử dụng hằng ngày.

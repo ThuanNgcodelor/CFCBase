@@ -9,12 +9,18 @@ import java.io.InputStream;
 
 @Component
 public class HrEmploymentContractTemplateProvider {
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private HrDocumentTemplateService managedTemplates;
 
     private static final String TEMPLATE_DIRECTORY = "/hr/templates/";
     private static final String OFFICE_TEMPLATE = "employment-contract-office-template.docx";
     private static final String GENERAL_LABOR_TEMPLATE = "employment-contract-general-labor-template.docx";
 
     public TemplateSource load(HrWorkforceGroup workforceGroup) {
+        if (managedTemplates != null && workforceGroup != HrWorkforceGroup.LEGACY_UNKNOWN) {
+            var file = managedTemplates.active(workforceGroup.name());
+            return new TemplateSource(file.fileName(), file.bytes());
+        }
         String fileName = switch (workforceGroup) {
             case OFFICE -> OFFICE_TEMPLATE;
             case GENERAL_LABOR -> GENERAL_LABOR_TEMPLATE;

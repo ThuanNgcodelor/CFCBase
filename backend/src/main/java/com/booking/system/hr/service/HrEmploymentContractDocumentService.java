@@ -24,11 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
@@ -40,16 +36,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -57,8 +47,6 @@ public class HrEmploymentContractDocumentService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final Pattern NON_FILE_NAME = Pattern.compile("[^a-zA-Z0-9._-]+");
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{[A-Z0-9_]+}}");
-    private static final Pattern XML_TAG = Pattern.compile("<[^>]+>");
 
     private final HrEmploymentContractRepository contractRepository;
     private final HrEmploymentContractDocumentRepository documentRepository;
@@ -84,7 +72,7 @@ public class HrEmploymentContractDocumentService {
         HrWorkforceGroup workforceGroup = employee.getWorkforceGroup();
         HrEmploymentContractTemplateProvider.TemplateSource template = templateProvider.load(workforceGroup);
         Map<String, String> placeholders = placeholders(contract);
-        byte[] generated = fillDocxTemplate(template.bytes(), placeholders);
+        byte[] generated = HrDocxEngine.fill(template.bytes(), placeholders);
 
         HrEmploymentContractDocument document = new HrEmploymentContractDocument();
         document.setEmploymentContract(contract);
@@ -105,6 +93,45 @@ public class HrEmploymentContractDocumentService {
         document = documentRepository.save(document);
 
         audit(actor, document, employee);
+        return toSummary(document);
+    }
+
+    /** An edited file is a new immutable artifact, never an update to the source or HR profile. */
+    @Transactional
+    public HrEmploymentContractDtos.DocumentSummary uploadRevision(String sourceId, String name, byte[] bytes,
+                                                                   String note, HrImportActor actor) {
+        if (name == null || !name.toLowerCase(Locale.ROOT).endsWith(".docx") || name.length() > 255
+                || note == null || note.isBlank() || note.length() > 1000) {
+            throw HrApiException.badRequest("DOCUMENT_REVISION_INVALID", "Chọn file .docx và nhập ghi chú tối đa 1000 ký tự.");
+        }
+        if (!HrDocxEngine.tokens(bytes).isEmpty()) {
+            throw HrApiException.badRequest("DOCUMENT_UNFILLED", "File hợp đồng vẫn còn biến chưa điền.");
+        }
+        var source = documentRepository.findDetailById(sourceId).orElseThrow(() ->
+                HrApiException.notFound("DOCUMENT_NOT_FOUND", "Không tìm thấy bản gốc."));
+        var contract = contractRepository.findDocumentSourceByIdForUpdate(source.getEmploymentContract().getId()).orElseThrow();
+        if (contract.getStatus() == HrEmploymentContractStatus.VOIDED) {
+            throw HrApiException.conflict("EMPLOYMENT_CONTRACT_VOIDED", "Hợp đồng đã hủy không nhận bản chỉnh sửa.");
+        }
+        var document = new HrEmploymentContractDocument();
+        document.setEmploymentContract(contract);
+        document.setWorkforceGroup(source.getWorkforceGroup());
+        document.setTemplateFileName(source.getTemplateFileName());
+        document.setTemplateSha256(source.getTemplateSha256());
+        document.setGeneratedFileName(name);
+        document.setGeneratedFileSha256(sha256(bytes));
+        document.setGeneratedDocx(bytes);
+        try {
+            document.setSnapshotPayload(jsonCodec.write(Map.of("origin", "EXTERNAL_WORD_EDIT",
+                    "sourceDocumentId", sourceId, "note", note.trim(), "profileUpdated", false)));
+        } catch (JsonProcessingException e) { throw new IllegalStateException("Không lưu được nguồn bản chỉnh sửa.", e); }
+        document.setGeneratedAt(LocalDateTime.now(ZoneOffset.UTC)); document.setGeneratedByActor(actor.subject());
+        setCreatedAudit(document, actor);
+        document = documentRepository.save(document);
+        var event = new HrAuditEvent();
+        event.setActorSubject(actor.subject()); event.setActorDisplayName(actor.displayName()); event.setActorRole(actor.role());
+        event.setAction("HR_CONTRACT_EDITED_VERSION_UPLOADED"); event.setEntityType("HR_EMPLOYMENT_CONTRACT_DOCUMENT");
+        event.setEntityId(document.getId()); auditRepository.save(event);
         return toSummary(document);
     }
 
@@ -212,56 +239,6 @@ public class HrEmploymentContractDocumentService {
         return values;
     }
 
-    private byte[] fillDocxTemplate(byte[] template, Map<String, String> placeholders) {
-        Set<String> unresolved = new LinkedHashSet<>();
-        boolean documentXmlFound = false;
-        int replacementCount = 0;
-        try (
-                ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(template));
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                ZipOutputStream zipOutput = new ZipOutputStream(output)
-        ) {
-            ZipEntry entry;
-            while ((entry = zipInput.getNextEntry()) != null) {
-                ZipEntry copied = new ZipEntry(entry.getName());
-                zipOutput.putNextEntry(copied);
-                byte[] data = zipInput.readAllBytes();
-                if (entry.getName().startsWith("word/") && entry.getName().endsWith(".xml")) {
-                    if ("word/document.xml".equals(entry.getName())) {
-                        documentXmlFound = true;
-                    }
-                    String xml = new String(data, StandardCharsets.UTF_8);
-                    for (Map.Entry<String, String> placeholder : placeholders.entrySet()) {
-                        if (xml.contains(placeholder.getKey())) {
-                            replacementCount++;
-                            xml = xml.replace(placeholder.getKey(), escapeXml(placeholder.getValue()));
-                        }
-                    }
-                    Matcher matcher = PLACEHOLDER.matcher(XML_TAG.matcher(xml).replaceAll(""));
-                    while (matcher.find()) {
-                        unresolved.add(matcher.group());
-                    }
-                    data = xml.getBytes(StandardCharsets.UTF_8);
-                }
-                zipOutput.write(data);
-                zipOutput.closeEntry();
-            }
-            zipOutput.finish();
-            if (!documentXmlFound) {
-                throw new IllegalStateException("Mẫu hợp đồng lao động không có word/document.xml.");
-            }
-            if (replacementCount == 0) {
-                throw new IllegalStateException("Mẫu hợp đồng lao động không chứa placeholder được hỗ trợ.");
-            }
-            if (!unresolved.isEmpty()) {
-                throw new IllegalStateException(
-                        "Mẫu hợp đồng lao động còn placeholder chưa xử lý: " + String.join(", ", unresolved));
-            }
-            return output.toByteArray();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Không thể sinh file hợp đồng lao động.", exception);
-        }
-    }
 
     private void audit(
             HrImportActor actor,
@@ -421,14 +398,6 @@ public class HrEmploymentContractDocumentService {
         return normalized.isEmpty() ? null : normalized;
     }
 
-    private static String escapeXml(String value) {
-        return value
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;");
-    }
 
     private static String sha256(byte[] value) {
         try {
