@@ -137,6 +137,14 @@ function DeliveryResults({ campaign }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
+  const [message, setMessage] = useState('');
+  const [messageBusy, setMessageBusy] = useState(false);
+  const openMessage = async (id) => {
+    setMessageBusy(true); setMessage('');
+    try { setMessage(await hrPayrollApi.message(campaign.id, id)); }
+    catch (e) { toast.error(apiErrorMessage(e, 'Không có bản tin đã lưu để xem trước.')); }
+    finally { setMessageBusy(false); }
+  };
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError('');
     hrPayrollApi.deliveries(campaign.id, { page, size: 50 }, { signal: controller.signal })
@@ -146,7 +154,8 @@ function DeliveryResults({ campaign }) {
     return () => controller.abort();
   }, [campaign.id, campaign.status, campaign.sent, campaign.failed, page, refresh]);
   return <section className="mt-5 rounded-xl border bg-white p-5"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Kết quả từng người nhận</h2><Button variant="secondary" onClick={() => setRefresh(v => v + 1)}>Tải lại kết quả</Button></div>
-    {loading ? <HrLoading /> : error ? <HrError message={error} /> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[700px] text-left text-sm"><thead><tr><th>Mã NV</th><th>Họ tên</th><th>Trạng thái</th><th>Số lần thử</th><th>Gửi lúc</th><th>Lý do</th></tr></thead><tbody>{rows.content.map(r => <tr key={r.id} className="border-t"><td className="py-3">{r.employeeCode}</td><td>{r.employeeName}</td><td>{statusLabel(r.status)}</td><td>{r.attemptCount}</td><td>{formatHrDateTime(r.sentAt)}</td><td>{r.lastError || '—'}</td></tr>)}</tbody></table></div>}
+    {loading ? <HrLoading /> : error ? <HrError message={error} /> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[700px] text-left text-sm"><thead><tr><th>Mã NV</th><th>Họ tên</th><th>Trạng thái</th><th>Số lần thử</th><th>Gửi lúc</th><th>Lý do</th><th>Nội dung</th></tr></thead><tbody>{rows.content.map(r => <tr key={r.id} className="border-t"><td className="py-3">{r.employeeCode}</td><td>{r.employeeName}</td><td>{statusLabel(r.status)}</td><td>{r.attemptCount}</td><td>{formatHrDateTime(r.sentAt)}</td><td>{r.lastError || '—'}</td><td><Button variant="secondary" disabled={messageBusy} onClick={() => openMessage(r.id)}>Xem tin</Button></td></tr>)}</tbody></table></div>}
     <HrPagination page={rows.number} totalPages={rows.totalPages} totalElements={rows.totalElements} onPageChange={setPage} />
+    {message && <div className="mt-4 rounded-lg border p-4"><div className="flex justify-between"><strong>Nội dung đã lưu cho đợt gửi này</strong><Button variant="secondary" onClick={() => setMessage('')}>Đóng</Button></div><pre className="mt-3 whitespace-pre-wrap break-words text-sm">{message}</pre></div>}
   </section>;
 }

@@ -43,6 +43,8 @@ public class HrPayrollCampaignService {
 
     @Transactional
     public HrPayrollDtos.CampaignResponse create(String importId, HrPayrollDtos.CreateCampaignRequest request, HrImportActor actor) {
+        if (request != null && request.deliveryMode() != null && !"TEXT".equals(request.deliveryMode()))
+            throw HrApiException.badRequest("PAYROLL_MODE_UNSUPPORTED", "Bản này chỉ hỗ trợ gửi phiếu lương dạng tin nhắn TEXT.");
         HrPayrollImport payrollImport = importRepository.findByIdForUpdate(importId).orElseThrow(() -> HrApiException.notFound("PAYROLL_IMPORT_NOT_FOUND", "Không tìm thấy lần nhập lương."));
         if (campaignRepository.findByPayrollImportId(importId).isPresent()) throw HrApiException.conflict("PAYROLL_CAMPAIGN_EXISTS", "File lương này đã tạo đợt gửi.");
         if (campaignRepository.existsByStatusIn(List.of(HrPayrollCampaignStatus.QUEUED, HrPayrollCampaignStatus.SENDING))) throw HrApiException.conflict("PAYROLL_CAMPAIGN_ACTIVE", "Đang có một đợt gửi lương khác đang chạy.");

@@ -1,6 +1,6 @@
 # Phase 3–4: hồ sơ nhân sự và kho hợp đồng
 
-Ngày cập nhật: 07/09/2026. Phạm vi bản này là hồ sơ 360°, lịch sử biến động/nhật ký sửa hồ sơ, tra cứu hợp đồng và các bản Word đã xuất. Không bao gồm Phase 5 Payroll/Telegram.
+Ngày cập nhật: 07/09/2026. Phạm vi bản này là hồ sơ 360°, lịch sử biến động/nhật ký sửa hồ sơ, tra cứu hợp đồng và các bản Word đã xuất. Phần mở rộng kho mẫu Word, upload bản chỉnh sửa và tiến độ Payroll/Telegram nằm tại [HR_WORD_PAYROLL_GUIDE.md](HR_WORD_PAYROLL_GUIDE.md); chưa hoàn tất toàn bộ Phase 5.
 
 ## 1. Những gì đã triển khai
 
