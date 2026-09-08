@@ -19,6 +19,7 @@ TUNNEL_UNIT="bookingbase-tunnel.service"
 BACKUP_SCRIPT="$SCRIPT_DIR/backup-database.sh"
 LEGACY_SNAPSHOT_SCRIPT="$SCRIPT_DIR/capture-legacy-table-counts.sh"
 HR_VERIFY_SCRIPT="$SCRIPT_DIR/verify-hr-phase1.sh"
+WORD_EDITOR_COMPOSE="$ROOT_DIR/docker-compose.word-editor.yml"
 JAVA_OPTS="${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Dfile.encoding=UTF-8}"
 HR_LEGACY_SNAPSHOT=""
 INITIALIZE_HR_SCHEMA=false
@@ -82,11 +83,39 @@ chmod 700 "$RUNTIME_DIR"
 
 # Optional local secrets/config. Never commit this file.
 if [[ -f "$SCRIPT_DIR/.env" ]]; then
-  log "Nap bien moi truong tu deployserver/.env..."
+  log "Nap bien moi truong tu deployserver/linux/.env..."
   set -a
   # shellcheck disable=SC1091
   source "$SCRIPT_DIR/.env"
   set +a
+fi
+
+WORD_EDITOR_ENABLED="${WORD_EDITOR_ENABLED:-false}"
+ONLYOFFICE_PORT="${ONLYOFFICE_PORT:-8088}"
+ONLYOFFICE_IMAGE="${ONLYOFFICE_IMAGE:-}"
+WORD_EDITOR_JWT_SECRET="${WORD_EDITOR_JWT_SECRET:-}"
+WORD_EDITOR_DOCUMENT_SERVER_URL="${WORD_EDITOR_DOCUMENT_SERVER_URL:-}"
+WORD_EDITOR_BACKEND_URL="${WORD_EDITOR_BACKEND_URL:-}"
+
+case "$WORD_EDITOR_ENABLED" in
+  true|false)
+    ;;
+  *)
+    fail "WORD_EDITOR_ENABLED chi duoc la true hoac false."
+    ;;
+esac
+
+if [[ "$WORD_EDITOR_ENABLED" == true ]]; then
+  [[ -f "$WORD_EDITOR_COMPOSE" ]] || fail "Thieu $WORD_EDITOR_COMPOSE"
+  [[ -n "${ONLYOFFICE_IMAGE:-}" ]] || fail "Thieu ONLYOFFICE_IMAGE trong deployserver/linux/.env."
+  [[ "${WORD_EDITOR_JWT_SECRET:-}" != "" ]] || fail "Thieu WORD_EDITOR_JWT_SECRET trong deployserver/linux/.env."
+  (( ${#WORD_EDITOR_JWT_SECRET} >= 32 )) || fail "WORD_EDITOR_JWT_SECRET phai co it nhat 32 ky tu."
+  [[ "$ONLYOFFICE_PORT" =~ ^[0-9]+$ ]] || fail "ONLYOFFICE_PORT phai la so nguyen."
+  (( ONLYOFFICE_PORT >= 1 && ONLYOFFICE_PORT <= 65535 )) || fail "ONLYOFFICE_PORT nam ngoai khoang 1-65535."
+  [[ "${WORD_EDITOR_DOCUMENT_SERVER_URL:-}" == "https://docs.cfcbooking.io.vn" ]] || \
+    fail "WORD_EDITOR_DOCUMENT_SERVER_URL phai la https://docs.cfcbooking.io.vn"
+  [[ "${WORD_EDITOR_BACKEND_URL:-}" == "https://api.cfcbooking.io.vn" ]] || \
+    fail "WORD_EDITOR_BACKEND_URL phai la https://api.cfcbooking.io.vn"
 fi
 
 if [[ "$INITIALIZE_HR_SCHEMA" == true ]]; then
@@ -145,6 +174,14 @@ ingress:
     service: http://localhost:8080
   - hostname: api.cfcbooking.io.vn
     service: http://localhost:8080
+EOF
+if [[ "$WORD_EDITOR_ENABLED" == true ]]; then
+  cat >> "$TUNNEL_CONFIG" <<EOF
+  - hostname: docs.cfcbooking.io.vn
+    service: http://localhost:$ONLYOFFICE_PORT
+EOF
+fi
+cat >> "$TUNNEL_CONFIG" <<'EOF'
   - service: http_status:404
 EOF
 chmod 600 "$TUNNEL_CONFIG"
@@ -168,6 +205,32 @@ chmod 700 "$BACKEND_LAUNCHER" "$TUNNEL_LAUNCHER"
 log "Khoi dong MySQL va Redis..."
 docker compose -f "$ROOT_DIR/docker-compose.yml" --project-directory "$ROOT_DIR" up -d db redis
 wait_for_database
+
+if [[ "$WORD_EDITOR_ENABLED" == true ]]; then
+  log "Khoi dong ONLYOFFICE Document Server..."
+  docker compose -f "$WORD_EDITOR_COMPOSE" --project-directory "$ROOT_DIR" up -d documentserver
+
+  word_editor_ready=false
+  for _ in {1..180}; do
+    if curl --fail --silent --max-time 2 "http://127.0.0.1:$ONLYOFFICE_PORT/healthcheck" >/dev/null; then
+      word_editor_ready=true
+      break
+    fi
+    sleep 1
+  done
+
+  if [[ "$word_editor_ready" != true ]]; then
+    docker compose -f "$WORD_EDITOR_COMPOSE" --project-directory "$ROOT_DIR" ps documentserver >&2 || true
+    docker compose -f "$WORD_EDITOR_COMPOSE" --project-directory "$ROOT_DIR" logs --tail=100 documentserver >&2 || true
+    fail "ONLYOFFICE khong san sang sau 180 giay tai 127.0.0.1:$ONLYOFFICE_PORT."
+  fi
+else
+  # Turning the feature off must also stop an older container, while keeping
+  # its volumes intact so it can be enabled again safely.
+  ONLYOFFICE_IMAGE="${ONLYOFFICE_IMAGE:-onlyoffice/documentserver:9.4.0}" \
+  WORD_EDITOR_JWT_SECRET="${WORD_EDITOR_JWT_SECRET:-stop-command-placeholder-secret}" \
+    docker compose -f "$WORD_EDITOR_COMPOSE" --project-directory "$ROOT_DIR" stop documentserver >/dev/null 2>&1 || true
+fi
 
 flyway_history_count="$(read_db_scalar "
   SELECT COUNT(*)
@@ -260,3 +323,8 @@ printf '%s\n' \
   "  API:     https://api.cfcbooking.io.vn" \
   "  Backend log: $BACKEND_LOG" \
   "  Tunnel log:  $TUNNEL_LOG"
+if [[ "$WORD_EDITOR_ENABLED" == true ]]; then
+  printf '%s\n' \
+    "  Word:    https://docs.cfcbooking.io.vn" \
+    "  Word local health: http://127.0.0.1:$ONLYOFFICE_PORT/healthcheck"
+fi
