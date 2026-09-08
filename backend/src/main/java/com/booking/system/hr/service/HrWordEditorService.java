@@ -57,7 +57,7 @@ public class HrWordEditorService {
         config.put("documentType","word"); config.put("width","100%"); config.put("height","100%");
         config.put("document",Map.of("fileType","docx","key",s.id(),"title",s.fileName(),
                 "url",root+"/content?ticket="+tokens.sign(Map.of("purpose","word-content","session",s.id())),
-                "permissions",Map.of("edit",true,"download",true,"print",true)));
+                "permissions",Map.of("edit",true,"download",false,"print",false)));
         config.put("editorConfig",Map.of("mode","edit","lang","vi","callbackUrl",root+"/callback",
                 "user",Map.of("id",s.id(),"name",s.ownerName()==null ? "Nhân sự" : s.ownerName()),
                 "customization",Map.of("forcesave",false,"autosave",true)));
@@ -91,7 +91,7 @@ public class HrWordEditorService {
         Map<?,?> payload=claims.get("payload") instanceof Map<?,?> p ? p : claims;
         if (!id.equals(payload.get("key")) || !(payload.get("status") instanceof Number number)) throw new IllegalArgumentException("Invalid callback");
         int status=number.intValue(); var s=find(id); requireLive(s);
-        if (List.of("READY","PUBLISHED").contains(s.status())) return; // replay cannot overwrite a final save
+        if (List.of("READY","PUBLISHED","CANCELLED").contains(s.status())) return; // replay cannot overwrite a final save or cancelled session
         if (status==1 || status==6 || status==7) return; // force-save is disabled; final save owns the revision
         if (status==4) { jdbc.update("UPDATE hr_word_editor_sessions SET status='UNCHANGED' WHERE id=? AND status='OPEN'",id); return; }
         if (status!=2) throw new IllegalArgumentException("Document save failed");
@@ -107,10 +107,25 @@ public class HrWordEditorService {
             if ("PUBLISHED".equals(s.status())) return s.resultId();
             if (!List.of("READY","UNCHANGED").contains(s.status())) throw conflict("Chưa nhận được bản Word cuối từ Document Server. Vui lòng chờ lưu xong.");
             byte[] bytes=content(id);
-            String result="TEMPLATE".equals(s.type()) ? templates.upload(s.kind(),s.fileName(),bytes,note,actor)
-                    : contracts.uploadRevision(s.sourceId(),s.fileName(),bytes,note,actor).id();
+            String result;
+            if ("TEMPLATE".equals(s.type())) {
+                result=templates.upload(s.kind(),s.fileName(),bytes,note,actor);
+                templates.activate(s.kind(),result,actor);
+            } else {
+                result=contracts.uploadRevision(s.sourceId(),s.fileName(),bytes,note,actor).id();
+            }
             jdbc.update("UPDATE hr_word_editor_sessions SET status='PUBLISHED',result_id=? WHERE id=?",result,id);
             return result;
+        });
+    }
+    public void cancel(String id,HrImportActor actor) {
+        tx.executeWithoutResult(status -> {
+            jdbc.queryForObject("SELECT id FROM hr_word_editor_sessions WHERE id=? FOR UPDATE",String.class,id);
+            var s=owned(id,actor);
+            if ("PUBLISHED".equals(s.status())) throw conflict("Phiên bản đã được lưu nên không thể hủy.");
+            if (!"CANCELLED".equals(s.status())) {
+                jdbc.update("UPDATE hr_word_editor_sessions SET status='CANCELLED' WHERE id=?",id);
+            }
         });
     }
     private void requireLive(Session s) { if (s.expiresAt().isBefore(LocalDateTime.now(ZoneOffset.UTC))) throw conflict("Phiên sửa hết hạn sau 24 giờ. Bản đã nhận vẫn được giữ để đối chiếu."); }

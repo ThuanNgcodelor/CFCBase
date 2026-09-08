@@ -32,6 +32,10 @@ class HrWordEditorTest {
         byte[] bytes=HrDocumentTemplateService.builtIn("OFFICE").bytes();
         when(downloader.fetch("https://docs.test.invalid/cache/files/a/output.docx")).thenReturn(bytes);
         assertThat(tokens.verify((String)open.config().get("token"))).containsKey("document");
+        Map<?,?> permissions=(Map<?,?>)((Map<?,?>)open.config().get("document")).get("permissions");
+        assertThat(permissions.get("edit")).isEqualTo(true);
+        assertThat(permissions.get("download")).isEqualTo(false);
+        assertThat(permissions.get("print")).isEqualTo(false);
         assertThatThrownBy(()->service.publish(id,"note",actor)).hasMessageContaining("Chưa nhận");
         String jwt=tokens.sign(Map.of("key",id,"status",2,"url","https://docs.test.invalid/cache/files/a/output.docx"));
         service.callback(id,jwt); service.callback(id,jwt);
@@ -41,7 +45,8 @@ class HrWordEditorTest {
         assertThat(service.publish(id,"duplicate",actor)).isEqualTo(result);
         assertThat(service.owned(id,actor).status()).isEqualTo("PUBLISHED");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM hr_document_template_revisions",Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT active_version_id FROM hr_document_template_families WHERE template_kind='OFFICE'",String.class)).isNull();
+        assertThat(jdbc.queryForObject("SELECT active_version_id FROM hr_document_template_families WHERE template_kind='OFFICE'",String.class)).isEqualTo(result);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM hr_audit_events WHERE action='HR_DOCUMENT_TEMPLATE_ACTIVATED'",Integer.class)).isEqualTo(1);
         assertThatThrownBy(()->service.owned(id,new HrImportActor("other","Other","ADMIN"))).hasMessageContaining("Không tìm thấy");
     }
     @Test void rejectsBadSignaturesWrongSessionAndContentPurpose() throws Exception {
@@ -81,6 +86,16 @@ class HrWordEditorTest {
         assertThatThrownBy(()->service.resume(open.id(),actor)).hasMessageContaining("hết hạn");
         assertThatThrownBy(()->service.source(open.id(),tokens.sign(Map.of("session",open.id(),"purpose","word-content")))).hasMessageContaining("hết hạn");
         assertThatThrownBy(()->service.callback(open.id(),tokens.sign(Map.of("key",open.id(),"status",2)))).hasMessageContaining("hết hạn");
+        verifyNoInteractions(downloader);
+    }
+
+    @Test void cancelledSessionCannotPublishOrBeOverwrittenByCallback() throws Exception {
+        var open=service.open(new HrWordEditorService.OpenRequest("TEMPLATE","OFFICE","active",null),actor);
+        service.cancel(open.id(),actor);
+        assertThat(service.owned(open.id(),actor).status()).isEqualTo("CANCELLED");
+        service.callback(open.id(),tokens.sign(Map.of("key",open.id(),"status",2)));
+        assertThat(service.owned(open.id(),actor).status()).isEqualTo("CANCELLED");
+        assertThatThrownBy(()->service.publish(open.id(),"Cancelled",actor)).hasMessageContaining("Chưa nhận");
         verifyNoInteractions(downloader);
     }
 

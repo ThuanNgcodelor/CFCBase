@@ -32,6 +32,11 @@ public class HrWordEditorController {
     public ResponseEntity<?> publish(@PathVariable String id,@RequestBody PublishRequest request,@AuthenticationPrincipal User user) {
         return ok(service.publish(id,request.note(),actors.fromPrincipal(user)));
     }
+    @PostMapping("/api/v1/hr/word-editor/sessions/{id}/cancel")
+    public ResponseEntity<?> cancel(@PathVariable String id,@AuthenticationPrincipal User user) {
+        service.cancel(id,actors.fromPrincipal(user));
+        return ok(null);
+    }
     // Service-to-service routes use ONLYOFFICE JWT/capability tickets, not the user's login JWT.
     @GetMapping("/api/v1/word-editor/{id}/content")
     public ResponseEntity<byte[]> content(@PathVariable String id,@RequestParam String ticket) {

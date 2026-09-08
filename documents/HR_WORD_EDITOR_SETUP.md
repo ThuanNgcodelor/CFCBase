@@ -230,14 +230,15 @@ Kết quả bắt buộc:
 ## Cách dùng sau khi triển khai
 
 1. Đăng nhập CFCBase bằng tài khoản ADMIN hoặc MANAGER đang hoạt động.
-2. Vào **Mẫu Word**, chọn loại mẫu rồi bấm **Sửa trực tiếp trên web**; hoặc vào hồ sơ nhân sự, mở hợp đồng đã xuất và chọn **Sửa trực tiếp trên web**.
+2. Vào **Mẫu Word**, chọn loại mẫu rồi bấm **Sửa mẫu đang dùng**; hoặc vào hồ sơ nhân sự, mở hợp đồng đã xuất và chọn **Sửa trực tiếp trên web**.
 3. Chỉnh nội dung ngay trong ONLYOFFICE. Với mẫu chung, không xóa các biến `{{FULL_NAME}}`, `{{CONTRACT_NO}}` và các biến nghiệp vụ khác.
 4. Bấm **Kết thúc chỉnh sửa & nhận bản lưu** trong CFCBase.
 5. Chờ trạng thái **CFCBase đã nhận bản nháp**. Callback bản cuối của ONLYOFFICE thường đến sau khi editor đóng một khoảng ngắn; không bấm lưu kho trước trạng thái này.
-6. Chọn **Xem bản đã nhận**, nhập ghi chú rồi **Lưu phiên bản vào kho**.
-7. Với mẫu chung, kiểm tra preview phiên bản mới rồi bấm **Áp dụng** nếu muốn nó trở thành mẫu đang dùng. Sửa một hợp đồng riêng không tự thay mẫu chung.
+6. Nhập ghi chú rồi chọn **Lưu và áp dụng mẫu**. CFCBase lưu phiên bản và đặt nó làm mẫu đang dùng trong cùng giao dịch.
+7. Nếu không muốn giữ thay đổi, chọn **Hủy chỉnh sửa** hoặc **Hủy bản nháp**; mẫu đang dùng không thay đổi.
+8. Muốn dùng lại mẫu cũ, vào lịch sử và chọn **Khôi phục**. Muốn sửa nội dung cũ trước khi dùng, chọn **Sửa bản này trên web** rồi lưu thành phiên bản mới.
 
-Lần nghiệm thu đầu tiên chỉ dùng một mẫu thử không có dữ liệu cá nhân. Kiểm tra tiếng Việt, font, bảng, header/footer, biến mẫu và tải lại bản cuối để đối chiếu.
+Lần nghiệm thu đầu tiên chỉ dùng một mẫu thử không có dữ liệu cá nhân. Kiểm tra tiếng Việt, font, bảng, header/footer, biến mẫu và bản xem trước để đối chiếu.
 
 ## Xử lý lỗi
 

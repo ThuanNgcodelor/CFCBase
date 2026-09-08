@@ -4,72 +4,131 @@ import { baseApi } from '../../api/baseApi';
 import { unwrapApiData } from '../../api/hrApiUtils';
 import { Button } from '../../components/ui/Button';
 import { HrPageShell, HrPageHeader, HrLoading, HrError } from '../../components/hr/HrUi';
-import { HrWordPreview } from '../../components/hr/HrWordPreview';
 import { HrWordEditButton } from '../../components/hr/HrWordEditButton';
-import { downloadResponseBlob } from '../../utils/downloadResponseBlob';
 import { apiErrorMessage, formatHrDateTime } from '../../utils/hr';
 
-const KINDS = { OFFICE: 'Hợp đồng văn phòng', GENERAL_LABOR: 'Hợp đồng lao động phổ thông', PROBATION: 'Hợp đồng thử việc' };
+const KINDS = {
+  OFFICE: 'Hợp đồng văn phòng',
+  GENERAL_LABOR: 'Hợp đồng lao động phổ thông',
+  PROBATION: 'Hợp đồng thử việc',
+};
+
 export default function HrDocumentTemplates() {
   const [kind, setKind] = useState('OFFICE');
-  return <HrPageShell size="wide"><HrPageHeader title="Mẫu Word hợp đồng" description="Sửa Word trực tiếp trên web, lưu phiên bản và áp dụng mẫu mới. Các bản hợp đồng đã xuất không bị ghi đè." />
-    <label className="block">Loại mẫu<select className="ml-3 rounded-lg border p-2" value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(KINDS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-    <TemplateVersions key={kind} kind={kind} />
-  </HrPageShell>;
+  return (
+    <HrPageShell size="wide">
+      <HrPageHeader
+        title="Mẫu Word hợp đồng"
+        description="Chỉnh sửa và áp dụng mẫu ngay trên web. Hệ thống vẫn giữ lịch sử phiên bản để đối chiếu."
+      />
+      <label className="block text-sm font-medium text-[var(--cfc-ink)]">
+        Loại mẫu
+        <select
+          className="ml-3 rounded-lg border border-[var(--cfc-border)] bg-white p-2"
+          value={kind}
+          onChange={(event) => setKind(event.target.value)}
+        >
+          {Object.entries(KINDS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select>
+      </label>
+      <TemplateVersions key={kind} kind={kind} />
+    </HrPageShell>
+  );
 }
+
 function TemplateVersions({ kind }) {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(0);
-  const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [file, setFile] = useState(null);
-  const [note, setNote] = useState('');
-  const [preview, setPreview] = useState(null);
-  const [previewId, setPreviewId] = useState(null);
+  const [restoringId, setRestoringId] = useState('');
+  const [revision, setRevision] = useState(0);
   const url = `/hr/document-templates/${kind}`;
+
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError('');
-    baseApi.get(url, { params: { page }, signal: controller.signal }).then(r => { if (!controller.signal.aborted) setRows(unwrapApiData(r)); })
-      .catch(e => { if (!controller.signal.aborted) setError(apiErrorMessage(e, 'Không tải được mẫu.')); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    setLoading(true);
+    setError('');
+    baseApi.get(url, { params: { page }, signal: controller.signal })
+      .then((response) => {
+        if (!controller.signal.aborted) setRows(unwrapApiData(response));
+      })
+      .catch((requestError) => {
+        if (!controller.signal.aborted) setError(apiErrorMessage(requestError, 'Không tải được lịch sử mẫu.'));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, [url, page, revision]);
-  const run = async (action) => {
-    setBusy(true);
-    try { await action(); } catch (e) { toast.error(apiErrorMessage(e, 'Không thực hiện được thao tác.')); }
-    finally { setBusy(false); }
+
+  const restore = async (id, label) => {
+    if (!window.confirm(`Khôi phục ${label} làm mẫu đang dùng? Các hợp đồng đã xuất sẽ không bị thay đổi.`)) return;
+    setRestoringId(id);
+    setError('');
+    try {
+      await baseApi.post(`${url}/${id}/restore`);
+      setRevision((value) => value + 1);
+      toast.success('Đã khôi phục mẫu.');
+    } catch (requestError) {
+      setError(apiErrorMessage(requestError, 'Không khôi phục được mẫu.'));
+    } finally {
+      setRestoringId('');
+    }
   };
-  const open = (id) => run(async () => {
-    setPreview(null); setPreviewId(null);
-    const r = await baseApi.get(`${url}/${id}/download`, { responseType: 'blob' });
-    setPreview(r.data); setPreviewId(id);
-  });
-  const download = (id) => run(async () => downloadResponseBlob(await baseApi.get(`${url}/${id}/download`, { responseType: 'blob' }), 'mau-hop-dong.docx'));
-  const activate = (id) => run(async () => {
-    if (!window.confirm('Áp dụng mẫu này cho các hợp đồng được tạo từ bây giờ? Bản cũ sẽ được giữ nguyên.')) return;
-    await baseApi.post(`${url}/${id}/activate`); setRevision(v => v + 1); toast.success('Đã áp dụng mẫu.');
-  });
-  const upload = e => {
-    e.preventDefault(); const form = e.currentTarget;
-    run(async () => {
-      if (!file || !file.name.toLowerCase().endsWith('.docx') || file.size > 15 * 1024 * 1024) throw new Error('Chọn file .docx tối đa 15 MB.');
-      const body = new FormData(); body.append('file', file); body.append('note', note);
-      const id = unwrapApiData(await baseApi.post(url, body));
-      setFile(null); setNote(''); form.reset(); setPage(0); setRevision(v => v + 1);
-      setPreview(null); setPreviewId(null);
-      const r = await baseApi.get(`${url}/${id}/download`, { responseType: 'blob' }); setPreview(r.data); setPreviewId(id);
-      toast.success('Đã lưu mẫu. Kiểm tra bản xem trước rồi chọn Áp dụng.');
-    });
-  };
-  return <section className="mt-5 rounded-xl border bg-white p-5">
-    <div className="mb-4"><HrWordEditButton type="TEMPLATE" kind={kind} sourceId="active" /><p className="mt-2 text-sm text-gray-500">Mở mẫu đang dùng trong trình soạn thảo. Không cần tải file về máy.</p></div>
-    <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={busy} onClick={() => download('active')}>Tải mẫu đang dùng</Button><Button variant="secondary" disabled={busy} onClick={() => open('builtin')}>Xem mẫu gốc</Button><Button variant="secondary" disabled={busy || previewId !== 'builtin'} onClick={() => activate('builtin')}>Dùng lại mẫu gốc</Button></div>
-    <form onSubmit={upload} className="my-5 space-y-3"><p className="text-sm text-gray-600">Giữ nguyên các biến dạng {'{{FULL_NAME}}'} khi chỉnh bố cục. Upload chỉ lưu phiên bản, chưa thay mẫu đang dùng.</p><input type="file" required accept=".docx" onChange={e => setFile(e.target.files?.[0] || null)} /><input required maxLength={1000} value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú thay đổi" aria-label="Ghi chú thay đổi" className="block w-full rounded-lg border p-2" /><Button disabled={busy || !file || !note.trim()}>Lưu phiên bản mẫu</Button></form>
-    {loading ? <HrLoading /> : error ? <HrError message={error} /> : <ul className="divide-y">{rows.map(r => <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><strong className="break-all">{r.fileName}</strong>{r.active && <span className="ml-2 text-emerald-700">Đang dùng</span>}<p className="text-sm text-gray-500">{formatHrDateTime(r.createdAt)} · {r.note}</p></div><div className="flex gap-2"><Button variant="secondary" disabled={busy} onClick={() => open(r.id)}>Xem trước</Button><Button variant="secondary" disabled={busy} onClick={() => download(r.id)}>Tải</Button><Button disabled={busy || r.active || previewId !== r.id} onClick={() => activate(r.id)}>Áp dụng</Button></div></li>)}</ul>}
-    <div className="mt-3 flex gap-3"><Button variant="secondary" disabled={loading || page === 0} onClick={() => setPage(p => p - 1)}>Trước</Button><span>Trang {page + 1}</span><Button variant="secondary" disabled={loading || rows.length < 20} onClick={() => setPage(p => p + 1)}>Sau</Button></div>
-    <HrWordPreview blob={preview} />
-  </section>;
+
+  return (
+    <section className="mt-5 space-y-5 rounded-xl border border-[var(--cfc-border)] bg-white p-5">
+      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+        <h2 className="font-semibold text-[var(--cfc-ink)]">Mẫu đang dùng</h2>
+        <p className="mb-3 mt-1 text-sm text-[var(--cfc-muted)]">
+          Mở trong trình soạn thảo, chỉnh và lưu ngay trên web. Phiên bản mới sẽ tự động được áp dụng sau khi CFCBase nhận file hoàn chỉnh.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <HrWordEditButton type="TEMPLATE" kind={kind} sourceId="active" label="Sửa mẫu đang dùng" />
+          <HrWordEditButton type="TEMPLATE" kind={kind} sourceId="builtin" label="Chỉnh sửa từ mẫu gốc" variant="secondary" />
+          <Button variant="secondary" disabled={Boolean(restoringId)} onClick={() => restore('builtin', 'mẫu gốc')}>
+            {restoringId === 'builtin' ? 'Đang khôi phục...' : 'Khôi phục mẫu gốc'}
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="font-semibold text-[var(--cfc-ink)]">Lịch sử phiên bản</h2>
+        <p className="mt-1 text-sm text-[var(--cfc-muted)]">
+          Không cần tải file xuống. Muốn dùng lại nội dung cũ, hãy mở bản đó trên web, chỉnh nếu cần rồi lưu thành phiên bản mới.
+        </p>
+      </div>
+
+      {loading ? <HrLoading /> : error ? <HrError message={error} /> : rows.length === 0 ? (
+        <p className="rounded-lg bg-[var(--cfc-surface-muted)] p-4 text-sm text-[var(--cfc-muted)]">
+          Chưa có phiên bản chỉnh sửa. Hệ thống đang sử dụng mẫu gốc.
+        </p>
+      ) : (
+        <ul className="divide-y divide-[var(--cfc-border)]">
+          {rows.map((row) => (
+            <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <strong className="break-all text-[var(--cfc-ink)]">{row.fileName}</strong>
+                {row.active && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Đang dùng</span>}
+                <p className="mt-1 text-sm text-[var(--cfc-muted)]">{formatHrDateTime(row.createdAt)} · {row.note}</p>
+              </div>
+              {!row.active && <div className="flex flex-wrap gap-2">
+                <HrWordEditButton type="TEMPLATE" kind={kind} sourceId={row.id} disabled={Boolean(restoringId)} label="Sửa bản này trên web" variant="secondary" />
+                <Button variant="secondary" disabled={Boolean(restoringId)} onClick={() => restore(row.id, 'phiên bản này')}>
+                  {restoringId === row.id ? 'Đang khôi phục...' : 'Khôi phục'}
+                </Button>
+              </div>}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex items-center gap-3">
+        <Button variant="secondary" disabled={loading || page === 0} onClick={() => setPage((value) => value - 1)}>Trước</Button>
+        <span className="text-sm font-medium text-[var(--cfc-ink)]">Trang {page + 1}</span>
+        <Button variant="secondary" disabled={loading || rows.length < 20} onClick={() => setPage((value) => value + 1)}>Sau</Button>
+      </div>
+    </section>
+  );
 }

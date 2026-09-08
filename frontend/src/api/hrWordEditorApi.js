@@ -7,4 +7,5 @@ export const hrWordEditorApi = {
   config: async (id, signal) => unwrapApiData(await baseApi.get(`${root}/${id}/config`, { signal })),
   draft: async id => (await baseApi.get(`${root}/${id}/draft`, { responseType: 'blob' })).data,
   publish: async (id, note) => unwrapApiData(await baseApi.post(`${root}/${id}/publish`, { note })),
+  cancel: async id => unwrapApiData(await baseApi.post(`${root}/${id}/cancel`)),
 };

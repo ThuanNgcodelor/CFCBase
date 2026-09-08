@@ -1,12 +1,12 @@
 # Mẫu Word, bản chỉnh sửa và theo dõi gửi lương
 
-Cập nhật source: 07/09/2026. Đây là hướng dẫn cho phần đã triển khai trong repository, **không phải xác nhận đã deploy production**.
+Cập nhật source: 08/09/2026. Đây là hướng dẫn cho phần đã triển khai trong repository, **không phải xác nhận đã deploy production**.
 
 ## 1. Phạm vi đã có
 
 | Hạng mục | Trạng thái |
 |---|---|
-| Kho phiên bản mẫu Word cho văn phòng, LĐPT, thử việc | Đã có; upload, xem trước, tải, áp dụng, quay lại mẫu gốc |
+| Kho phiên bản mẫu Word cho văn phòng, LĐPT, thử việc | Đã có; chỉ sửa trực tiếp trên web, lưu lịch sử và tự áp dụng phiên bản mới |
 | Giữ biến Word khi bị tách nhiều run định dạng | Đã có và có test |
 | Xem trước bản hợp đồng đã xuất | Đã có; thư viện `docx-preview`, iframe sandbox |
 | Tải bản hợp đồng đã sửa bằng Word lên | Đã có cho hợp đồng lao động; tạo bản độc lập, không ghi đè bản gốc |
@@ -25,15 +25,13 @@ Không coi toàn bộ Phase 4B/4C hoặc Phase 5 đã hoàn tất.
 ## 2. Đổi mẫu chung
 
 1. Vào **HR → Mẫu Word** (hoặc **Nhân sự → Chi tiết → Hợp đồng → Quản lý mẫu Word**).
-2. Chọn loại mẫu, bấm **Tải mẫu đang dùng**.
-3. Chỉnh bố cục, font, nội dung cố định bằng Microsoft Word. Giữ các biến như `{{FULL_NAME}}`; không đổi tên/xóa biến.
-4. Chọn file `.docx` tối đa 15 MB, nhập ghi chú và **Lưu phiên bản mẫu**.
-5. Xem trước phiên bản rồi bấm **Áp dụng**. Upload chưa tự thay mẫu đang dùng.
-6. Tạo bản hợp đồng mới để lấy mẫu mới. Các hợp đồng đã xuất vẫn giữ nguyên bytes và SHA-256 cũ.
+2. Chọn loại mẫu và bấm **Sửa mẫu đang dùng**.
+3. Chỉnh bố cục, font và nội dung ngay trong ONLYOFFICE. Giữ các biến như `{{FULL_NAME}}`; không đổi tên hoặc xóa biến.
+4. Chọn **Kết thúc chỉnh sửa & nhận bản lưu**, chờ CFCBase xác nhận đã nhận bản nháp.
+5. Nhập ghi chú rồi bấm **Lưu và áp dụng mẫu**. Việc tạo phiên bản và kích hoạt mẫu diễn ra trong cùng transaction.
+6. Tạo hợp đồng mới để dùng mẫu mới. Các hợp đồng đã xuất vẫn giữ nguyên nội dung cũ.
 
-Muốn quay về mặc định: **Xem mẫu gốc → Dùng lại mẫu gốc**. Phiên bản upload vẫn được giữ để tải/đối chiếu. Mẫu lưu trong database, không cần sửa file classpath/rebuild để đổi mẫu sau lần triển khai này.
-
-Preview HTML chỉ để kiểm tra nội dung và bố cục tương đối; phân trang/font có thể khác Word. Chưa có bảo đảm preview PDF giống bản in. File được dựng trong iframe sandbox, không gửi dữ liệu hợp đồng tới dịch vụ preview công cộng.
+Muốn quay về nội dung cũ: tại **Lịch sử phiên bản**, chọn **Sửa bản này trên web** rồi lưu thành phiên bản mới. Muốn bắt đầu lại từ mặc định, chọn **Chỉnh sửa từ mẫu gốc**. Giao diện và API quản trị không còn upload/download mẫu hoặc nút áp dụng thủ công.
 
 ## 3. Sửa riêng một hợp đồng và lưu lại
 
@@ -72,13 +70,12 @@ Phân loại dựa trên `ok`, `error_code`, `retry_after` của [Telegram Bot A
 - V17: hai bảng kho mẫu và phiên bản; giữ nguyên mẫu classpath làm mặc định.
 - V18: thêm `hr_payroll_deliveries.message_snapshot` nullable; không sửa nội dung tin đã gửi trước đây.
 - Backup DB trước khi deploy. Deploy backend + frontend cùng bản; để Flyway chạy V17/V18. Không chạy migration tay song song với Flyway, không sửa migration đã áp dụng.
-- Sau deploy: upload mẫu thử → preview → áp dụng → tạo hợp đồng thử; upload bản chỉnh sửa → tải lại đối chiếu hash. Dùng dữ liệu thử, không gửi lương thật để kiểm tra giao diện.
+- Sau deploy: sửa mẫu thử trên web → kết thúc phiên → lưu và áp dụng → tạo hợp đồng thử. Dùng dữ liệu thử, không gửi lương thật để kiểm tra giao diện.
 - Kiểm thử local gồm DOCX split-run, migration/kho mẫu, snapshot campaign, scope người nhận, phân loại lỗi Telegram. Test dùng H2/mock, không xác nhận MySQL production hoặc Telegram live.
 
 Thứ tự tiếp theo:
 
-1. Chọn vị trí/URL ONLYOFFICE Document Server và thiết lập JWT, HTTPS, kết nối hai chiều backend–Document Server; không đưa secret vào git.
-2. Thêm draft/revision riêng, khóa phiên sửa, callback có xác thực, kiểm soát nguồn URL tải file, lưu idempotent; chỉ báo Đã lưu sau khi backend đã nhận bytes.
-3. Chốt bản đã lưu → chuyển PDF từ chính revision đó → lưu hash/tệp → tải DOCX/PDF cùng bản. Kiểm thử font tiếng Việt và mất kết nối khi save.
-4. Hoàn thiện worker lease/recovery và màn đối soát tin không xác định, audit thao tác gửi/retry, chống trùng theo nhân viên/kỳ lương với quy trình gửi bản điều chỉnh.
-5. Kho PDF phiếu lương, liên kết nhân viên/tháng/campaign; PDF tùy chọn, TEXT mặc định; dashboard và runbook production.
+1. Nghiệm thu live luồng sửa mẫu trên web, callback cuối, tự áp dụng và mở lại phiên bản cũ bằng dữ liệu thử.
+2. Chốt bản đã lưu → chuyển PDF từ chính revision đó → lưu hash/tệp → tải DOCX/PDF cùng bản. Kiểm thử font tiếng Việt và mất kết nối khi save.
+3. Hoàn thiện worker lease/recovery và màn đối soát tin không xác định, audit thao tác gửi/retry, chống trùng theo nhân viên/kỳ lương với quy trình gửi bản điều chỉnh.
+4. Kho PDF phiếu lương, liên kết nhân viên/tháng/campaign; PDF tùy chọn, TEXT mặc định; dashboard và runbook production.

@@ -35,7 +35,9 @@ function EditorSession({ id }) {
   const host = useRef(null);
   const ended = useRef(false);
   const sessionStatus = session?.status;
-  const terminal = ['READY', 'UNCHANGED', 'PUBLISHED'].includes(sessionStatus);
+  const cancelled = sessionStatus === 'CANCELLED';
+  const terminal = ['READY', 'UNCHANGED', 'PUBLISHED', 'CANCELLED'].includes(sessionStatus);
+  const returnPath = session?.type === 'TEMPLATE' ? '/manager/hr/document-templates' : '/manager/hr/employees';
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
@@ -90,7 +92,8 @@ function EditorSession({ id }) {
     setBusy(true); setError('');
     try {
       await hrWordEditorApi.publish(id, note);
-      setSession(await hrWordEditorApi.state(id)); toast.success('Đã lưu phiên bản vào kho CFCBase.');
+      setSession(await hrWordEditorApi.state(id));
+      toast.success(session.type === 'TEMPLATE' ? 'Đã lưu và áp dụng mẫu.' : 'Đã lưu phiên bản vào kho CFCBase.');
     } catch (e) { setError(apiErrorMessage(e, 'Không lưu được phiên bản. Bản nháp vẫn được giữ.')); }
     finally { setBusy(false); }
   };
@@ -100,21 +103,36 @@ function EditorSession({ id }) {
     catch (e) { setError(apiErrorMessage(e, 'Không mở lại được bản nháp.')); }
     finally { setBusy(false); }
   };
+  const cancel = async () => {
+    if (!window.confirm('Hủy phiên chỉnh sửa này? Mọi thay đổi chưa lưu vào CFCBase sẽ không được áp dụng.')) return;
+    setBusy(true); setError('');
+    try {
+      await hrWordEditorApi.cancel(id);
+      ended.current = true;
+      editor.current?.destroyEditor(); editor.current = null;
+      toast.success('Đã hủy chỉnh sửa. Mẫu đang dùng không thay đổi.');
+      navigate(returnPath);
+    } catch (e) { setError(apiErrorMessage(e, 'Không hủy được phiên chỉnh sửa.')); }
+    finally { setBusy(false); }
+  };
   return <HrPageShell size="wide"><HrPageHeader title="Chỉnh sửa Word trực tiếp" description="Chỉnh nội dung, font, bảng và căn lề ngay trên web. Bản gốc không bị ghi đè." />
     {error && <HrError message={error} />}
     {!session && !error && <HrLoading />}
     {session && <>
       <div className="mb-3 rounded-lg border bg-white p-4"><strong>{session.fileName}</strong>
-        <p className="mt-2 text-sm">{terminal ? session.status === 'PUBLISHED' ? 'Đã lưu phiên bản vào kho CFCBase.' : 'CFCBase đã nhận bản nháp. Kiểm tra và lưu phiên bản bên dưới.' : closing ? 'Đang chờ Document Server chuyển file về (thường từ 10 giây). Chưa xác nhận lưu.' : 'Đang chỉnh sửa. Save trong Word lưu tại Document Server; chọn Kết thúc chỉnh sửa để chuyển về CFCBase.'}</p>
-        {!terminal && !closing && <Button className="mt-3" disabled={!ready} onClick={finish}>Kết thúc chỉnh sửa & nhận bản lưu</Button>}
-        {closing && !terminal && <Button variant="secondary" className="mt-3" onClick={() => setRefresh(v => v + 1)}>Kiểm tra trạng thái lưu</Button>}
+        <p className="mt-2 text-sm">{cancelled ? 'Phiên chỉnh sửa đã được hủy. Mẫu đang dùng không thay đổi.' : terminal ? session.status === 'PUBLISHED' ? session.type === 'TEMPLATE' ? 'Đã lưu và áp dụng mẫu.' : 'Đã lưu phiên bản vào kho CFCBase.' : 'CFCBase đã nhận bản nháp. Kiểm tra và lưu phiên bản bên dưới.' : closing ? 'Đang chờ Document Server chuyển file về (thường từ 10 giây). Chưa xác nhận lưu.' : 'Đang chỉnh sửa. Save trong Word lưu tại Document Server; chọn Kết thúc chỉnh sửa để chuyển về CFCBase.'}</p>
+        {!terminal && <div className="mt-3 flex flex-wrap gap-2">
+          {!closing && <Button disabled={!ready || busy} onClick={finish}>Kết thúc chỉnh sửa & nhận bản lưu</Button>}
+          {closing && <Button variant="secondary" disabled={busy} onClick={() => setRefresh(v => v + 1)}>Kiểm tra trạng thái lưu</Button>}
+          <Button variant="secondary" disabled={busy} onClick={cancel}>Hủy chỉnh sửa</Button>
+        </div>}
       </div>
-      <div ref={host} className={terminal || closing ? 'hidden' : 'h-[78vh] min-h-[550px] w-full border bg-white'} />
+      <div ref={host} className={terminal || closing ? 'hidden' : 'h-[calc(100dvh-13rem)] min-h-[420px] w-full overflow-hidden rounded-lg border bg-white'} />
       {terminal && <section className="space-y-3 rounded-lg border bg-white p-4">
-        <Button variant="secondary" disabled={busy} onClick={async () => { try { setPreview(await hrWordEditorApi.draft(id)); } catch (e) { setError(apiErrorMessage(e, 'Không tải được bản nháp.')); } }}>Xem bản đã nhận</Button>
-        {session.status !== 'PUBLISHED' && <><Button variant="secondary" disabled={busy} onClick={reopen}>Tiếp tục sửa bản nháp</Button><label className="block">Ghi chú phiên bản<input className="mt-1 block w-full rounded border p-2" maxLength={1000} value={note} onChange={e => setNote(e.target.value)} /></label><Button disabled={busy || !note.trim()} onClick={publish}>Lưu phiên bản vào kho</Button></>}
-        <p className="text-sm text-gray-600">Mẫu mới chưa tự áp dụng. Sau khi lưu, quay lại kho mẫu để xem và áp dụng. Chỉnh hợp đồng riêng không thay thông tin hồ sơ nhân sự.</p>
-        <Link className="block text-emerald-700 underline" to={session.type === 'TEMPLATE' ? '/manager/hr/document-templates' : '/manager/hr/employees'}>Quay về {session.type === 'TEMPLATE' ? 'kho mẫu' : 'nhân sự'}</Link>
+        {!cancelled && <Button variant="secondary" disabled={busy} onClick={async () => { try { setPreview(await hrWordEditorApi.draft(id)); } catch (e) { setError(apiErrorMessage(e, 'Không tải được bản nháp.')); } }}>Xem bản đã nhận</Button>}
+        {['READY', 'UNCHANGED'].includes(session.status) && <><Button variant="secondary" disabled={busy} onClick={reopen}>Tiếp tục sửa bản nháp</Button><Button variant="secondary" disabled={busy} onClick={cancel}>Hủy bản nháp</Button><label className="block">Ghi chú phiên bản<input className="mt-1 block w-full rounded border p-2" maxLength={1000} value={note} onChange={e => setNote(e.target.value)} /></label><Button disabled={busy || !note.trim()} onClick={publish}>{session.type === 'TEMPLATE' ? 'Lưu và áp dụng mẫu' : 'Lưu phiên bản vào kho'}</Button></>}
+        {!cancelled && <p className="text-sm text-gray-600">{session.type === 'TEMPLATE' ? 'Khi lưu, phiên bản này được áp dụng ngay cho các hợp đồng tạo từ sau thời điểm đó. Hợp đồng đã xuất không bị ghi đè.' : 'Chỉnh hợp đồng riêng không thay mẫu chung hoặc thông tin hồ sơ nhân sự.'}</p>}
+        <Link className="block text-emerald-700 underline" to={returnPath}>Quay về {session.type === 'TEMPLATE' ? 'kho mẫu' : 'nhân sự'}</Link>
         <HrWordPreview blob={preview} />
       </section>}
     </>}
