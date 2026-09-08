@@ -78,6 +78,8 @@ public class SecurityConfig {
                                                 .requestMatchers("/ws/**").permitAll()
                                                 // CFCBase HR is an internal management system. Employees receive
                                                 // payroll through Telegram and cannot access HR APIs.
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/word-editor/*/content").permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/word-editor/*/callback").permitAll()
                                                 .requestMatchers("/api/v1/hr/**").hasAnyRole("ADMIN", "MANAGER")
                                                 .requestMatchers("/api/v1/dashboard/admin").hasRole("ADMIN")
                                                 .anyRequest().authenticated())

@@ -111,6 +111,19 @@ class HrSecurityContractTest {
     }
 
     @Test
+    void wordEditorManagementRequiresHrAndCallbackRequiresItsOwnToken() throws Exception {
+        stubToken("editor-admin", user("editor-admin@example.test", RoleEnum.ADMIN));
+        mockMvc.perform(get("/api/v1/hr/word-editor/sessions/s1")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/hr/word-editor/sessions/s1").header("Authorization","Bearer editor-admin"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/word-editor/s1/content").param("ticket","bad"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/word-editor/s1/callback")
+                .contentType("application/json").content("{\"status\":2,\"key\":\"s1\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void employeeProfileEndpointsRequireActiveHrPrincipal() throws Exception {
         stubToken("profile-manager", user("profile-manager@example.test", RoleEnum.MANAGER));
         stubToken("profile-admin", user("profile-admin@example.test", RoleEnum.ADMIN));
@@ -141,6 +154,14 @@ class HrSecurityContractTest {
     @EnableWebMvc
     @Import(SecurityConfig.class)
     static class TestWebConfig {
+
+        @Bean
+        HrWordEditorController wordEditorController() throws Exception {
+            var service=mock(com.booking.system.hr.service.HrWordEditorService.class);
+            org.mockito.Mockito.doThrow(new IllegalArgumentException("Invalid signature")).when(service).callback(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.isNull());
+            when(service.source(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString())).thenThrow(new IllegalArgumentException("Invalid ticket"));
+            return new HrWordEditorController(service,new HrActorResolver());
+        }
 
         @Bean
         HrEmployeeProfileController employeeProfileController() {

@@ -10,7 +10,7 @@ Cập nhật source: 07/09/2026. Đây là hướng dẫn cho phần đã triể
 | Giữ biến Word khi bị tách nhiều run định dạng | Đã có và có test |
 | Xem trước bản hợp đồng đã xuất | Đã có; thư viện `docx-preview`, iframe sandbox |
 | Tải bản hợp đồng đã sửa bằng Word lên | Đã có cho hợp đồng lao động; tạo bản độc lập, không ghi đè bản gốc |
-| Sửa Word trực tiếp trong web / ONLYOFFICE | Chưa có; cần triển khai Document Server và tích hợp callback lưu phiên bản |
+| Sửa Word trực tiếp trong web / ONLYOFFICE | Đã có code tích hợp và callback JWT; cần bật Document Server. Xem [cấu hình](HR_WORD_EDITOR_SETUP.md). Chưa kiểm thử live |
 | PDF chuẩn phân trang từ cùng bản đã lưu | Chưa có |
 | Mở lại campaign theo file lương sau refresh | Đã có; chọn lại file để tải trạng thái từ server |
 | Phân trang preview lương và kết quả từng người | Đã có |

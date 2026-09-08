@@ -1,0 +1,28 @@
+# Standalone, optional service. Does not change the existing database/Redis deployment.
+services:
+  documentserver:
+    image: ${ONLYOFFICE_IMAGE:?Set a tested ONLYOFFICE image tag or digest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${ONLYOFFICE_PORT:-8088}:80"
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${WORD_EDITOR_JWT_SECRET:?Set a private secret of at least 32 bytes}
+      JWT_HEADER: X-Onlyoffice-JWT
+      JWT_IN_BODY: "true"
+      ALLOW_PRIVATE_IP_ADDRESS: "false"
+      ALLOW_META_IP_ADDRESS: "false"
+    volumes:
+      - word_editor_data:/var/www/onlyoffice/Data
+      - word_editor_cache:/var/lib/onlyoffice
+      - word_editor_logs:/var/log/onlyoffice
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+volumes:
+  word_editor_data:
+  word_editor_cache:
+  word_editor_logs:

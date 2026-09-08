@@ -9,6 +9,7 @@ import { contractTypeLabel } from '../../utils/hrOnboarding';
 import { contractTermLabel } from '../../utils/hrContractStatus';
 import { downloadResponseBlob } from '../../utils/downloadResponseBlob';
 import { HrWordPreview } from './HrWordPreview';
+import { HrWordEditButton } from './HrWordEditButton';
 import { Link } from 'react-router-dom';
 
 const STATUS = { READY: 'Chờ tăng nhân sự', EFFECTIVE: 'Đã kích hoạt', VOIDED: 'Đã hủy' };
@@ -63,7 +64,7 @@ function ContractVersions({ employeeId, contract }) {
     {loading ? <HrLoading /> : error ? <HrError message={error} onRetry={reload} /> : <>
       {data.content.length === 0 ? <div className="py-6"><HrEmpty title="Chưa có bản Word đã xuất" description="Chọn Tạo bản Word mới để tạo và lưu bản đầu tiên." /></div> :
         <ul className="mt-4 divide-y divide-gray-100">{data.content.map((document) => <li key={document.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <div className="min-w-0"><p className="break-all text-sm font-medium">{document.generatedFileName}</p><p className="mt-1 text-xs text-gray-500">Xuất lúc {formatHrDateTime(document.generatedAt)}</p>
+          <div className="min-w-0"><p className="break-all text-sm font-medium">{document.generatedFileName}</p><p className="mt-1 text-xs text-gray-500">Xuất lúc {formatHrDateTime(document.generatedAt)}</p><HrWordEditButton type="CONTRACT" sourceId={document.id} disabled={busy || contract.status === 'VOIDED'} />
             <details className="mt-1 text-xs text-gray-500"><summary className="cursor-pointer">Thông tin đối chiếu bản xuất</summary><p className="break-all">Mẫu: {document.templateFileName}</p><p className="break-all">Mã bản: {document.id}</p><p className="break-all">SHA-256: {document.generatedFileSha256}</p></details>
           </div>
           <div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" disabled={busy} onClick={() => open(document)}>Xem trước</Button><Button type="button" variant="secondary" disabled={busy} onClick={() => download(document)}>Tải bản này</Button><Button type="button" variant="secondary" disabled={busy || contract.status === 'VOIDED'} onClick={() => { setSource(document); setFile(null); setNote(''); }}>Tải bản đã sửa lên</Button></div>

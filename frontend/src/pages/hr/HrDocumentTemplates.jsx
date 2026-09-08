@@ -5,13 +5,14 @@ import { unwrapApiData } from '../../api/hrApiUtils';
 import { Button } from '../../components/ui/Button';
 import { HrPageShell, HrPageHeader, HrLoading, HrError } from '../../components/hr/HrUi';
 import { HrWordPreview } from '../../components/hr/HrWordPreview';
+import { HrWordEditButton } from '../../components/hr/HrWordEditButton';
 import { downloadResponseBlob } from '../../utils/downloadResponseBlob';
 import { apiErrorMessage, formatHrDateTime } from '../../utils/hr';
 
 const KINDS = { OFFICE: 'Hợp đồng văn phòng', GENERAL_LABOR: 'Hợp đồng lao động phổ thông', PROBATION: 'Hợp đồng thử việc' };
 export default function HrDocumentTemplates() {
   const [kind, setKind] = useState('OFFICE');
-  return <HrPageShell size="wide"><HrPageHeader title="Mẫu Word hợp đồng" description="Tải mẫu, chỉnh bằng Word, xem trước và áp dụng phiên bản mới. Các bản hợp đồng đã xuất không bị ghi đè." />
+  return <HrPageShell size="wide"><HrPageHeader title="Mẫu Word hợp đồng" description="Sửa Word trực tiếp trên web, lưu phiên bản và áp dụng mẫu mới. Các bản hợp đồng đã xuất không bị ghi đè." />
     <label className="block">Loại mẫu<select className="ml-3 rounded-lg border p-2" value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(KINDS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
     <TemplateVersions key={kind} kind={kind} />
   </HrPageShell>;
@@ -64,6 +65,7 @@ function TemplateVersions({ kind }) {
     });
   };
   return <section className="mt-5 rounded-xl border bg-white p-5">
+    <div className="mb-4"><HrWordEditButton type="TEMPLATE" kind={kind} sourceId="active" /><p className="mt-2 text-sm text-gray-500">Mở mẫu đang dùng trong trình soạn thảo. Không cần tải file về máy.</p></div>
     <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={busy} onClick={() => download('active')}>Tải mẫu đang dùng</Button><Button variant="secondary" disabled={busy} onClick={() => open('builtin')}>Xem mẫu gốc</Button><Button variant="secondary" disabled={busy || previewId !== 'builtin'} onClick={() => activate('builtin')}>Dùng lại mẫu gốc</Button></div>
     <form onSubmit={upload} className="my-5 space-y-3"><p className="text-sm text-gray-600">Giữ nguyên các biến dạng {'{{FULL_NAME}}'} khi chỉnh bố cục. Upload chỉ lưu phiên bản, chưa thay mẫu đang dùng.</p><input type="file" required accept=".docx" onChange={e => setFile(e.target.files?.[0] || null)} /><input required maxLength={1000} value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú thay đổi" aria-label="Ghi chú thay đổi" className="block w-full rounded-lg border p-2" /><Button disabled={busy || !file || !note.trim()}>Lưu phiên bản mẫu</Button></form>
     {loading ? <HrLoading /> : error ? <HrError message={error} /> : <ul className="divide-y">{rows.map(r => <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><strong className="break-all">{r.fileName}</strong>{r.active && <span className="ml-2 text-emerald-700">Đang dùng</span>}<p className="text-sm text-gray-500">{formatHrDateTime(r.createdAt)} · {r.note}</p></div><div className="flex gap-2"><Button variant="secondary" disabled={busy} onClick={() => open(r.id)}>Xem trước</Button><Button variant="secondary" disabled={busy} onClick={() => download(r.id)}>Tải</Button><Button disabled={busy || r.active || previewId !== r.id} onClick={() => activate(r.id)}>Áp dụng</Button></div></li>)}</ul>}
