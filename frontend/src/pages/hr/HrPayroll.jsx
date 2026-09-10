@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FileUp, Play, RefreshCw, Send, Settings2 } from 'lucide-react';
+import { FileUp, Play, RefreshCw, Send, Settings2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SEOHead from '../../components/SEOHead';
@@ -49,7 +49,7 @@ export default function HrPayroll() {
       ]);
       if (request !== selectionRequest.current) return;
       setPreview(normalizePage(result.rows));
-      setCampaign(existing);
+      setCampaign(existing?.id ? existing : null);
       if (result.batch) setSelected(result.batch);
     } catch (requestError) { if (request === selectionRequest.current) toast.error(apiErrorMessage(requestError, 'Không thể đọc bản xem trước.')); }
     finally { if (request === selectionRequest.current) setBusy(false); }
@@ -66,8 +66,24 @@ export default function HrPayroll() {
     finally { setBusy(false); }
   };
 
+  const deleteImport = async (event, item) => {
+    event.stopPropagation();
+    if (!window.confirm(`Xoá bản xem trước "${item.fileName}"? File đã tạo hàng đợi gửi sẽ không thể xoá.`)) return;
+    setBusy(true);
+    try {
+      await hrPayrollApi.deleteImport(item.id);
+      if (selected?.id === item.id) {
+        selectionRequest.current += 1;
+        setSelected(null); setCampaign(null); setPreview(normalizePage(null)); setPreviewPage(0);
+      }
+      toast.success('Đã xoá bản xem trước. Bạn có thể import lại file.');
+      await loadImports();
+    } catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể xoá bản xem trước.')); }
+    finally { setBusy(false); }
+  };
+
   const createCampaign = async () => {
-    if (!selected) return;
+    if (!selected?.id) return;
     if (!window.confirm(`Tạo hàng đợi gửi phiếu lương tháng ${selected.payrollMonth || ''}? Những dòng chưa xác minh Telegram sẽ được bỏ qua.`)) return;
     setBusy(true);
     try { const result = await hrPayrollApi.createCampaign(selected.id); setCampaign(result); toast.success('Đã tạo hàng đợi gửi.'); }
@@ -76,7 +92,7 @@ export default function HrPayroll() {
   };
 
   const startCampaign = async () => {
-    if (!campaign) return;
+    if (!campaign?.id) return;
     setBusy(true);
     try { setCampaign(await hrPayrollApi.start(campaign.id)); toast.success('Đã bắt đầu gửi qua Telegram.'); }
     catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể bắt đầu gửi.')); }
@@ -84,7 +100,7 @@ export default function HrPayroll() {
   };
 
   const retryCampaign = async () => {
-    if (!campaign || !window.confirm('Gửi lại các dòng thất bại?')) return;
+    if (!campaign?.id || !window.confirm('Gửi lại các dòng thất bại?')) return;
     setBusy(true);
     try { setCampaign(await hrPayrollApi.retry(campaign.id)); toast.success('Đã xếp lại các dòng lỗi.'); }
     catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể gửi lại.')); }
@@ -92,7 +108,7 @@ export default function HrPayroll() {
   };
 
   useEffect(() => {
-    if (!campaign || !['QUEUED', 'SENDING'].includes(campaign.status)) return undefined;
+    if (!campaign?.id || !['QUEUED', 'SENDING'].includes(campaign.status)) return undefined;
     let cancelled = false;
     const timer = window.setInterval(async () => {
       try { const result = await hrPayrollApi.campaign(campaign.id); if (!cancelled) setCampaign(current => current?.id === result.id ? result : current); }
@@ -118,15 +134,15 @@ export default function HrPayroll() {
       {loading ? <div className="mt-5"><HrLoading /></div> : error ? <div className="mt-5"><HrError message={error} onRetry={loadImports} /></div> : (
         <section className="mt-5 rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 p-4"><h2 className="font-semibold text-gray-900">2. Chọn file đã import</h2></div>
-          <div className="overflow-x-auto"><table className="min-w-[850px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-4 py-3">File</th><th className="px-4 py-3">Tháng</th><th className="px-4 py-3">Tổng dòng</th><th className="px-4 py-3">Sẵn sàng</th><th className="px-4 py-3">Bỏ qua</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Thời gian</th></tr></thead><tbody className="divide-y divide-gray-100">{imports.content.map((item) => <tr key={item.id} onClick={() => selectImport(item)} className={`cursor-pointer hover:bg-emerald-50 ${selected?.id === item.id ? 'bg-emerald-50' : ''}`}><td className="px-4 py-3 font-medium text-gray-900">{item.fileName}</td><td className="px-4 py-3">{item.payrollMonth || '—'}</td><td className="px-4 py-3">{item.totalRows}</td><td className="px-4 py-3 text-emerald-700">{item.readyRows}</td><td className="px-4 py-3 text-amber-700">{item.skippedRows}</td><td className="px-4 py-3"><HrStatusBadge status={item.status} label={statusLabel(item.status)} /></td><td className="px-4 py-3 text-xs text-gray-500">{formatHrDateTime(item.createdAt)}</td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="min-w-[950px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-4 py-3">File</th><th className="px-4 py-3">Tháng</th><th className="px-4 py-3">Tổng dòng</th><th className="px-4 py-3">Sẵn sàng</th><th className="px-4 py-3">Bỏ qua</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Thời gian</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{imports.content.map((item) => <tr key={item.id} onClick={() => selectImport(item)} className={`cursor-pointer hover:bg-emerald-50 ${selected?.id === item.id ? 'bg-emerald-50' : ''}`}><td className="px-4 py-3 font-medium text-gray-900">{item.fileName}</td><td className="px-4 py-3">{item.payrollMonth || '—'}</td><td className="px-4 py-3">{item.totalRows}</td><td className="px-4 py-3 text-emerald-700">{item.readyRows}</td><td className="px-4 py-3 text-amber-700">{item.skippedRows}</td><td className="px-4 py-3"><HrStatusBadge status={item.status} label={statusLabel(item.status)} /></td><td className="px-4 py-3 text-xs text-gray-500">{formatHrDateTime(item.createdAt)}</td><td className="px-4 py-3 text-right"><Button type="button" variant="danger" size="icon" disabled={busy || item.status !== 'PREVIEWED'} aria-label={`Xoá ${item.fileName}`} title={item.status === 'PREVIEWED' ? 'Xoá bản xem trước' : 'File đã vào quy trình gửi, không thể xoá'} onClick={(event) => deleteImport(event, item)}><Trash2 className="h-4 w-4" /></Button></td></tr>)}</tbody></table></div>
           {imports.content.length === 0 && <div className="p-8"><HrEmpty title="Chưa có file lương" description="Chọn file .xlsx ở bước trên để bắt đầu." /></div>}
           <HrPagination page={imports.number} totalPages={imports.totalPages} totalElements={imports.totalElements} onPageChange={setPage} />
         </section>
       )}
 
-      {selected && <section className="mt-5 rounded-xl border border-gray-200 bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-4"><div><h2 className="font-semibold text-gray-900">3. Kiểm tra và gửi</h2><p className="text-sm text-gray-500">{selected.fileName} · {selected.readyRows} dòng đủ điều kiện · {selected.skippedRows} dòng sẽ bỏ qua</p></div><div className="flex flex-wrap gap-2"><Button type="button" disabled={busy || Boolean(campaign)} onClick={createCampaign}><Send className="mr-1.5 h-4 w-4" />Tạo hàng đợi</Button>{campaign && <Button type="button" disabled={busy || !['QUEUED'].includes(campaign.status)} onClick={startCampaign}><Play className="mr-1.5 h-4 w-4" />Bắt đầu gửi</Button>}{campaign && campaign.failed > 0 && ['COMPLETED_WITH_WARNING', 'COMPLETED'].includes(campaign.status) && <Button type="button" variant="secondary" disabled={busy} onClick={retryCampaign}>Gửi lại lỗi</Button>}</div></div><div className="p-4">{campaign && <div className="mb-4 rounded-lg bg-gray-50 p-3 text-sm">Đợt gửi: <HrStatusBadge status={campaign.status} label={statusLabel(campaign.status)} /> <span className="ml-2">Đã gửi {campaign.sent}/{campaign.total} · Lỗi {campaign.failed} · Bỏ qua {campaign.skipped}</span></div>}<div className="overflow-x-auto"><table className="min-w-[900px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Mã NV</th><th className="px-3 py-2">Họ tên</th><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">Lý do</th></tr></thead><tbody className="divide-y divide-gray-100">{preview.content.map((row) => <tr key={row.id}><td className="px-3 py-2 font-semibold">{row.employeeCode}</td><td className="px-3 py-2">{row.employeeName}</td><td className="px-3 py-2"><HrStatusBadge status={row.status} label={statusLabel(row.status)} /></td><td className="px-3 py-2 text-sm text-gray-500">{row.errorMessage || '—'}</td></tr>)}</tbody></table></div></div></section>}
+      {selected && <section className="mt-5 rounded-xl border border-gray-200 bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-4"><div><h2 className="font-semibold text-gray-900">3. Kiểm tra và gửi</h2><p className="text-sm text-gray-500">{selected.fileName} · {selected.readyRows} dòng đủ điều kiện · {selected.skippedRows} dòng sẽ bỏ qua</p></div><div className="flex flex-wrap gap-2"><Button type="button" disabled={busy || Boolean(campaign?.id)} onClick={createCampaign}><Send className="mr-1.5 h-4 w-4" />Tạo hàng đợi</Button>{campaign?.id && <Button type="button" disabled={busy || !['QUEUED'].includes(campaign.status)} onClick={startCampaign}><Play className="mr-1.5 h-4 w-4" />Bắt đầu gửi</Button>}{campaign?.id && campaign.failed > 0 && ['COMPLETED_WITH_WARNING', 'COMPLETED'].includes(campaign.status) && <Button type="button" variant="secondary" disabled={busy} onClick={retryCampaign}>Gửi lại lỗi</Button>}</div></div><div className="p-4">{campaign?.id && <div className="mb-4 rounded-lg bg-gray-50 p-3 text-sm">Đợt gửi: <HrStatusBadge status={campaign.status} label={statusLabel(campaign.status)} /> <span className="ml-2">Đã gửi {campaign.sent}/{campaign.total} · Lỗi {campaign.failed} · Bỏ qua {campaign.skipped}</span></div>}<div className="overflow-x-auto"><table className="min-w-[900px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Mã NV</th><th className="px-3 py-2">Họ tên</th><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">Lý do</th></tr></thead><tbody className="divide-y divide-gray-100">{preview.content.map((row) => <tr key={row.id}><td className="px-3 py-2 font-semibold">{row.employeeCode}</td><td className="px-3 py-2">{row.employeeName}</td><td className="px-3 py-2"><HrStatusBadge status={row.status} label={statusLabel(row.status)} /></td><td className="px-3 py-2 text-sm text-gray-500">{row.errorMessage || '—'}</td></tr>)}</tbody></table></div></div></section>}
       {selected && <HrPagination page={previewPage} totalPages={preview.totalPages} totalElements={preview.totalElements} onPageChange={p => selectImport(selected, p)} />}
-      {campaign && <DeliveryResults key={campaign.id} campaign={campaign} />}
+      {campaign?.id && <DeliveryResults key={campaign.id} campaign={campaign} />}
     </HrPageShell>
   );
 }

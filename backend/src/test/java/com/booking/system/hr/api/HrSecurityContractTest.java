@@ -140,6 +140,19 @@ class HrSecurityContractTest {
         }
     }
 
+    @Test
+    void generalLaborCaptureApiAndImageRequireActiveHrAuthentication() throws Exception {
+        stubToken("capture-manager", user("capture-manager@example.test", RoleEnum.MANAGER));
+        stubToken("capture-employee", user("capture-employee@example.test", RoleEnum.EMPLOYEE));
+        String root = "/api/v1/hr/general-labor/ocr-captures/8bc5e25a-aef7-43a1-b6fe-557843959ec4";
+        mockMvc.perform(get(root)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(root + "/images/i1")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(root).header("Authorization", "Bearer capture-employee")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(root).header("Authorization", "Bearer capture-manager"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "no-store, private"));
+    }
+
     private static User user(String email, RoleEnum role) {
         User user = new User();
         user.setId(role.name().toLowerCase() + "-id");
@@ -154,6 +167,11 @@ class HrSecurityContractTest {
     @EnableWebMvc
     @Import(SecurityConfig.class)
     static class TestWebConfig {
+
+        @Bean
+        HrOcrCaptureController ocrCaptureController() {
+            return new HrOcrCaptureController(mock(com.booking.system.hr.service.HrOcrCaptureService.class), new HrActorResolver());
+        }
 
         @Bean
         HrWordEditorController wordEditorController() throws Exception {

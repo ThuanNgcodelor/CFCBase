@@ -1,5 +1,9 @@
 export function unwrapApiData(response) {
-  return response?.data?.data ?? response?.data;
+  const payload = response?.data;
+  if (payload && typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    return payload.data;
+  }
+  return payload;
 }
 
 export function normalizePage(data) {

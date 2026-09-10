@@ -180,7 +180,7 @@ public class HrOcrService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                log.error("Gemini OCR error: status={}, body={}", response.statusCode(), response.body());
+                log.error("Gemini OCR error: status={}", response.statusCode());
                 throw geminiProviderError(response);
             }
 
@@ -196,8 +196,8 @@ public class HrOcrService {
         } catch (HrApiException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Gemini OCR invocation failure", e);
-            throw HrApiException.badRequest("OCR_FAILED", "Không thể trích xuất thông tin ảnh: " + e.getMessage());
+            log.error("Gemini OCR invocation failure: type={}", e.getClass().getSimpleName());
+            throw HrApiException.badRequest("OCR_FAILED", "Không thể trích xuất thông tin ảnh. Vui lòng thử lại.");
         }
     }
 
@@ -251,7 +251,7 @@ public class HrOcrService {
             }
 
             if (response.statusCode() != 200) {
-                log.error("Groq OCR error: status={}, body={}", response.statusCode(), response.body());
+                log.error("Groq OCR error: status={}", response.statusCode());
                 throw groqProviderError(response);
             }
 
@@ -267,8 +267,8 @@ public class HrOcrService {
         } catch (HrApiException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Groq OCR invocation failure", e);
-            throw HrApiException.badRequest("OCR_FAILED", "Không thể trích xuất thông tin ảnh từ Groq: " + e.getMessage());
+            log.error("Groq OCR invocation failure: type={}", e.getClass().getSimpleName());
+            throw HrApiException.badRequest("OCR_FAILED", "Không thể trích xuất thông tin ảnh từ Groq. Vui lòng thử lại.");
         }
     }
 
@@ -303,8 +303,8 @@ public class HrOcrService {
                     jsonText
             );
         } catch (Exception e) {
-            log.error("Failed to parse OCR JSON output: {}", jsonText, e);
-            throw HrApiException.badRequest("OCR_PARSE_ERROR", "Dữ liệu AI trả về không đúng định dạng JSON: " + e.getMessage());
+            log.error("Failed to parse OCR JSON output: type={}", e.getClass().getSimpleName());
+            throw HrApiException.badRequest("OCR_PARSE_ERROR", "Dữ liệu AI trả về không đúng định dạng JSON. Vui lòng thử đọc lại.");
         }
     }
 

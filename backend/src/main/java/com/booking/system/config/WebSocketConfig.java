@@ -1,6 +1,9 @@
 package com.booking.system.config;
 
 import com.booking.system.entity.User;
+import com.booking.system.enums.UserStatus;
+import com.booking.system.enums.RoleEnum;
+import com.booking.system.hr.service.HrOcrSocketPolicy;
 import com.booking.system.repository.UserRepository;
 import com.booking.system.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +54,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+                if (accessor != null && !HrOcrSocketPolicy.allowed(accessor.getCommand(), accessor.getDestination())) {
+                    throw new org.springframework.security.access.AccessDeniedException("Không được truy cập kênh OCR này.");
+                }
+                if (accessor != null && StompCommand.SUBSCRIBE.equals(accessor.getCommand())
+                        && "/user/queue/ocr-capture".equals(accessor.getDestination())) {
+                    User current = accessor.getUser() == null ? null : userRepository.findById(accessor.getUser().getName()).orElse(null);
+                    if (current == null || current.getStatus() != UserStatus.ACTIVE
+                            || (current.getRole() != RoleEnum.ADMIN && current.getRole() != RoleEnum.MANAGER)) {
+                        throw new org.springframework.security.access.AccessDeniedException("Cần tài khoản HR đang hoạt động.");
+                    }
+                }
                 if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
                     String token = resolveBearerToken(accessor.getNativeHeader("Authorization"));
                     if (token == null || !jwtUtils.validateJwtToken(token)) {

@@ -47,4 +47,18 @@ class HrPayrollCampaignSnapshotTest {
         assertThatThrownBy(() -> service.retryFailed("c",new HrImportActor("hr","HR","ADMIN"))).hasMessageContaining("đối soát");
         verify(deliveries,never()).save(any()); verifyNoInteractions(bot);
     }
+    @Test void onlyPreviewImportWithoutCampaignCanBeDeleted() {
+        var preview = new HrPayrollImport(); preview.setStatus(HrPayrollImportStatus.PREVIEWED);
+        when(imports.findByIdForUpdate("preview")).thenReturn(Optional.of(preview));
+        when(campaigns.findByPayrollImportId("preview")).thenReturn(Optional.empty());
+        service.deletePreviewImport("preview");
+        verify(imports).deleteById("preview");
+
+        var protectedImport = new HrPayrollImport(); protectedImport.setStatus(HrPayrollImportStatus.PREVIEWED);
+        when(imports.findByIdForUpdate("protected")).thenReturn(Optional.of(protectedImport));
+        when(campaigns.findByPayrollImportId("protected")).thenReturn(Optional.of(new HrPayrollCampaign()));
+        assertThatThrownBy(() -> service.deletePreviewImport("protected"))
+                .hasMessageContaining("đã tạo đợt gửi");
+        verify(imports, never()).deleteById("protected");
+    }
 }

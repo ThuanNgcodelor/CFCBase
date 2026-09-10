@@ -169,6 +169,8 @@ Phase 3 bổ sung tab Lịch sử trong hồ sơ: biến động theo nhân sự
 
 ### 4.4 OCR
 
+**Bổ sung 10/09/2026 — chỉ Thêm LĐ phổ thông:** phiên chụp điện thoại cùng tài khoản, QR gắn riêng từng form, ảnh/kết quả qua DB + WebSocket invalidation và đối soát API. Có review chống ghi đè trường nhập tay, hủy/hoàn tất/TTL, Flyway **V20** thêm `hr_ocr_capture_sessions` và `hr_ocr_capture_images`. Chưa nghiệm thu hai thiết bị/production. [Cách dùng và triển khai](HR_GENERAL_LABOR_OCR_CAPTURE.md). Các thống kê V19/34 bảng phía trên là snapshot cũ, sau V20 là 36 bảng HR.
+
 `HrOcrService` nhận nhiều ảnh multipart và trả JSON hồ sơ để form React tự điền. Provider/model/key được lưu ở `hr_system_settings`, có thể fallback sang `GEMINI_API_KEY`/`GROQ_API_KEY` từ environment.
 
 - Mặc định source hiện tại: Gemini `gemini-3.6-flash`, Groq `qwen/qwen3.6-27b`.

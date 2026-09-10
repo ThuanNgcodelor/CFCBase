@@ -18,4 +18,5 @@ public interface HrPayrollImportRepository extends HrRepository<HrPayrollImport,
     @Query("select payrollImport from HrPayrollImport payrollImport where payrollImport.id = :id")
     Optional<HrPayrollImport> findByIdForUpdate(@Param("id") String id);
     long countByStatus(HrPayrollImportStatus status);
+    void deleteById(String id);
 }

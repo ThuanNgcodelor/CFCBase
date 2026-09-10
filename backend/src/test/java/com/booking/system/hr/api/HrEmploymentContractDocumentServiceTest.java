@@ -37,7 +37,9 @@ import java.util.zip.ZipInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Answers.CALLS_REAL_METHODS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,7 +58,7 @@ class HrEmploymentContractDocumentServiceTest {
         service = new HrEmploymentContractDocumentService(
                 contractRepository,
                 documentRepository,
-                new HrEmploymentContractTemplateProvider(),
+                mock(HrEmploymentContractTemplateProvider.class, CALLS_REAL_METHODS),
                 auditRepository,
                 new HrImportJsonCodec()
         );

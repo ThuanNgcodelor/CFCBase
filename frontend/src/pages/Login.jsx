@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import SEOHead from '../components/SEOHead';
 import { getRoleLandingPath } from '../utils/roleNavigation';
+import { ocrLoginTarget } from '../utils/hrOcrCapture';
 
 const REMEMBER_KEY = 'cfc_remember_email';
 
@@ -28,7 +29,7 @@ export default function Login() {
 
   const saveAuthData = (data) => {
     authApi.setAuthData(data);
-    navigate(getRoleLandingPath(data?.user?.role || authApi.getRole()), { replace: true });
+    navigate(ocrLoginTarget(window.location.search) || getRoleLandingPath(data?.user?.role || authApi.getRole()), { replace: true });
   };
 
   const handleStandardLogin = async (e) => {

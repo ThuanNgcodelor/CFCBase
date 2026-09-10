@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { lazy, Suspense, useState, useEffect } from 'react';
 import Login from './pages/Login';
@@ -13,6 +13,7 @@ import ServiceWorkerNavigateListener from './components/ServiceWorkerNavigateLis
 import Cookies from 'js-cookie';
 import { authApi } from './api/authApi';
 import { getRoleLandingPath } from './utils/roleNavigation';
+import { ocrLoginPath, ocrLoginTarget } from './utils/hrOcrCapture';
 
 const HrOverview = lazy(() => import('./pages/hr/HrOverview'));
 const HrEmployees = lazy(() => import('./pages/hr/HrEmployees'));
@@ -23,6 +24,7 @@ const HrProbationCandidateForm = lazy(() => import('./pages/hr/HrProbationCandid
 const HrProbationJobTemplateForm = lazy(() => import('./pages/hr/HrProbationJobTemplateForm'));
 const HrGeneralLabor = lazy(() => import('./pages/hr/HrGeneralLabor'));
 const HrGeneralLaborOnboarding = lazy(() => import('./pages/hr/HrGeneralLaborOnboarding'));
+const HrGeneralLaborCapturePhone = lazy(() => import('./pages/hr/HrGeneralLaborCapturePhone'));
 const HrCatalogs = lazy(() => import('./pages/hr/HrCatalogs'));
 const HrImports = lazy(() => import('./pages/hr/HrImports'));
 const HrMovements = lazy(() => import('./pages/hr/HrMovements'));
@@ -66,7 +68,7 @@ const LoginRoute = ({ children }) => {
   if (status === 'refreshing') return <SessionCheckScreen />;
   if (status === 'unavailable') return <SessionCheckScreen unavailable />;
   if (status === 'authenticated' && hasManagementRole()) {
-    return <Navigate to={getRoleLandingPath(authApi.getRole())} replace />;
+    return <Navigate to={ocrLoginTarget(window.location.search) || getRoleLandingPath(authApi.getRole())} replace />;
   }
   if (status === 'authenticated') {
     authApi.discardSession();
@@ -77,6 +79,7 @@ const LoginRoute = ({ children }) => {
 // Component bảo vệ Route Chung (Đã đăng nhập mới vào được)
 // Nếu accessToken hết hạn nhưng còn refreshToken → tự lấy token mới (silent refresh)
 const ProtectedRoute = ({ children }) => {
+  const location = useLocation();
   const accessToken = Cookies.get('accessToken');
   const refreshToken = Cookies.get('refreshToken');
   const [status, setStatus] = useState(accessToken ? 'ok' : refreshToken ? 'refreshing' : 'denied');
@@ -94,11 +97,11 @@ const ProtectedRoute = ({ children }) => {
   }
   if (status === 'unavailable') return <SessionCheckScreen unavailable />;
   if (status === 'denied') {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={ocrLoginPath(location.pathname)} replace />;
   }
   if (!hasManagementRole()) {
     authApi.discardSession();
-    return <Navigate to="/login" replace />;
+    return <Navigate to={ocrLoginPath(location.pathname)} replace />;
   }
   return children;
 };
@@ -150,6 +153,8 @@ function App() {
         </LoginRoute>
       } />
 
+      {/* Phone capture is HR-only, without the desktop dashboard shell. */}
+      <Route path="/manager/hr/general-labor/ocr-capture/:id" element={<HrRoute><HrGeneralLaborCapturePhone /></HrRoute>} />
       {/* Protected Routes */}
       <Route path="/" element={
         <ProtectedRoute>

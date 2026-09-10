@@ -22,7 +22,7 @@ import { HrDrawer } from './HrUi';
 import { hrOcrApi } from '../../api/hrOcrApi';
 import { apiErrorMessage } from '../../utils/hr';
 
-export default function HrOcrModal({ isOpen, onClose, onApply }) {
+export default function HrOcrModal({ isOpen, onClose, onApply, reviewBeforeApply = false }) {
   const [activeTab, setActiveTab] = useState('scan'); // 'scan' | 'settings'
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
@@ -203,7 +203,7 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
     if (onApply) {
       onApply(extractedData);
     }
-    toast.success('Đã tự động điền toàn bộ dữ liệu vào biểu mẫu!');
+    if (!reviewBeforeApply) toast.success('Đã tự động điền toàn bộ dữ liệu vào biểu mẫu!');
     handleClose();
   };
 
@@ -423,7 +423,7 @@ export default function HrOcrModal({ isOpen, onClose, onApply }) {
                 <div className="mt-5 flex justify-end">
                   <Button type="button" size="lg" onClick={handleApplyToForm} className="w-full sm:w-auto">
                     <Check className="mr-1.5 h-5 w-5" />
-                    Áp dụng toàn bộ vào Form
+                    {reviewBeforeApply ? 'Kiểm tra trước khi điền' : 'Áp dụng toàn bộ vào Form'}
                   </Button>
                 </div>
               </div>

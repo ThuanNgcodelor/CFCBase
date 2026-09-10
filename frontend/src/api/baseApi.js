@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { clearAuthCookies, isInvalidRefreshError, setAuthCookies } from './authStorage';
+import { ocrLoginPath } from '../utils/hrOcrCapture';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
@@ -112,7 +113,7 @@ baseApi.interceptors.response.use(
           return Promise.reject(refreshError);
         }
         // Request thông thường: xóa token và redirect về login
-        window.location.href = '/login';
+        window.location.href = ocrLoginPath(window.location.pathname);
         return Promise.reject(refreshError);
       }
     }

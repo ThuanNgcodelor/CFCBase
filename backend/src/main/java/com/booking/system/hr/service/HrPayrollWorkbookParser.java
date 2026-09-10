@@ -40,6 +40,7 @@ public class HrPayrollWorkbookParser {
     private static final String REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private static final Pattern CELL_REF = Pattern.compile("^([A-Z]+)([0-9]+)$");
     private static final Pattern MONTH = Pattern.compile("th[aá]ng\\s*(\\d{1,2})\\s*[/-]\\s*(\\d{4})", Pattern.CASE_INSENSITIVE);
+    private static final Pattern EMPLOYEE_CODE = Pattern.compile("^[A-Z]+[0-9]+$");
     private static final List<String> REQUIRED = List.of("stt", "maNv", "hoTen", "stk", "cong", "tienLuong", "tongThu", "nganHangChuyen");
     private static final Map<String, List<String>> ALIASES = Map.ofEntries(
             Map.entry("stt", List.of("stt")),
@@ -108,10 +109,11 @@ public class HrPayrollWorkbookParser {
                 String code = text(row, columns, "maNv").toUpperCase(Locale.ROOT);
                 String name = text(row, columns, "hoTen");
                 if (normalizeKey(name).contains("tongcong") || normalizeKey(name).contains("congcong")) break;
-                if (text(row, columns, "stt").isBlank() || code.isBlank() || name.isBlank()) {
+                if (code.isBlank() && name.isBlank()) {
                     if (!parsed.isEmpty()) break;
                     continue;
                 }
+                if (code.isBlank() || name.isBlank() || !EMPLOYEE_CODE.matcher(code).matches()) continue;
                 Map<String, Object> values = new LinkedHashMap<>();
                 for (String field : columns.keySet()) {
                     String value = text(row, columns, field);

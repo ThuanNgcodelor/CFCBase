@@ -174,6 +174,19 @@ public class HrPayrollCampaignService {
         return campaignRepository.findByPayrollImportId(importId).map(this::toResponse).orElse(null);
     }
 
+    @Transactional
+    public void deletePreviewImport(String importId) {
+        HrPayrollImport payrollImport = importRepository.findByIdForUpdate(importId)
+                .orElseThrow(() -> HrApiException.notFound("PAYROLL_IMPORT_NOT_FOUND", "Không tìm thấy lần nhập lương."));
+        if (campaignRepository.findByPayrollImportId(importId).isPresent()) {
+            throw HrApiException.conflict("PAYROLL_IMPORT_HAS_CAMPAIGN", "File lương đã tạo đợt gửi nên không thể xoá.");
+        }
+        if (payrollImport.getStatus() != HrPayrollImportStatus.PREVIEWED) {
+            throw HrApiException.conflict("PAYROLL_IMPORT_NOT_PREVIEW", "Chỉ có thể xoá file lương đang ở bước xem trước.");
+        }
+        importRepository.deleteById(importId);
+    }
+
     @Transactional(readOnly = true)
     public HrPayrollDtos.CampaignResponse campaign(String id) { return toResponse(campaignRepository.findById(id).orElseThrow(() -> HrApiException.notFound("PAYROLL_CAMPAIGN_NOT_FOUND", "Không tìm thấy đợt gửi lương."))); }
     @Transactional(readOnly = true)

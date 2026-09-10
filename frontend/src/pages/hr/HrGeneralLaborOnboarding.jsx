@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Camera, HardHat, Save, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, HardHat, Save } from 'lucide-react';
 import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrError, HrPageHeader, HrPageShell, HrReadOnlyNotice } from '../../components/hr/HrUi';
 import HrEmploymentContractFields, { ContractExportButton } from '../../components/hr/HrEmploymentContractFields';
 import HrOcrModal from '../../components/hr/HrOcrModal';
+import HrGeneralLaborCapture from '../../components/hr/HrGeneralLaborCapture';
+import HrOcrReview from '../../components/hr/HrOcrReview';
+import { hrOcrCaptureApi } from '../../api/hrOcrCaptureApi';
+import { applyOcrSelection, isCaptureId, ocrCandidates } from '../../utils/hrOcrCapture';
 import {
   HR_INPUT_CLASS,
   HR_TEXTAREA_CLASS,
@@ -82,6 +86,16 @@ function exportDataError(employee) {
 
 export default function HrGeneralLaborOnboarding() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const captureId = isCaptureId(searchParams.get('capture')) ? searchParams.get('capture') : null;
+  const [showCapture, setShowCapture] = useState(!!captureId);
+  const [ocrReview, setOcrReview] = useState(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const setCaptureSession = (id) => setSearchParams((params) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set('capture', id); else next.delete('capture');
+    return next;
+  }, { replace: true });
   const idempotencyKey = useRef(newIdempotencyKey('general-labor'));
   const [employee, setEmployee] = useState(EMPTY_EMPLOYEE);
   const [contract, setContract] = useState(() => createContractForm());
@@ -92,45 +106,27 @@ export default function HrGeneralLaborOnboarding() {
   const [error, setError] = useState('');
   const [showOcrModal, setShowOcrModal] = useState(false);
 
-  const handleApplyOcrData = (data) => {
-    if (!data) return;
-    setEmployee((prev) => ({
-      ...prev,
-      personal: {
-        ...prev.personal,
-        fullName: data.fullName || prev.personal.fullName,
-        gender: data.gender || prev.personal.gender,
-        dateOfBirth: data.dateOfBirth || prev.personal.dateOfBirth,
-        ethnicity: data.ethnicity || prev.personal.ethnicity,
-        religion: data.religion || prev.personal.religion,
-        birthPlaceOriginal: data.birthPlaceOriginal || prev.personal.birthPlaceOriginal,
-        birthPlaceCurrent: data.birthPlaceCurrent || data.birthPlaceOriginal || prev.personal.birthPlaceCurrent,
-        educationLevel: data.educationLevel || prev.personal.educationLevel,
-        major: data.major || prev.personal.major,
-      },
-      identity: {
-        ...prev.identity,
-        legacyIdentityNumber: data.legacyIdentityNumber || prev.identity.legacyIdentityNumber,
-        citizenIdentityNumber: data.citizenIdentityNumber || prev.identity.citizenIdentityNumber,
-        issuedDate: data.issuedDate || prev.identity.issuedDate,
-        issuedPlace: data.issuedPlace || prev.identity.issuedPlace,
-      },
-      insurance: {
-        ...prev.insurance,
-        socialInsuranceNumber: data.socialInsuranceNumber || prev.insurance.socialInsuranceNumber,
-        healthInsuranceNumber: data.healthInsuranceNumber || prev.insurance.healthInsuranceNumber,
-      },
-      contact: {
-        ...prev.contact,
-        phone: data.phone || prev.contact.phone,
-        personalEmail: data.personalEmail || prev.contact.personalEmail,
-        permanentAddress: data.permanentAddress || prev.contact.permanentAddress,
-        currentAddress: data.currentAddress || data.permanentAddress || prev.contact.currentAddress,
-        emergencyContactName: data.emergencyContactName || prev.contact.emergencyContactName,
-        emergencyContactPhone: data.emergencyContactPhone || prev.contact.emergencyContactPhone,
-        emergencyContactRelation: data.emergencyContactRelation || prev.contact.emergencyContactRelation,
-      },
-    }));
+  const handleApplyOcrData = (data, source = null) => {
+    if (!data || saving) return;
+    setOcrReview({ candidates: ocrCandidates(employee, data), source });
+    setShowCapture(false);
+  };
+
+  const applyReviewedOcr = async (selected) => {
+    if (reviewBusy || saving) return;
+    setReviewBusy(true);
+    try {
+      if (ocrReview.source) {
+        const latest = await hrOcrCaptureApi.get(ocrReview.source.id);
+        if (latest.status !== 'READY' || latest.revision !== ocrReview.source.revision) {
+          throw new Error('Ảnh hoặc phiên chụp đã thay đổi. Mở lại bảng chụp và kiểm tra kết quả mới.');
+        }
+      }
+      setEmployee((prev) => applyOcrSelection(prev, ocrReview.candidates, selected));
+      setOcrReview(null);
+      toast.success('Đã áp dụng thông tin đã chọn. Hãy kiểm tra lại trước khi lưu hồ sơ.');
+    } catch (e) { toast.error(apiErrorMessage(e, e.message || 'Không thể áp dụng kết quả OCR.')); }
+    finally { setReviewBusy(false); }
   };
 
   useEffect(() => {
@@ -208,6 +204,11 @@ export default function HrGeneralLaborOnboarding() {
       const response = await hrOnboardingApi.createGeneralLabor(payload);
       const savedEmployee = response?.employee;
 
+      if (captureId) {
+        try { await hrOcrCaptureApi.close(captureId, true); }
+        catch { toast('Hồ sơ đã lưu. Phiên ảnh tạm chưa đóng được; hệ thống sẽ dọn khi hết hạn.'); }
+      }
+
       try {
         await hrActivityApi.createMovement({
           employeeId: savedEmployee.id,
@@ -254,10 +255,14 @@ export default function HrGeneralLaborOnboarding() {
               type="button"
               variant="secondary"
               onClick={() => setShowOcrModal(true)}
+              disabled={saving}
               className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold"
             >
               <Camera className="mr-1.5 h-4 w-4 text-emerald-600" />
               Quét ảnh hồ sơ (AI OCR)
+            </Button>
+            <Button type="button" disabled={saving} onClick={() => setShowCapture(true)}>
+              <Camera className="mr-1.5 h-4 w-4" />{captureId ? 'Mở phiên chụp điện thoại' : 'Chụp bằng điện thoại'}
             </Button>
             <Button type="button" variant="secondary" onClick={() => navigate('/manager/hr/general-labor')}>
               <ArrowLeft className="mr-1.5 h-4 w-4" />Quay lại
@@ -267,10 +272,16 @@ export default function HrGeneralLaborOnboarding() {
       />
 
       <HrOcrModal
+        reviewBeforeApply
         isOpen={showOcrModal}
         onClose={() => setShowOcrModal(false)}
         onApply={handleApplyOcrData}
       />
+      <HrGeneralLaborCapture id={captureId} onSession={setCaptureSession} isOpen={showCapture}
+        onClose={() => setShowCapture(false)} onReview={handleApplyOcrData} disabled={saving} />
+      {ocrReview && <HrOcrReview candidates={ocrReview.candidates}
+        onApply={applyReviewedOcr} busy={reviewBusy}
+        onClose={() => { if (!reviewBusy) setOcrReview(null); }} />}
 
       <div className="mb-4">
         <HrReadOnlyNotice>

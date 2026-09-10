@@ -51,6 +51,12 @@ public class HrPayrollController {
         return ResponseEntity.ok(ApiResponse.success(payrollService.preview(importId, page, size), "Lấy bản xem trước file lương thành công"));
     }
 
+    @DeleteMapping("/imports/{importId}")
+    public ResponseEntity<ApiResponse<Void>> deletePreviewImport(@PathVariable String importId) {
+        campaignService.deletePreviewImport(importId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã xoá bản xem trước file lương"));
+    }
+
     @PostMapping("/imports/{importId}/campaigns")
     public ResponseEntity<ApiResponse<HrPayrollDtos.CampaignResponse>> createCampaign(
             @AuthenticationPrincipal User principal,
