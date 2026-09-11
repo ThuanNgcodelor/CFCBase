@@ -24,6 +24,8 @@ Các quyết định dưới đây là phạm vi triển khai phiên bản đầ
 7. **Không trừ giờ nghỉ giữa ca trong bước quy đổi công.** Với dữ liệu hiện có, không đủ thông tin để tính giờ nghỉ thực tế. Đi trễ/về sớm được lưu để thống kê và kiểm tra riêng, chưa tự trừ công.
 8. **Ca qua ngày/tháng phải ghép theo thời điểm đầy đủ.** Lượt ra sáng hôm sau thuộc ca bắt đầu hôm trước; mỗi lượt chỉ dùng một lần. Cuối tháng có thể đọc thêm lượt đầu tháng sau nhưng phải ghi công và phụ cấp về tháng/ngày bắt đầu ca.
 9. **Danh mục ca được thu gọn theo thực tế sử dụng:** bỏ `CongNhan` ở dòng số 2 của ảnh, `KCS-Ca1`, `ThoiVu` và `CN-6h-5h`; giữ `HC`, `KCS-Ca2`, `CN-6h-15h`, `CN-6h-18h`, `CN-6h-20h` và `CN-18h-5h`. Ca `CN-6h-18h` có thể hoàn tất khoảng 17:00. Ca đêm `CN-18h-5h` dùng cửa nhận thực tế: vào từ 17:00 đến trước 19:00, ra từ 04:00 đến trước 06:00 sáng hôm sau. Không yêu cầu lượt chấm khớp tuyệt đối tên ca.
+10. **Không có ca nghiệp vụ nối tiếp hoặc kéo dài hơn một ngày.** Phiên bản đầu không suy diễn một ca đặc biệt từ nhiều lượt chấm trong ngày. Nếu file nguồn có hơn hai dấu chấm, vẫn phải giữ nguyên toàn bộ dấu chấm để đối soát, chọn cặp vào/ra theo ca nhận diện và đưa trường hợp xung đột vào danh sách cần kiểm tra.
+11. **Không áp dụng hệ số công riêng cho Chủ nhật hoặc ngày lễ trong chức năng này.** Phép, nghỉ có lương và nghỉ không lương do **anh Thọ xác nhận ở một quy trình riêng**, không thuộc nguồn dữ liệu của chấm công máy và không được tự suy ra từ ngày không có lượt chấm.
 
 Mốc 17:45 là giá trị cấu hình ban đầu được chọn để bao phủ ý “dao động quanh 18:00” và vẫn giữ các ca mẫu kết thúc 17:12–17:34 ở mức 1,5. Khi có thêm ca thực tế sát mốc, người quản lý có thể điều chỉnh cấu hình mà không sửa thuật toán.
 
@@ -153,7 +155,7 @@ Lịch trên do **người dùng cung cấp**, không phải lịch ca ghi sẵn
 | 06:00 → 17:59 hoặc 18:01 | 2 công | Xác nhận mới; coi là khoảng dao động quanh mốc 18:00 |
 | Ca đêm hợp lệ/đã xác nhận | 1,5 công + 50.000 đồng | Phụ cấp ca đêm được lưu riêng khỏi số công |
 
-Mẫu đối chiếu đã thống nhất sử dụng **1,5 công cho 19 ca đêm của Cường**, gồm ca cuối tháng theo xác nhận trên. Do đó kết quả nghiệm thu của mẫu là **45 công + 950.000 đồng phụ cấp ca đêm**. Đây chưa phải bảng hệ số cho ngày lễ, Chủ nhật hoặc các nhóm công nhân khác.
+Mẫu đối chiếu đã thống nhất sử dụng **1,5 công cho 19 ca đêm của Cường**, gồm ca cuối tháng theo xác nhận trên. Do đó kết quả nghiệm thu của mẫu là **45 công + 950.000 đồng phụ cấp ca đêm**. Chức năng này không áp dụng hệ số riêng cho ngày lễ/Chủ nhật; phép và các loại nghỉ được xác nhận ở quy trình riêng của anh Thọ.
 
 ### 3.3 Các mâu thuẫn đã xử lý
 
@@ -283,9 +285,9 @@ Các câu Q01–Q05 đã được người dùng trả lời và chốt thành q
 | Q07 | Có nhóm công nhân/ca nào áp dụng 12 tiếng = 1 công không? Hay phát biểu ban đầu là nhầm? | Giải quyết mâu thuẫn với ví dụ 1,5 và 2 công | Không áp dụng 12 tiếng = 1 công trong phạm vi này. Dùng bảng quy đổi mới. |
 | Q08 | Thiếu lượt vào hoặc ra giữa tháng xử lý thế nào? Không có cả hai lượt thì sao? Ai xác nhận? | Ngoại lệ ca 31 đã chốt không đồng nghĩa được tự điền/tính cho mọi ca thiếu lượt | Thiếu một lượt: cần kiểm tra/xác nhận, giữ giờ thiếu là trống. Không có cả hai lượt: 0 công, không tự tạo ca. |
 | Q09 | Quy tắc ca đêm cuối tháng tính 1,5 có áp dụng toàn bộ công nhân/tháng không? Có thể xuất kèm sáng ngày đầu tháng sau và cuối tháng trước không? | Ghép ca qua ranh giới kỳ và tránh cộng trùng | Ghép lượt đầu tháng sau về ngày bắt đầu ca tháng trước. Nếu vẫn thiếu, người có quyền xác nhận. Ca đêm đã xác nhận được 1,5 công và 50.000 đồng. |
-| Q10 | Có ca nối tiếp/ca kéo dài hơn một ngày hoặc nhiều lần ra vào không? File hai lượt/ngày có giữ đủ lượt gốc không? | Thiếu lượt do báo cáo đã gộp sẽ không thể tái tạo chắc chắn | Chưa trả lời |
+| Q10 | Có ca nối tiếp/ca kéo dài hơn một ngày hoặc nhiều lần ra vào không? File hai lượt/ngày có giữ đủ lượt gốc không? | Thiếu lượt do báo cáo đã gộp sẽ không thể tái tạo chắc chắn | **Không có ca nghiệp vụ nối tiếp hoặc kéo dài hơn một ngày.** Không suy diễn ca đặc biệt từ nhiều lượt chấm. Nếu nguồn có hơn hai dấu chấm, hệ thống giữ toàn bộ để đối soát, ghép theo ca phù hợp và đưa xung đột ra kiểm tra. |
 | Q11 | 1,5/2 công đã bao gồm tăng ca hay tăng ca còn tính riêng? BT, CN, TC có ý nghĩa và đơn vị gì? | Tránh tính cùng thời gian hai lần | Phiên bản đầu coi 1/1,5/2 là kết quả công cuối của ca. Phụ cấp đêm 50.000 đồng tính riêng. Chưa tự tính BT/CN/TC khi chưa có định nghĩa. |
-| Q12 | Chủ nhật/lễ có hệ số riêng? Nguồn xác nhận phép/nghỉ có lương/không lương là đâu? | Không suy ra lý do nghỉ từ lượt vân tay; mẫu có đi làm cuối tuần | Chưa trả lời |
+| Q12 | Chủ nhật/lễ có hệ số riêng? Nguồn xác nhận phép/nghỉ có lương/không lương là đâu? | Không suy ra lý do nghỉ từ lượt vân tay; mẫu có đi làm cuối tuần | **Không có hệ số riêng trong chức năng này.** Phép, nghỉ có lương và nghỉ không lương do anh Thọ xác nhận ở quy trình riêng; chấm công chỉ giữ dữ liệu máy và không tự xác định loại nghỉ. |
 | Q13 | Ca đêm và nghỉ sau ca cần ký hiệu gì trong file xuất? Có cần tổng số ca đêm, công ngày/đêm riêng không? | Chốt nội dung xuất ngoài việc giữ bố cục mẫu | Xuất thêm số ca đêm và tổng phụ cấp ca đêm; chi tiết web hiển thị loại ca. Ngày nghỉ sau ca chỉ có 0 công nếu không bắt đầu ca mới. |
 | Q14 | Nhân viên không có trong danh mục CFCBase, mã trùng hoặc đổi mã được xử lý thế nào? Ai được điều chỉnh và xác nhận bảng công? | Chốt đối chiếu nhân viên và trách nhiệm sửa số liệu | Đối chiếu theo mã nhân viên. Mã thiếu/trùng/không tồn tại phải đưa ra kiểm tra; người quản lý HR xác nhận và mọi điều chỉnh phải lưu lý do/lịch sử. |
 
@@ -306,7 +308,7 @@ Trước khi nghiệm thu production cần lấy thêm vài ca thực tế sát 
 9. Xuất bảng ngang theo mẫu: một người/một dòng, đủ ngày trong kỳ, tổng công, số ca đêm, phụ cấp đêm và các nhóm cột bổ sung có đủ dữ liệu.
 10. Xem trên web và xuất Excel dùng cùng kết quả đã xác nhận. Giữ khả năng đối chiếu ngược mỗi ô công về các lượt chấm và quy tắc đã áp dụng.
 
-Không tự suy ra phép/nghỉ/tăng ca từ file giờ chấm nếu chưa có định nghĩa hoặc nguồn bổ sung. Không chọn mặc định xóa dòng không chấm. Không dùng bảng kết quả lỗi của Time Attendance làm dữ liệu đầu vào tính công mới.
+Không tự suy ra phép/nghỉ từ file giờ chấm. Phép và các loại nghỉ do anh Thọ xác nhận ở quy trình riêng; khi cần tổng hợp cuối kỳ chỉ nhận kết quả đã xác nhận từ quy trình đó, không tự tính lại trong chấm công. Không tự suy ra tăng ca khi chưa có định nghĩa, không chọn mặc định xóa dòng không chấm và không dùng bảng kết quả lỗi của Time Attendance làm dữ liệu đầu vào tính công mới.
 
 ## 9. Mẫu nghiệm thu và việc còn chờ
 
@@ -334,3 +336,178 @@ Không tự suy ra phép/nghỉ/tăng ca từ file giờ chấm nếu chưa có 
 ### Điểm tiếp tục công việc
 
 Có thể bắt đầu đọc source và thiết kế tab **Chấm công công nhân** theo mục 0 và mục 8. Trước khi production cần kiểm thử nhiều nhân viên, đặc biệt các lượt sát cửa 17:45, ca thiếu lượt và ca qua tháng. Phân tích mẫu 45 công chưa tự chứng minh nhận diện đúng cho toàn bộ công nhân.
+
+## 10. Định hướng tổ chức chức năng trong CFCBase
+
+### 10.1 Dữ kiện đã đủ đến mức nào
+
+Dữ kiện hiện tại **đủ để thiết kế kiến trúc, giao diện, cấu hình ca và triển khai bản đầu theo mẫu B124**. Dữ kiện chưa đủ để hệ thống tự xác nhận bảng công production cho mọi người mà không có bước review.
+
+Các phần đã đủ:
+
+- Danh mục ca giữ/bỏ trong mục 2.3.
+- Quy tắc ca ngày 1; 1,5; 2 công và ca đêm 1,5 công.
+- Cửa nhận ca đêm 17:00–trước 19:00 và 04:00–trước 06:00 hôm sau.
+- Phụ cấp đêm 50.000 đồng/ca.
+- Quy tắc ca qua ngày/tháng, giữ dòng không chấm và không tạo giờ giả.
+- Mẫu nghiệm thu B124: 45 công, 19 ca đêm, 950.000 đồng phụ cấp.
+
+Các phần phải tiếp tục xác nhận bằng dữ liệu thực tế trước khi cho tự động chốt:
+
+1. Cửa vào/ra thực tế của `HC`, `KCS-Ca2`, `CN-6h-15h` và `CN-6h-20h`.
+2. Mốc chuyển giữa 1,5 và 2 công trong khoảng sau 17:34 đến 17:59; 17:45 hiện chỉ là cấu hình thử nghiệm.
+3. Quy tắc kỹ thuật chọn cặp giờ khi file nguồn có dấu chấm lặp: giữ toàn bộ lượt gốc, không coi đó là ca nối tiếp và đưa trường hợp ghép không duy nhất ra kiểm tra.
+4. Cách nhận kết quả phép/nghỉ đã được anh Thọ xác nhận từ quy trình riêng nếu sau này cần đưa vào file tổng hợp; chấm công không tự xác nhận các loại nghỉ. Tăng ca vẫn chỉ được bổ sung khi có định nghĩa nghiệp vụ rõ ràng.
+5. Danh sách nhân viên/phòng ban nào dùng nhóm luật hành chính, công nhân hoặc KCS theo từng thời kỳ.
+
+### 10.2 Không nên tạo một hệ thống hoặc bảng dữ liệu cho từng phòng ban
+
+Không nên tách `Công nhân`, `KCS`, từng xí nghiệp hoặc từng phòng ban thành các bộ import và bảng dữ liệu độc lập. Một file `CongXn.xlsx` có nhiều người; nếu tải lại file ở từng tab sẽ dễ tạo bản ghi trùng và cho kết quả khác nhau giữa các màn hình.
+
+Phòng ban nên dùng để:
+
+- Lọc danh sách và báo cáo.
+- Đề xuất nhóm quy tắc mặc định cho nhân viên.
+- Phân quyền hoặc chia người phụ trách review nếu sau này cần.
+
+Quy tắc chấm công phải gắn với **nhóm chính sách chấm công theo nhân viên và thời gian hiệu lực**, không gắn cứng với tên tab hoặc chỉ dựa vào phòng ban. Một người KCS có thể làm giờ hành chính hoặc KCS ca 2; một nhân viên cũng có thể chuyển phòng ban giữa tháng.
+
+### 10.3 Cấu trúc giao diện đề xuất
+
+Menu trái vẫn chỉ có một mục **Chấm công**. Trong màn hình này chia hai tầng:
+
+1. Tab nghiệp vụ chính:
+   - **Hành chính:** giữ nguyên chức năng hiện hành và cấu hình tự điền 07:30/16:30.
+   - **Ca sản xuất:** luồng mới dành cho công nhân và KCS, hỗ trợ ca qua ngày, số công và phụ cấp đêm.
+2. Trong tab **Ca sản xuất** có các chế độ xem dùng chung một nguồn dữ liệu:
+   - **Tất cả**.
+   - **Công nhân**.
+   - **KCS**.
+   - **Cần kiểm tra**.
+
+Như vậy người dùng vẫn có cảm giác Công nhân và KCS là các tab riêng để dễ thao tác, nhưng backend, import và dữ liệu không bị nhân đôi. Phòng ban cụ thể tiếp tục là bộ lọc trên mỗi chế độ xem.
+
+### 10.4 Luồng xử lý đề xuất
+
+1. Chỉ import file nguồn một lần và lưu nguyên bản/checksum để đối soát.
+2. Đối chiếu mã nhân viên với hồ sơ CFCBase để lấy phòng ban và nhóm chính sách. Nếu cột phòng ban trong Excel trống, dùng hồ sơ nhân sự tại ngày chấm công; mã không khớp đưa vào **Cần kiểm tra**.
+3. Lưu từng lượt chấm bằng ngày giờ đầy đủ, sau đó sắp xếp theo nhân viên và thời gian.
+4. Ghép ca qua ngày/tháng, không gán cố định cột Excel là check-in hoặc check-out và không dùng một lượt cho hai ca.
+5. Nhận diện ứng viên ca theo nhóm chính sách:
+   - Hành chính: dùng bộ luật hiện hành.
+   - Công nhân: `CN-6h-15h`, `CN-6h-18h`, `CN-6h-20h`, `CN-18h-5h`.
+   - KCS: HC hoặc `KCS-Ca2`.
+6. Nếu chỉ khớp một ca, tính công và phụ cấp theo cấu hình. Nếu không khớp hoặc khớp nhiều ca, không tự cho 0 mà đưa vào **Cần kiểm tra**.
+7. HR xem giờ gốc, ca hệ thống đề xuất, lý do và kết quả; mọi điều chỉnh phải lưu người sửa, thời gian và lý do.
+8. Chỉ bảng đã xác nhận mới được đưa vào tổng hợp và xuất Excel. Giao diện và file Excel phải dùng cùng một kết quả đã chốt.
+
+### 10.5 Hướng dữ liệu kỹ thuật
+
+Không dùng trực tiếp cấu trúc bản ghi hành chính hiện tại để biểu diễn ca sản xuất. Bản ghi hiện hành chỉ có `work_date`, `LocalTime check_in` và `LocalTime check_out`, nên không thể hiện chắc chắn ca 18:30 hôm trước đến 05:30 hôm sau.
+
+Phần ca sản xuất cần tối thiểu ba lớp dữ liệu dùng chung cho Công nhân và KCS:
+
+- **Import:** file, checksum, kỳ, trạng thái và cấu hình đã dùng.
+- **Lượt chấm gốc:** mã nhân viên, thời điểm đầy đủ, dòng/cột nguồn; dữ liệu bất biến.
+- **Ca đã ghép:** thời điểm bắt đầu/kết thúc, loại ca, số công, phụ cấp đêm, trạng thái tự nhận diện/review/xác nhận và lịch sử điều chỉnh.
+
+Không tạo bảng riêng cho từng phòng ban. Phân biệt bằng `policy_group` như `OFFICE`, `PRODUCTION_WORKER`, `KCS` và `shift_code` của ca đã nhận diện. Cách này cho phép thêm phòng ban hoặc chuyển nhân viên mà không phải tạo thêm tab, bảng và thuật toán mới.
+
+### 10.6 Thứ tự triển khai đề xuất
+
+1. **Nền dữ liệu:** migration cho import ca sản xuất, lượt chấm gốc, ca đã ghép, cấu hình ca và lịch sử điều chỉnh; seed đúng danh mục ca đã chốt.
+2. **Đọc file:** parser `CongXn.xlsx`, đối chiếu mã nhân viên và lưu toàn bộ lượt gốc trước khi tính.
+3. **Máy ghép ca:** ghép qua ngày/tháng, áp dụng từng nhóm chính sách và viết kiểm thử từ mẫu B124 cùng các cặp ca đêm đã xác nhận.
+4. **Review trên web:** tab Hành chính/Ca sản xuất; chế độ xem Công nhân/KCS/Cần kiểm tra; cho phép chọn lại ca hoặc xác nhận ngoại lệ nhưng không sửa giờ máy.
+5. **Chốt và xuất:** xác nhận batch, tổng công, số ca đêm, phụ cấp đêm và xuất Excel từ cùng dữ liệu đã xác nhận.
+6. **Nghiệm thu:** chạy toàn bộ 9 người trong file mẫu, soát các mốc biên và chỉ bật tự động chốt sau khi HR duyệt kết quả.
+
+## 11. Rà soát bộ file chấm công các phòng ban tháng 08/2026
+
+Nguồn rà soát: thư mục `FileChamCong/`, gồm 9 file do Time Attendance xuất. Đây là phân tích tĩnh trên file, chưa đối chiếu danh sách miễn chấm đang lưu trong DB production.
+
+### 11.1 Cấu trúc và quy mô
+
+| File | Nhân viên | Dòng dữ liệu | Số cột | Ngày không có lượt | Ngày có 1 lượt | Ngày có từ 2 lượt |
+|---|---:|---:|---:|---:|---:|---:|
+| KCS T8.2026.xlsx | 14 | 434 | 9 | 98 | 16 | 320 |
+| KD T8.2026.xlsx | 13 | 403 | 9 | 286 | 11 | 106 |
+| KHVT T8.2026.xlsx | 18 | 558 | 9 | 254 | 23 | 281 |
+| KTCD T8.2026.xlsx | 8 | 248 | 9 | 70 | 17 | 161 |
+| KTTC T8.2026.xlsx | 8 | 248 | 8 | 73 | 20 | 155 |
+| PTC T8.2026.xlsx | 8 | 248 | 10 | 86 | 18 | 144 |
+| VP KHO T8.2026.xlsx | 11 | 341 | 9 | 45 | 25 | 271 |
+| VPXNHC T8.2026.xlsx | 7 | 217 | 8 | 72 | 8 | 137 |
+| XNK T8.2026.xlsx | 2 | 62 | 8 | 23 | 0 | 39 |
+| **Tổng** | **89** | **2.759** | **8–10** | **1.007** | **138** | **1.614** |
+
+Các kết luận về cấu trúc:
+
+- Mỗi mã nhân viên có đúng 31 dòng, đủ ngày 01–31/08/2026.
+- Có 89 mã duy nhất và không có mã nào xuất hiện trong hai file khác nhau.
+- Tất cả giá trị cột `Phòng Ban` trong 2.759 dòng đều trống. Hệ thống phải lấy phòng ban từ hồ sơ CFCBase hoặc quy ước nguồn file, không thể dựa vào cột này.
+- Tất cả file dùng dòng tiêu đề 2, ngày dạng `dd-MMM-yy` và các lượt chấm bắt đầu từ cột G.
+- Số cột lượt chấm không cố định: có file đến H, I hoặc J. Parser phải đọc danh sách cột cấu hình và không mặc định chỉ có hai lượt.
+- Hai tên có chuỗi rác `_x0000_` trong Excel (`00113`, `00105`). Mã nhân viên vẫn dùng được làm khóa; tên cần làm sạch khi hiển thị và không được dùng làm khóa đối chiếu.
+
+### 11.2 Người ít chấm trong KD và KHVT
+
+File chỉ chứng minh số lượt chấm ít; việc những người này đi công tác là dữ kiện người dùng cung cấp. Không tự miễn chấm chỉ dựa trên ngưỡng số ngày.
+
+Các mã nổi bật trong KD:
+
+| Mã | Họ tên | Ngày có lượt chấm/31 |
+|---|---|---:|
+| 00113 | Mạch Chí Thiện | 0 |
+| A403 | Ngô Văn Tài | 3 |
+| A418 | Lê Thanh Đạm | 4 |
+| A367 | Lương Phú Vinh | 5 |
+| H062 | Lê Bằng Thẳng | 5 |
+| A246 | Trần Minh Giàu | 7 |
+| A327 | Lê Trung Hiếu | 7 |
+| A380 | Nguyễn Hoài Phong | 8 |
+| A283 | Cao Văn Được | 9 |
+| A344 | Lê Trọng Nhơn | 10 |
+| A328 | Huỳnh Phú Nhân | 14 |
+
+Các mã nổi bật trong KHVT:
+
+| Mã | Họ tên | Ngày có lượt chấm/31 |
+|---|---|---:|
+| A279 | Nguyễn Thanh Duy | 2 |
+| A419 | Nguyễn Trương Bình Nguyên | 8 |
+| C562 | Trần Ngọc Sáng | 8 |
+| P009 | Lê Minh Tuấn | 8 |
+| A339 | Lê Minh Toàn | 13 |
+| A369 | Phan Thanh Trường | 17 |
+
+Các danh sách trên là ứng viên để đối chiếu với cấu hình, **không phải danh sách hệ thống được phép tự động loại**. PTC còn có A154 chỉ chấm 7/31 ngày, nên việc ít chấm không chỉ xuất hiện ở KD/KHVT và càng không thể dùng một ngưỡng chung để kết luận đi công tác.
+
+### 11.3 File KCS xác nhận không thể gắn một ca cứng cho cả phòng ban
+
+Trong cùng file KCS có cả mẫu giờ hành chính và mẫu KCS ca 2:
+
+- A057 có phần lớn ngày vào khoảng 13:00 và ra khoảng 22:00, nhưng vẫn có ngày giống giờ hành chính và ngày thiếu một lượt.
+- A061 có phần lớn ngày giống giờ hành chính nhưng cũng có ngày giống KCS ca 2.
+- Nhiều nhân viên KCS khác chủ yếu theo giờ hành chính.
+
+Điều này củng cố thiết kế ở mục 10: KCS có thể là một chế độ xem riêng, nhưng hệ thống phải nhận diện/chọn ca theo từng ngày. Không gắn toàn bộ phòng KCS vào `KCS-Ca2` và không tạo bảng import riêng chỉ vì tên phòng ban.
+
+### 11.4 Cách xử lý người đi công tác/miễn chấm
+
+Source hiện tại đã có danh sách `excludedEmployeeCodes`:
+
+- Khi import, mã khớp danh sách được lưu trạng thái `EXCLUDED` và `work_value = 0`.
+- File bảng công quy đổi `EXCLUDED` thành 0.
+- Dòng gốc vẫn được giữ để đối soát.
+
+Luồng tổng hợp tháng hiện loại bản ghi `EXCLUDED` trước khi tạo dòng nhân viên, nên mã miễn chấm không nằm trong tổng số nhân viên/KPI của báo cáo tổng hợp. Tuy nhiên file Bảng Công xuất trực tiếp từ từng lần import vẫn giữ dòng đó với giá trị 0 để đối soát. Hướng hoàn thiện nên là:
+
+1. Giữ dữ liệu gốc và trạng thái miễn chấm trong lịch sử import.
+2. Mặc định không đưa mã miễn chấm vào tổng số nhân viên, KPI và file bảng công chính.
+3. Có tùy chọn **Hiện người miễn chấm** khi HR cần đối soát.
+4. Lưu miễn chấm theo mã nhân viên, lý do và thời gian hiệu lực thay vì chỉ một chuỗi mã toàn cục. Cách này tránh loại nhầm người khi họ chỉ đi công tác trong một giai đoạn.
+
+Danh sách miễn chấm hiện được chụp lại và áp dụng tại thời điểm import. Đổi cấu hình sau đó không tính lại batch cũ; tải lại đúng file cũng trả về batch có cùng SHA-256. Vì vậy cần chức năng **Tính lại theo cấu hình mới** hoặc bắt buộc xóa batch cũ rồi import lại trong lúc hệ thống chưa có chức năng này.
+
+Không thể xác nhận các mã KD/KHVT nào đang thực sự có trong cấu hình production chỉ bằng file Excel hoặc source. Cần đối chiếu danh sách cấu hình đang lưu trên hệ thống trước khi nghiệm thu.

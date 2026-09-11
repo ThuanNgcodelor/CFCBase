@@ -1,6 +1,6 @@
 # CFCBase — Master Context hiện hành
 
-> **Ngày cập nhật theo source:** 07/09/2026 (Asia/Ho_Chi_Minh)
+> **Ngày cập nhật theo source:** 11/09/2026 (Asia/Ho_Chi_Minh)
 > **Mục đích:** bản đồ duy nhất để hiểu, vận hành và tiếp tục phát triển repository CFCBase.
 > **Nguyên tắc:** code, migration và cấu hình hiện tại là nguồn sự thật; tài liệu cũ hoặc ảnh giao diện chỉ dùng để đối chiếu.
 
@@ -13,7 +13,7 @@ CFCBase là hệ thống web nội bộ của CFC. Từ 27/07/2026, phạm vi ph
 | HR core | Đang phát triển | Hồ sơ, biến động, roster, danh mục, hợp đồng, tài liệu, thử việc, LĐPT |
 | OCR hồ sơ | Đã có | Gemini/Groq cấu hình trong `hr_system_settings`, key lấy từ DB hoặc env |
 | Payroll Telegram | Đã có | Import Excel → campaign → gửi/retry qua bot; nhân viên dùng Telegram, không dùng React HR |
-| Attendance | MVP đã có | Multi-file, nhận diện ngày, tự điền lượt thiếu, giữ dòng không chấm, xuất file và xóa import |
+| Attendance | Hành chính đã có; ca sản xuất backend Phase 1–4 | Hành chính giữ luồng cũ; Công nhân/KCS đã có import, matcher, review, sự cố và miễn chấm, chưa có UI/export riêng |
 | Tổng hợp đi trễ/TONGHOP Attendance | Đã có bản CFCBase | Chỉ tính batch đã xác nhận, có KPI/lọc/xuất Excel; Apps Script vẫn là nguồn đối chiếu nghiệp vụ |
 | Google Apps Script ngày phép | API đọc đã có | `/api/v1/hr/sync/leave-roster` hiện được permit trong Security; cần bổ sung cơ chế secret/API key khi harden |
 | Booking phòng/xe | Đóng băng | Không xóa code/bảng/route legacy; frontend cũ đã redirect các URL chính về HR |
@@ -31,7 +31,7 @@ flowchart TB
     Security --> Legacy[Legacy booking/auth/notification controllers]
     HR --> MySQL[(MySQL 8 booking_db)]
     HR --> Redis[(Redis 7 token + OTP/session data)]
-    Backend --> Flyway[Flyway V1..V19]
+    Backend --> Flyway[Flyway V1..V21]
     HR --> Gemini[Google Gemini REST]
     HR --> Groq[Groq OpenAI-compatible REST]
     HR --> Telegram[Telegram Bot API/webhook]
@@ -43,7 +43,7 @@ flowchart TB
 
 - Backend: Spring Boot **4.0.0**, Java **21**, Spring MVC, JPA/Hibernate, Security, WebSocket/STOMP, Redis, Mail, Actuator.
 - Database: MySQL 8; các đối tượng HR do Flyway sở hữu. `LegacySchemaFilterProvider` ngăn Hibernate tự tạo/sửa/xóa bảng `hr_*`.
-- Migration hiện có: **V1 đến V19**, tổng cộng **34 bảng `hr_*`** được tạo bởi các migration. V17 thêm kho mẫu Word, V18 thêm snapshot tin nhắn lương, V19 thêm phiên sửa Word. Tích hợp ONLYOFFICE mặc định tắt; [hướng dẫn bật](HR_WORD_EDITOR_SETUP.md). Chưa deploy/kiểm thử Document Server live.
+- Migration hiện có: **V1 đến V21**, tổng cộng **46 bảng `hr_*`** được tạo bởi các migration. V17 thêm kho mẫu Word, V18 thêm snapshot tin nhắn lương, V19 thêm phiên sửa Word, V20 thêm OCR realtime cho LĐ phổ thông và V21 thêm pipeline chấm công ca sản xuất. Tích hợp ONLYOFFICE mặc định tắt; [hướng dẫn bật](HR_WORD_EDITOR_SETUP.md). Chưa deploy/kiểm thử Document Server live.
 - File Excel/DOCX: Apache POI 5.4.1; hợp đồng DOCX dùng mẫu classpath mặc định hoặc phiên bản active trong kho DB. `HrDocxEngine` thay biến xuyên qua các Word run. Hướng dẫn và giới hạn hiện hành: [Word và Payroll](HR_WORD_PAYROLL_GUIDE.md).
 - Frontend: React **19.2**, React Router **7**, Vite **8**, Tailwind CSS **4**, Axios, `react-datepicker`, `xlsx`, Lucide, PWA Workbox.
 - Token: access JWT ngắn hạn, refresh JWT lưu cookie/Redis; mọi API HR yêu cầu principal ADMIN hoặc MANAGER, trừ các route được permit riêng.
@@ -111,7 +111,7 @@ CFCBase/
 │       │           HrPayroll*, HrTelegram*, HrSystem/Telegram client)
 │       ├── main/resources/
 │       │   ├── application.properties
-│       │   ├── db/migration/V1__...sql đến V15__...sql
+│       │   ├── db/migration/V1__...sql đến V21__...sql
 │       │   └── hr/templates/ (employment-contract-general-labor-template.docx,
 │       │       employment-contract-office-template.docx, labor-book-template.xlsx,
 │       │       probation-contract-template.docx, workforce-export-template.xlsx)
@@ -202,6 +202,19 @@ Phase 3 bổ sung tab Lịch sử trong hồ sơ: biến động theo nhân sự
 
 Phần tổng hợp cốt lõi của Apps Script **Lateness → TONGHOP** đã có trong CFCBase; các dashboard biểu đồ chuyên sâu vẫn là phần mở rộng. Kế hoạch chi tiết nằm ở [ATTENDANCE_MIGRATION_PLAN.md](ATTENDANCE_MIGRATION_PLAN.md). Lưu ý script `verify-hr-phase1.sh` vẫn kiểm tra bộ 15 bảng Phase 1, không phải toàn bộ 31 bảng sau V16; cần cập nhật trước khi dùng làm healthcheck tổng.
 
+### 5.1 Chấm công ca sản xuất — backend Phase 1–4
+
+V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi luồng hành chính V15/V16:
+
+- Giữ bất biến mọi dòng ngày và lượt chấm gốc G–J; không tự tạo giờ chấm giả.
+- Policy `OFFICE`, `PRODUCTION_WORKER`, `KCS`; miễn chấm là ngoại lệ có thời hạn riêng.
+- Matcher ghép ca cùng ngày, qua ngày và đầu tháng kế tiếp; import tháng mới tự tính lại batch `PREVIEWED` tháng trước có cùng mã nhân viên, đồng thời ngăn dùng trùng lượt ra đầu tháng giữa hai batch. Kết quả chỉ nhận 0/1/1,5/2 công.
+- Ca đêm `CN_18_5` nhận 1,5 công và 50.000 đồng; trường hợp thiếu/mơ hồ đi vào `NEEDS_REVIEW`.
+- Có tính lại theo revision, quyết định có lý do, history trước/sau, sự cố máy draft/analyze/confirm/cancel và miễn chấm tạo/hủy.
+- Đã kiểm thử local B124: đủ 31 ngày, tổng 45 công, 19 ca đêm, phụ cấp 950.000 đồng; ngày 31 thiếu lượt ra vẫn giữ trống và cần review/sự cố xác nhận.
+
+API backend nằm dưới `/api/v1/hr/attendance/production`. Giao diện Phase 5, tổng hợp/export Phase 6 và shadow nghiệm thu production Phase 7 vẫn chưa triển khai. Chi tiết: [WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md).
+
 ## 6. Phân quyền và đăng nhập
 
 `RoleEnum` hiện có `ADMIN`, `MANAGER`, `EMPLOYEE`; `UserStatus` có trạng thái active/pending/rejected/inactive.
@@ -246,6 +259,7 @@ Frontend `App.jsx` dùng `ProtectedRoute`, `AdminRoute`, `HrRoute`; `roleNavigat
 - Payroll: `/api/v1/hr/payroll/imports` GET/POST, preview, campaigns POST, campaign GET/start/deliveries/retry.
 - Telegram: `/api/v1/hr/telegram/settings` GET/PUT, test-connection, common-link, registrations, employees, summary, verify/reject/revoke, export; webhook `/api/v1/integrations/telegram/payroll/webhook`.
 - Attendance: `/api/v1/hr/attendance/settings` GET/PUT; `/imports` POST, `/imports/batch` POST, list, preview, confirm, export, cong-export, delete; `/summary` và `/summary/export`.
+- Attendance ca sản xuất: `/api/v1/hr/attendance/production` gồm shift-policies, employee-policies, exemptions, imports/recalculate/confirm/punches, shifts/decision/adjustments/bulk-confirm và incidents/analyze/confirm/cancel.
 - Leave sync: `GET /api/v1/hr/sync/leave-roster?period=&activeOnly=`.
 
 ### Legacy/frozen endpoints
@@ -257,6 +271,8 @@ Room/car booking (`/api/v1/bookings/rooms`, `/cars`), approval (`/api/v1/approva
 ### 8.1 31 bảng HR hiện có trong V1–V16
 
 `hr_excel_template_versions`, `hr_excel_import_batches`, `hr_excel_import_rows`, `hr_departments`, `hr_positions`, `hr_working_conditions`, `hr_employees`, `hr_employee_employment`, `hr_employee_identity`, `hr_employee_insurance`, `hr_employee_contacts`, `hr_employee_movements`, `hr_monthly_rosters`, `hr_monthly_roster_items`, `hr_audit_events`, `hr_probation_job_templates`, `hr_probation_candidates`, `hr_probation_contracts`, `hr_employee_leave_entitlements`, `hr_employment_contracts`, `hr_employment_contract_documents`, `hr_employee_documents`, `hr_system_settings`, `hr_telegram_registrations`, `hr_employee_telegram_bindings`, `hr_payroll_imports`, `hr_payroll_import_rows`, `hr_payroll_campaigns`, `hr_payroll_deliveries`, `hr_attendance_imports`, `hr_attendance_records`.
+
+V17–V21 bổ sung 15 bảng, đưa tổng hiện tại lên 46: kho phiên bản mẫu Word, phiên ONLYOFFICE, OCR capture và 10 bảng chấm công ca sản xuất (`hr_attendance_shift_policies`, `hr_attendance_work_credit_rules`, `hr_employee_attendance_policies`, `hr_production_attendance_imports`, `hr_attendance_source_days`, `hr_attendance_punches`, `hr_attendance_incidents`, `hr_attendance_shifts`, `hr_attendance_shift_adjustments`, `hr_attendance_exemptions`).
 
 ### 8.2 Lịch sử migration
 
@@ -276,6 +292,11 @@ Room/car booking (`/api/v1/bookings/rooms`, `/cars`), approval (`/api/v1/approva
 | V14 | Import payroll, campaign, delivery |
 | V15 | Import/record/configuration Attendance |
 | V16 | Xác nhận batch Attendance, bộ đếm trạng thái, cấu hình tự điền và index tổng hợp tháng |
+| V17 | Kho revision mẫu Word |
+| V18 | Snapshot nội dung phiếu lương Telegram |
+| V19 | Phiên chỉnh sửa Word qua ONLYOFFICE |
+| V20 | Phiên OCR realtime hai thiết bị cho LĐ phổ thông |
+| V21 | Chấm công ca sản xuất: raw day/punch, policy, matcher result, incident, exemption và adjustment |
 
 Flyway cấu hình `baseline-on-migrate` mặc định false, `clean-disabled=true`, `out-of-order=false`. Database legacy chỉ được baseline sau backup đã kiểm tra; không chạy `clean` trên dữ liệu thật.
 
@@ -308,6 +329,7 @@ Không ghi token Cloudflare, Telegram, JWT, SMTP, VAPID hay database password v�
 - Backend có test unit/API/schema/migration cho auth, dashboard, HR import/workforce/probation/document/OCR/leave và legacy service.
 - Frontend có lệnh `npm run lint` và `npm run build`; baseline gần nhất build/lint đạt, còn một số cảnh báo unused hiện hữu.
 - Ngày 07/09/2026: `./mvnw test` đạt 139 test, 0 failure/error, 1 skipped; schema fixture đến V16. Mockito/Byte Buddy self-attach bị chặn trong sandbox; chạy ngoài sandbox đã đạt. Frontend build/lint và test JavaScript nhắc hạn đạt, còn 11 cảnh báo unused hiện hữu. Chưa nghiệm thu UI trực quan vì Browser chưa kết nối.
+- Ngày 11/09/2026: backend Phase 1–4 chấm công ca sản xuất đã qua full test local đến V21; số liệu kiểm thử chính xác được ghi tại [WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md). Chưa triển khai Phase 5 UI, Phase 6 export hoặc shadow production.
 - Các kiểm tra trên là static/unit; chưa chứng minh Cloudflare, Telegram, Gemini/Groq, Google Drive/Apps Script hay database production đang reachable.
 
 ## 12. Khoảng trống và roadmap ưu tiên
