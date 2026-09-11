@@ -2,7 +2,7 @@
 
 - Ngày lưu: **11/09/2026**.
 - Dự án: **CFCBase**.
-- Trạng thái: **Đã chốt quy tắc nền cho phiên bản đầu; còn kiểm thử thêm các trường hợp biên trước khi triển khai**.
+- Trạng thái: **Đã cập nhật quy tắc nền và danh mục ca theo ngữ cảnh mới; chờ người dùng/HR review các mục còn đánh dấu chưa rõ**.
 - Phạm vi: chức năng **Chấm công công nhân** trong một tab riêng.
 - Mục đích: giữ lại dữ kiện của cuộc trao đổi để HR trả lời và người tiếp tục công việc không phải suy đoán lại.
 - Hiện tại chỉ lưu tài liệu nghiệp vụ. Chưa triển khai tab công nhân, chưa sửa cách tính chấm công hiện hành và chưa thay đổi hai file Excel gốc.
@@ -19,12 +19,15 @@ Các quyết định dưới đây là phạm vi triển khai phiên bản đầ
    - Kết thúc quanh 18:00, gồm hai ví dụ 17:59 và 18:01: 2 công.
    - Để biểu diễn “khoảng dao động”, phiên bản đầu dùng cửa nhận mốc 18:00 từ **17:45 trở đi**; đây là cấu hình có thể điều chỉnh. Ra muộn hơn vẫn tối đa 2 công nếu không có quy tắc khác được duyệt.
 4. **Không làm tròn số công thập phân bằng công thức chung.** Sau khi nhận diện ca/mốc checkout, kết quả được chuẩn hóa trực tiếp về 1; 1,5; hoặc 2. Vì vậy các kết quả cũ 1,40–1,45 thuộc nhóm 1,5 sẽ thành 1,5; không áp dụng kiểu cứ có số lẻ là làm tròn lên.
-5. **Ca đêm:** nhận diện từ lượt vào chiều/tối và lượt ra sáng hôm sau, tính cho ngày bắt đầu ca. Một ca đêm hợp lệ hoặc đã được người có quyền xác nhận được tính **1,5 công và 50.000 đồng phụ cấp ca đêm**.
+5. **Ca đêm:** nhận diện từ lượt vào trong khoảng **17:00 đến trước 19:00** và lượt ra trong khoảng **04:00 đến trước 06:00 sáng hôm sau**, tính cho ngày bắt đầu ca. Vì vậy vào lúc 18 giờ mấy và ra lúc 04 giờ mấy vẫn là ca đêm hợp lệ. Một ca đêm hợp lệ hoặc đã được người có quyền xác nhận được tính **1,5 công và 50.000 đồng phụ cấp ca đêm**.
 6. **Phụ cấp ca đêm lưu riêng:** `số ca đêm × 50.000 đồng`; không cộng 50.000 vào số công và không gộp vào cột tăng ca. Ca đêm thiếu một lượt chỉ nhận phụ cấp sau khi được xác nhận. Ca 31/08 của mẫu Cường đã được xác nhận 1,5 công nên cũng thuộc diện hưởng 50.000 đồng.
 7. **Không trừ giờ nghỉ giữa ca trong bước quy đổi công.** Với dữ liệu hiện có, không đủ thông tin để tính giờ nghỉ thực tế. Đi trễ/về sớm được lưu để thống kê và kiểm tra riêng, chưa tự trừ công.
 8. **Ca qua ngày/tháng phải ghép theo thời điểm đầy đủ.** Lượt ra sáng hôm sau thuộc ca bắt đầu hôm trước; mỗi lượt chỉ dùng một lần. Cuối tháng có thể đọc thêm lượt đầu tháng sau nhưng phải ghi công và phụ cấp về tháng/ngày bắt đầu ca.
+9. **Danh mục ca được thu gọn theo thực tế sử dụng:** bỏ `CongNhan` ở dòng số 2 của ảnh, `KCS-Ca1`, `ThoiVu` và `CN-6h-5h`; giữ `HC`, `KCS-Ca2`, `CN-6h-15h`, `CN-6h-18h`, `CN-6h-20h` và `CN-18h-5h`. Ca `CN-6h-18h` có thể hoàn tất khoảng 17:00. Ca đêm `CN-18h-5h` dùng cửa nhận thực tế: vào từ 17:00 đến trước 19:00, ra từ 04:00 đến trước 06:00 sáng hôm sau. Không yêu cầu lượt chấm khớp tuyệt đối tên ca.
 
 Mốc 17:45 là giá trị cấu hình ban đầu được chọn để bao phủ ý “dao động quanh 18:00” và vẫn giữ các ca mẫu kết thúc 17:12–17:34 ở mức 1,5. Khi có thêm ca thực tế sát mốc, người quản lý có thể điều chỉnh cấu hình mà không sửa thuật toán.
+
+Trong tài liệu này, câu **“bỏ số 2”** đang được hiểu là bỏ dòng thứ 2 trong danh sách ca của ảnh (`CongNhan 06:00–04:00`), **không phải bỏ mức 2 công**. Ký hiệu `CN` trong các tên `CN-...` được hiểu là **Công nhân**, không phải Chủ nhật, theo ngữ cảnh của danh sách ca. Hai cách hiểu này được ghi rõ để người dùng sửa lại nếu ý ban đầu khác.
 
 ## 1. Kết luận và giới hạn đã thống nhất
 
@@ -95,22 +98,33 @@ c69e6efd2af006a5c9589cdb96d3d71e1d80cae15f346ee1f214c73d1caef3cf
 
 ### 2.3 Ảnh cấu hình Time Attendance Pro
 
-Người dùng gửi ảnh màn hình `Ca làm việc`. Bảng bên trái hiển thị các mục sau; tên và giá trị chỉ ghi lại theo ảnh, **không coi là quy tắc mới đã được phê duyệt**:
+Người dùng gửi ảnh màn hình `Ca làm việc`. Bảng dưới giữ nguyên dữ liệu nhìn thấy trong ảnh để truy vết, đồng thời thêm hướng xử lý mới. Giá trị cũ không tự động trở thành công thức tính của CFCBase.
 
-| Tên ca trong ảnh | Giờ vào | Giờ ra | Giờ | Công |
-|---|---|---|---:|---:|
-| HC | 07:30 | 16:30 | 8 | 1 |
-| CongNhan | 06:00 | 04:00 | 22 | 4 |
-| KCS-Ca1 | 07:30 | 22:30 | 15 | 1,5 |
-| KCS-Ca2 | 13:00 | 22:00 | 9 | 1 |
-| ThoiVu | 06:00 | 05:00 | 23 | 4 |
-| CN-6h-15h | 06:00 | 15:00 | 9 | 1 |
-| CN-6h-18h | 06:00 | 18:00 | 12 | 1,5 |
-| CN-6h-20h | 06:00 | 20:00 | 14 | 2 |
-| CN-6h-5h | 06:00 | 05:00 | 23 | 3,5 |
-| CN-18h-5h | 18:00 | 05:00 | 11 | 1,5 |
+| STT trong ảnh | Tên ca trong ảnh | Giờ vào | Giờ ra | Công cũ | Hướng xử lý khi review CFCBase |
+|---:|---|---|---|---:|---|
+| 1 | HC | 07:30 | 16:30 | 1 | Giữ làm lựa chọn giờ hành chính, gồm trường hợp nhân sự KCS làm hành chính. |
+| 2 | CongNhan | 06:00 | 04:00 | 4 | **Bỏ khỏi danh mục cấu hình mới.** Đây là cách hiểu của yêu cầu “bỏ số 2”. |
+| 3 | KCS-Ca1 | 07:30 | 22:30 | 1,5 | **Bỏ khỏi danh mục cấu hình mới.** |
+| 4 | KCS-Ca2 | 13:00 | 22:00 | 1 | Giữ như một lựa chọn của KCS; KCS có thể làm ca 2 hoặc giờ hành chính. |
+| 5 | ThoiVu | 06:00 | 05:00 | 4 | **Bỏ khỏi danh mục cấu hình mới.** |
+| 6 | CN-6h-15h | 06:00 | 15:00 | 1 | **Giữ trong danh mục cấu hình mới.** |
+| 7 | CN-6h-18h | 06:00 | 18:00 | 1,5 | Giữ như nhóm ca ngày; giờ ra thực tế có thể khoảng 17:00 vì người lao động đã hoàn tất việc. Không bắt buộc đúng 18:00. |
+| 8 | CN-6h-20h | 06:00 | 20:00 | 2 | **Giữ trong danh mục cấu hình mới.** |
+| 9 | CN-6h-5h | 06:00 | 05:00 | 3,5 | **Bỏ khỏi danh mục cấu hình mới.** |
+| 10 | CN-18h-5h | 18:00 | 05:00 | 1,5 | **Giữ.** Cửa nhận thực tế: vào từ 17:00 đến trước 19:00, ra từ 04:00 đến trước 06:00 sáng hôm sau. Trường hợp vào lúc 18 giờ mấy và ra lúc 04 giờ mấy vẫn tính 1,5 công và hưởng 50.000 đồng phụ cấp đêm. |
 
-Ảnh chưa chứng minh cửa nhận lượt vào/ra, lịch phân ca và các tùy chọn của ca đang áp dụng cho Cường. Không thể chỉ từ ảnh này kết luận chính xác nguyên nhân rớt công.
+Ảnh chưa chứng minh cửa nhận lượt vào/ra, lịch phân ca và các tùy chọn của ca đang áp dụng cho từng người. Vì CFCBase chỉ nhận file chấm công, tên ca trên chỉ giúp xây dựng cửa nhận diện; không được coi là lịch phân ca thực tế.
+
+Các tổ hợp ca đêm đã được xác nhận rõ để dùng làm mẫu kiểm thử:
+
+| Giờ vào | Giờ ra hôm sau | Kết quả |
+|---|---|---|
+| 17:30 | 04:30 | 1,5 công + 50.000 đồng phụ cấp đêm |
+| 17:30 | 05:30 | 1,5 công + 50.000 đồng phụ cấp đêm |
+| 18:30 | 04:30 | 1,5 công + 50.000 đồng phụ cấp đêm |
+| 18:30 | 05:30 | 1,5 công + 50.000 đồng phụ cấp đêm |
+
+Các ví dụ trên xác nhận hệ thống xét theo **cửa thời gian**, không yêu cầu đúng cặp 18:00–05:00 và không giảm công vì chênh lệch trong cửa đã cho phép.
 
 ## 3. Các phát biểu và xác nhận của người dùng
 
@@ -261,11 +275,11 @@ Các câu Q01–Q05 đã được người dùng trả lời và chốt thành q
 | Mã | Câu hỏi cần HR xác nhận | Vì sao cần | HR trả lời |
 |---|---|---|---|
 | Q01 | Có bảng phân ca theo người/ngày/tổ không? Ca có luân phiên theo chu kỳ hay đổi linh hoạt? Nếu không có bảng, HR đang xác định ca bằng cách nào? | 05:50 có thể là vào ca ngày hoặc ra ca đêm; không luôn nhận diện chắc chắn chỉ từ một dòng | Trưởng ca phân ca nhưng hệ thống không có dữ liệu phân ca. Phiên bản đầu nhận diện từ lượt chấm; ca mơ hồ đưa ra kiểm tra thủ công. |
-| Q02 | Danh sách ca đang áp dụng, giờ chuẩn bắt đầu/kết thúc và công cho mỗi ca? Đêm 17–05 và 18–05 có phải hai ca khác nhau không? | Ảnh cũ, mô tả và giờ thực tế chưa đồng nhất | Phạm vi đầu dùng hai nhóm nhận diện: ca ngày bắt đầu khoảng 06:00 và ca đêm vào chiều/tối, ra sáng hôm sau. 17–05 và 18–05 là biến thể ca đêm, cùng mức 1,5 công. |
+| Q02 | Danh sách ca đang áp dụng, giờ chuẩn bắt đầu/kết thúc và công cho mỗi ca? Đêm 17–05 và 18–05 có phải hai ca khác nhau không? | Ảnh cũ, mô tả và giờ thực tế chưa đồng nhất | Loại `CongNhan` dòng 2, `KCS-Ca1`, `ThoiVu` và `CN-6h-5h`. Giữ `HC`, `KCS-Ca2`, `CN-6h-15h`, `CN-6h-18h`, `CN-6h-20h` và `CN-18h-5h`. `CN-6h-18h` có thể ra khoảng 17:00. `CN-18h-5h` dùng cửa vào 17:00–trước 19:00 và cửa ra 04:00–trước 06:00 hôm sau; toàn bộ khoảng này vẫn là ca đêm 1,5 công. |
 | Q03 | Bảng ngưỡng cho 1 / 1,5 / 2 công là gì? Ví dụ vào 06:00, ra 14:00, 15:00, 16:00, 16:29, 16:30, 17:59, 18:00, 18:01, 20:00, 21:00? | Chưa biết ngưỡng chính xác và cách xử lý sát ranh giới | 06–14 = 1; nhóm kết thúc khoảng 16:00 và mẫu 17:12–17:34 = 1,5; từ cửa nhận 17:45 quanh mốc 18:00 trở đi = 2, tối đa 2. Các mốc là cấu hình. |
 | Q04 | Làm tròn theo bậc cố định hay chỉ một số khoảng? 1,01; 1,24; 1,26; 1,49; 1,51 được tính bao nhiêu? | Ví dụ 1,42–1,45 lên 1,5 chưa xác định toàn bộ quy tắc | Không làm tròn số học. Nhận diện nhóm rồi trả đúng 1; 1,5; hoặc 2. Các số lẻ ngoài nhóm không được dùng làm đầu ra. |
 | Q05 | Tính theo giờ thực tế, theo ca đăng ký hay mốc checkout? Có trừ nghỉ trưa/nghỉ giữa ca không? | Không thể mặc định lấy tổng giờ chia 8; chưa biết có phải tính số lẻ rồi làm tròn hay quy đổi trực tiếp | Tính theo ca nhận diện và mốc checkout; không lấy giờ chia 8, không trừ nghỉ giữa ca do file không có dữ liệu nghỉ. Ca đêm hợp lệ/đã xác nhận được thêm 50.000 đồng riêng. |
-| Q06 | Ca cho phép chấm vào sớm/muộn, chấm ra sớm/muộn bao nhiêu phút? Đi trễ/về sớm có trừ công hay chỉ thống kê? | Tránh rớt như 16:55/16:59 và hiểu các trường hợp 17:53–05:02 | Giờ chấm có khoảng dao động. Dùng cửa nhận cấu hình; mốc 2 công mặc định bắt đầu 17:45. Đi trễ/về sớm chỉ thống kê và cảnh báo trong phiên bản đầu. |
+| Q06 | Ca cho phép chấm vào sớm/muộn, chấm ra sớm/muộn bao nhiêu phút? Đi trễ/về sớm có trừ công hay chỉ thống kê? | Tránh rớt như 16:55/16:59 và hiểu các trường hợp 17:53–05:02 | Giờ chấm có khoảng dao động. `CN-6h-18h` có thể kết thúc khoảng 17:00. `CN-18h-5h` nhận lượt vào 17:00–trước 19:00 và lượt ra 04:00–trước 06:00 hôm sau. Với ca ngày, mốc 2 công thử nghiệm bắt đầu 17:45. Đi trễ/về sớm chỉ thống kê/cảnh báo trong phiên bản đầu. |
 | Q07 | Có nhóm công nhân/ca nào áp dụng 12 tiếng = 1 công không? Hay phát biểu ban đầu là nhầm? | Giải quyết mâu thuẫn với ví dụ 1,5 và 2 công | Không áp dụng 12 tiếng = 1 công trong phạm vi này. Dùng bảng quy đổi mới. |
 | Q08 | Thiếu lượt vào hoặc ra giữa tháng xử lý thế nào? Không có cả hai lượt thì sao? Ai xác nhận? | Ngoại lệ ca 31 đã chốt không đồng nghĩa được tự điền/tính cho mọi ca thiếu lượt | Thiếu một lượt: cần kiểm tra/xác nhận, giữ giờ thiếu là trống. Không có cả hai lượt: 0 công, không tự tạo ca. |
 | Q09 | Quy tắc ca đêm cuối tháng tính 1,5 có áp dụng toàn bộ công nhân/tháng không? Có thể xuất kèm sáng ngày đầu tháng sau và cuối tháng trước không? | Ghép ca qua ranh giới kỳ và tránh cộng trùng | Ghép lượt đầu tháng sau về ngày bắt đầu ca tháng trước. Nếu vẫn thiếu, người có quyền xác nhận. Ca đêm đã xác nhận được 1,5 công và 50.000 đồng. |
@@ -285,7 +299,7 @@ Trước khi nghiệm thu production cần lấy thêm vài ca thực tế sát 
 2. Import file giờ chấm; chọn/nhận diện kỳ, mã nhân viên và các lượt chấm. Lưu bản gốc để đối soát, không ghi đè giờ gốc khi điều chỉnh.
 3. Đối chiếu lịch ca; ghép lượt vào/ra qua ngày theo thời gian đầy đủ; không tái sử dụng một lượt cho hai ca.
 4. Quy đổi trực tiếp từng ca theo nhóm mốc đã cấu hình rồi mới cộng tháng; không tính số công thập phân trung gian và không làm tròn số học.
-5. Nhận diện ca ngày theo nhóm mốc kết thúc và ca đêm theo cặp lượt qua ngày. Kết quả công chỉ nhận 0; 1; 1,5; hoặc 2; không lưu số lẻ kiểu 1,43.
+5. Nhận diện các ứng viên HC, KCS ca 2, ca ngày công nhân và ca đêm công nhân theo cửa thời gian; trường hợp một chuỗi lượt có thể khớp nhiều ca phải đưa ra review. Kết quả công chỉ nhận 0; 1; 1,5; hoặc 2; không lưu số lẻ kiểu 1,43.
 6. Tính phụ cấp đêm riêng bằng số ca đêm hợp lệ/đã xác nhận nhân 50.000 đồng. Lưu số ca, đơn giá và thành tiền để đối soát.
 7. Xem chi tiết trên web: ngày bắt đầu ca, loại ca, ngày giờ vào/ra, công, phụ cấp đêm và lý do. Hiển thị rõ dữ liệu thiếu, ghép chưa chắc chắn và ngoại lệ cuối tháng; không âm thầm biến chúng thành 0.
 8. HR kiểm tra/điều chỉnh với lý do; lưu người sửa và lịch sử; xác nhận bảng công.
@@ -310,6 +324,8 @@ Không tự suy ra phép/nghỉ/tăng ca từ file giờ chấm nếu chưa có 
 - [ ] Giữ đủ lượt gốc; một lượt ra sáng không bị tính thêm như lượt vào ca ngày.
 - [ ] Ca 31 giữ giờ ra thực tế thiếu và lý do tính 1,5; không bịa dấu vân tay.
 - [ ] Các ca ngày mẫu hiển thị 1,5, không còn 1,40/1,41/1,42/1,43/1,44/1,45.
+- [ ] Ca đêm vào lúc 17:00, 17:30 hoặc 18 giờ mấy và ra lúc 04 giờ mấy hoặc 05 giờ mấy hôm sau đều được nhận diện; kiểm thử ít nhất các cặp 17:30–04:30, 17:30–05:30, 18:30–04:30 và 18:30–05:30, tất cả đều bằng **1,5 công + 50.000 đồng**.
+- [ ] Lượt nằm ngoài cửa ca đêm không bị tự động xóa hoặc tự động cho 0 công; hệ thống đưa ra danh sách cần kiểm tra.
 - [ ] B124 có 19 ca đêm và **950.000 đồng** phụ cấp đêm; phụ cấp không làm thay đổi tổng 45 công.
 - [ ] File xuất và số hiển thị trên web khớp nhau.
 - [ ] Bổ sung tháng 9 không làm cộng trùng ca 31/08.
