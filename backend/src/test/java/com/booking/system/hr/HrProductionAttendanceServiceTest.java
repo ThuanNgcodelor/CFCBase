@@ -19,7 +19,6 @@ import com.booking.system.hr.enums.HrProductionAttendanceShiftStatus;
 import com.booking.system.hr.enums.HrWorkforceGroup;
 import com.booking.system.hr.service.HrProductionAttendanceService;
 import com.booking.system.hr.service.HrProductionShiftMatcher;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
@@ -27,7 +26,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -269,7 +267,5 @@ class HrProductionAttendanceServiceTest {
     @EnableAutoConfiguration
     @EntityScan(basePackages = "com.booking.system.hr.entity")
     @EnableJpaRepositories(basePackages = "com.booking.system.hr.repository")
-    static class TestApplication {
-        @Bean ObjectMapper objectMapper() { return new ObjectMapper().findAndRegisterModules(); }
-    }
+    static class TestApplication { }
 }

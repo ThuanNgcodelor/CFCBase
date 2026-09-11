@@ -44,7 +44,8 @@ public class HrProductionAttendanceService {
     private final HrAttendanceExemptionRepository exemptionRepository;
     private final HrEmployeeRepository employeeRepository;
     private final HrAuditEventRepository auditRepository;
-    private final ObjectMapper objectMapper;
+    /** Spring Boot 4 in this project does not expose a Jackson 2 ObjectMapper bean. */
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
     public List<HrProductionAttendanceDtos.ShiftPolicyResponse> shiftPolicies() {
