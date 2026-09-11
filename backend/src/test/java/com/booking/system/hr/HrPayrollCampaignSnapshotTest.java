@@ -26,16 +26,21 @@ class HrPayrollCampaignSnapshotTest {
         when(imports.findByIdForUpdate("import-1")).thenReturn(Optional.of(batch));
         var row = new HrPayrollImportRow(); row.setEmployeeCode("TEST"); row.setEmployeeName("Test User");
         row.setStatus(HrPayrollRowStatus.READY); row.setTelegramChatId(123L);
-        row.setPayloadJson("{\"nganHangChuyen\":12000000,\"cong\":22}");
+        row.setPayloadJson("{\"tienLuong\":14797000,\"tongThu\":1070000,\"nganHangChuyen\":13727000,\"cong\":26}");
         when(rows.findByPayrollImportIdOrderBySourceRowNumber("import-1")).thenReturn(List.of(row));
         when(campaigns.save(any())).thenAnswer(i -> { HrPayrollCampaign c=i.getArgument(0); c.setId("campaign-1"); return c; });
         service.create("import-1",new HrPayrollDtos.CreateCampaignRequest("TEXT"),new HrImportActor("hr", "HR", "ADMIN"));
         var captor=ArgumentCaptor.forClass(HrPayrollDelivery.class); verify(deliveries).save(captor.capture());
         var delivery=captor.getValue();
-        assertThat(delivery.getMessageSnapshot()).contains("Test User", "12.000.000 đ", "2026-07");
+        assertThat(delivery.getMessageSnapshot())
+                .contains("Test User", "2026-07")
+                .contains("Tiền lương: 14.797.000 đ")
+                .contains("Tổng khấu trừ: 1.070.000 đ")
+                .contains("THỰC NHẬN (CHUYỂN KHOẢN)\n13.727.000 đ")
+                .doesNotContain("Tổng thu:", "THỰC LĨNH CHUYỂN KHOẢN");
         row.setPayloadJson("{}");
         when(deliveries.findById("d1")).thenReturn(Optional.of(delivery));
-        assertThat(service.previewMessage("campaign-1","d1")).contains("12.000.000 đ");
+        assertThat(service.previewMessage("campaign-1","d1")).contains("13.727.000 đ");
         assertThatThrownBy(() -> service.previewMessage("other","d1")).hasMessageContaining("Không tìm thấy");
         verifyNoInteractions(bot);
     }
