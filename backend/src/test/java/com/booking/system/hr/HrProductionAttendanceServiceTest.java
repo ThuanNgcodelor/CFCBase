@@ -18,6 +18,7 @@ import com.booking.system.hr.enums.HrAttendanceResolutionType;
 import com.booking.system.hr.enums.HrProductionAttendanceShiftStatus;
 import com.booking.system.hr.enums.HrWorkforceGroup;
 import com.booking.system.hr.service.HrProductionAttendanceService;
+import com.booking.system.hr.service.HrProductionAttendanceReportService;
 import com.booking.system.hr.service.HrProductionShiftMatcher;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
@@ -51,7 +52,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "logging.level.org.hibernate.SQL=OFF"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = HrProductionAttendanceServiceTest.TestApplication.class)
-@Import({HrProductionAttendanceWorkbookParser.class, HrProductionShiftMatcher.class, HrProductionAttendanceService.class})
+@Import({HrProductionAttendanceWorkbookParser.class, HrProductionShiftMatcher.class,
+        HrProductionAttendanceService.class, HrProductionAttendanceReportService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class HrProductionAttendanceServiceTest {
     private static final HrImportActor ACTOR = new HrImportActor("manager@example.test", "Manager", "MANAGER");
@@ -69,6 +71,7 @@ class HrProductionAttendanceServiceTest {
     }
 
     @jakarta.annotation.Resource private HrProductionAttendanceService service;
+    @jakarta.annotation.Resource private HrProductionAttendanceReportService reportService;
     @jakarta.annotation.Resource private HrAttendanceSourceDayRepository sourceDayRepository;
     @jakarta.annotation.Resource private HrAttendancePunchRepository punchRepository;
     @jakarta.annotation.Resource private HrProductionAttendanceShiftRepository shiftRepository;
@@ -207,6 +210,45 @@ class HrProductionAttendanceServiceTest {
                 new HrProductionAttendanceDtos.CancelExemptionRequest("Lập nhầm thời gian", exemption.rowVersion()), ACTOR);
         assertThat(cancelled.status().name()).isEqualTo("CANCELLED");
         assertThat(cancelled.cancellationReason()).isEqualTo("Lập nhầm thời gian");
+
+        var augustShiftsForReport = shiftRepository
+                .findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id());
+        augustShiftsForReport.stream()
+                .filter(value -> value.getStatus() == HrProductionAttendanceShiftStatus.NEEDS_REVIEW)
+                .forEach(value -> {
+                    value.setStatus(HrProductionAttendanceShiftStatus.REJECTED);
+                    value.setWorkValue(BigDecimal.ZERO);
+                    value.setNightAllowanceAmount(BigDecimal.ZERO);
+                });
+        shiftRepository.saveAll(augustShiftsForReport);
+        var confirmedAugust = service.confirmImport(batch.id(), ACTOR);
+        var summary = reportService.monthlySummary("2026-08");
+        assertThat(summary.confirmedImports()).isEqualTo(1);
+        assertThat(summary.totalEmployees()).isEqualTo(9);
+        assertThat(summary.totalWorkValue()).isGreaterThan(BigDecimal.ZERO);
+        assertThat(summary.employees()).filteredOn(value -> value.employeeCode().equals("B124"))
+                .singleElement().satisfies(value -> {
+                    assertThat(value.days()).hasSize(31);
+                    assertThat(value.totalWorkValue()).isEqualByComparingTo("45");
+                    assertThat(value.nightShifts()).isEqualTo(19);
+                    assertThat(value.nightAllowanceAmount()).isEqualByComparingTo("950000");
+                });
+        var exported = reportService.exportMonthlySummary("2026-08");
+        assertThat(exported.fileName()).isEqualTo("BANG_CONG_CA_SAN_XUAT_2026-08.xlsx");
+        try (XSSFWorkbook exportedWorkbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(exported.content()))) {
+            assertThat(exportedWorkbook.getSheet("Bảng công")).isNotNull();
+            assertThat(exportedWorkbook.getSheet("Đối soát")).isNotNull();
+            assertThat(exportedWorkbook.getSheet("Bảng công").getRow(3).getCell(36).getNumericCellValue())
+                    .isEqualTo(45d);
+        }
+        assertThatThrownBy(() -> service.reopenImport(batch.id(),
+                new HrProductionAttendanceDtos.ReopenImportRequest("Manager không được mở khóa", confirmedAugust.rowVersion()), ACTOR))
+                .isInstanceOfSatisfying(HrApiException.class,
+                        exception -> assertThat(exception.code()).isEqualTo("PRODUCTION_ATTENDANCE_REOPEN_FORBIDDEN"));
+        var reopened = service.reopenImport(batch.id(),
+                new HrProductionAttendanceDtos.ReopenImportRequest("Điều chỉnh sau đối soát", confirmedAugust.rowVersion()),
+                new HrImportActor("admin@example.test", "Admin", "ADMIN"));
+        assertThat(reopened.status().name()).isEqualTo("PREVIEWED");
     }
 
     private byte[] septemberBoundaryWorkbook() throws Exception {

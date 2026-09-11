@@ -19,6 +19,35 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
 
     @Query("""
             select shift from HrProductionAttendanceShift shift
+            where shift.active = true and shift.importId in (
+                select batch.id from HrProductionAttendanceImport batch
+                where batch.attendanceMonth = :month and batch.status = :importStatus
+            )
+            order by shift.employeeCode, shift.workDate, shift.createdAt
+            """)
+    List<HrProductionAttendanceShift> findActiveByAttendanceMonthAndImportStatus(
+            @Param("month") String month,
+            @Param("importStatus") com.booking.system.hr.enums.HrAttendanceImportStatus importStatus);
+
+    @Query("""
+            select shift from HrProductionAttendanceShift shift
+            where shift.importId = :importId and shift.active = true
+              and (:status is null or shift.status = :status)
+              and (:policyGroup is null or shift.policyGroup = :policyGroup)
+              and (:incidentOnly = false or shift.incidentId is not null)
+              and (:employeeCode is null or shift.employeeCode = :employeeCode)
+            order by shift.employeeCode, shift.workDate
+            """)
+    Page<HrProductionAttendanceShift> searchActive(
+            @Param("importId") String importId,
+            @Param("status") HrProductionAttendanceShiftStatus status,
+            @Param("policyGroup") com.booking.system.hr.enums.HrAttendancePolicyGroup policyGroup,
+            @Param("incidentOnly") boolean incidentOnly,
+            @Param("employeeCode") String employeeCode,
+            Pageable pageable);
+
+    @Query("""
+            select shift from HrProductionAttendanceShift shift
             where shift.active = true and shift.importId <> :importId
               and shift.checkInPunchId is not null and shift.checkOutPunchId is not null
               and (shift.checkInPunchId in :punchIds or shift.checkOutPunchId in :punchIds)

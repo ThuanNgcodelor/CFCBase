@@ -6,6 +6,7 @@ import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.time.*;
+import java.util.Map;
 import java.util.List;
 
 public final class HrProductionAttendanceDtos {
@@ -23,6 +24,16 @@ public final class HrProductionAttendanceDtos {
                                            @NotNull LocalTime checkOutUntil, @NotNull BigDecimal nightAllowanceAmount,
                                            int priority, boolean active, @NotNull LocalDate validFrom,
                                            LocalDate validTo, long rowVersion) { }
+
+    public record WorkCreditRuleResponse(String id, String shiftPolicyId, String name,
+                                         LocalTime checkOutFrom, LocalTime checkOutUntil,
+                                         BigDecimal workValue, int priority, boolean active,
+                                         LocalDate validFrom, LocalDate validTo, long rowVersion) { }
+
+    public record UpdateWorkCreditRuleRequest(@NotBlank String name, @NotNull LocalTime checkOutFrom,
+                                              @NotNull LocalTime checkOutUntil, @NotNull BigDecimal workValue,
+                                              int priority, boolean active, @NotNull LocalDate validFrom,
+                                              LocalDate validTo, long rowVersion) { }
 
     public record CreateEmployeePolicyRequest(@NotBlank String employeeCode,
                                               @NotNull HrAttendancePolicyGroup policyGroup,
@@ -46,7 +57,10 @@ public final class HrProductionAttendanceDtos {
     public record ImportResponse(String id, String sourceFileName, String sourceSheetName, String attendanceMonth,
                                  HrAttendanceImportStatus status, int processingVersion, int totalRows,
                                  int totalPunches, int autoMatchedShifts, int reviewShifts, int noPunchRows,
-                                 int excludedRows, LocalDateTime createdAt, LocalDateTime confirmedAt) { }
+                                 int excludedRows, LocalDateTime createdAt, LocalDateTime confirmedAt,
+                                 long rowVersion) { }
+
+    public record ReopenImportRequest(@NotBlank String reason, long rowVersion) { }
 
     public record PunchResponse(String id, String employeeCode, String employeeName, LocalDate workDate,
                                 LocalDateTime punchedAt, int sourceRowNumber, String sourceColumn,
@@ -92,4 +106,18 @@ public final class HrProductionAttendanceDtos {
 
     public record ConfirmIncidentRequest(@NotEmpty List<@Valid IncidentSelection> selections,
                                          @NotBlank String reason) { }
+
+    public record DailyWorkValue(int day, BigDecimal workValue, String shiftCode,
+                                 HrProductionAttendanceShiftStatus status) { }
+
+    public record EmployeeSummary(String employeeCode, String employeeName, String departmentName,
+                                  HrAttendancePolicyGroup policyGroup, Map<Integer, DailyWorkValue> days,
+                                  BigDecimal totalWorkValue, int dayShifts, int nightShifts,
+                                  BigDecimal nightAllowanceAmount) { }
+
+    public record MonthlySummary(String attendanceMonth, boolean locked, int confirmedImports,
+                                 int previewImports, int totalEmployees, BigDecimal totalWorkValue,
+                                 int dayShifts, int nightShifts, BigDecimal nightAllowanceAmount,
+                                 int reviewShifts, int incidentShifts, int exemptedEmployees,
+                                 int duplicateSourceDays, List<EmployeeSummary> employees) { }
 }

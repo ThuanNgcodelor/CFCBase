@@ -30,6 +30,8 @@ const STATUS_LABELS = {
   VERIFIED: 'Đã xác minh',
   UNVERIFIED: 'Chưa xác minh',
   NEEDS_REVIEW: 'Cần kiểm tra',
+  AUTO_MATCHED: 'Tự ghép hợp lệ',
+  REJECTED: 'Đã từ chối',
   UNKNOWN: 'Chưa xác định',
   CONTRACT_CREATED: 'Đã tạo HĐ thử việc',
   IN_PROBATION: 'Đang thử việc',

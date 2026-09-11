@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 public interface HrAttendancePunchRepository extends HrRepository<HrAttendancePunch, String> {
     List<HrAttendancePunch> findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(String importId);
     Page<HrAttendancePunch> findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(String importId, Pageable pageable);
+    List<HrAttendancePunch> findByImportIdInOrderByEmployeeCodeAscPunchedAtAsc(List<String> importIds);
+    List<HrAttendancePunch> findByImportIdAndEmployeeCodeAndWorkDateOrderByPunchedAtAsc(
+            String importId, String employeeCode, java.time.LocalDate workDate);
 
     @Query("""
             select punch from HrAttendancePunch punch

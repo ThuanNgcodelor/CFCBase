@@ -9,6 +9,7 @@ import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { HrError, HrPageHeader, HrPageShell, HrStatusBadge, HrLoading } from '../../components/hr/HrUi';
 import { Button } from '../../components/ui/Button';
 import SEOHead from '../../components/SEOHead';
+import HrProductionAttendance from './HrProductionAttendance';
 
 const initial = {
   headerRow: 2, employeeCodeColumn: 'B', employeeNameColumn: 'C', dateColumn: 'E', punchColumns: ['G', 'H', 'I', 'J'],
@@ -28,7 +29,7 @@ function monthToDate(value) { if (!value) return null; const [year, month] = val
 function dateToMonth(date) { if (!date) return ''; return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
 function MonthPicker({ value, onChange, placeholder }) { return <DatePicker selected={monthToDate(value)} onChange={(date) => onChange(dateToMonth(date))} showMonthYearPicker showFullMonthYearPicker dateFormat="MM/yyyy" locale="vi" isClearable portalId="attendance-month-picker" popperClassName="cfc-month-picker-popper" popperPlacement="bottom-start" placeholderText={placeholder} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />; }
 
-export default function HrAttendance() {
+function HrAdministrativeAttendance({ onSelectMode }) {
   const [form, setForm] = useState(initial); const [imports, setImports] = useState({ content: [] }); const [selected, setSelected] = useState(null); const [preview, setPreview] = useState(null); const [files, setFiles] = useState([]); const [monthFilter, setMonthFilter] = useState(''); const [uploadMonth, setUploadMonth] = useState(''); const [summaryMonth, setSummaryMonth] = useState(dateToMonth(new Date())); const [summary, setSummary] = useState(null); const [summaryLoading, setSummaryLoading] = useState(false); const [departmentFilter, setDepartmentFilter] = useState(''); const [employeeFilter, setEmployeeFilter] = useState(''); const [departments, setDepartments] = useState([]); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [uploading, setUploading] = useState(false); const [error, setError] = useState('');
   const reload = (filter = monthFilter) => { setLoading(true); setError(''); Promise.all([hrAttendanceApi.getSettings(), hrAttendanceApi.listImports({ page: 0, size: 20, month: monthToApi(filter) }), hrCatalogApi.getAllCatalogItems('departments', { status: 'ACTIVE', sort: 'name,asc' })]).then(([settings, result, departmentItems]) => { setForm(configToForm(settings)); setImports(result || { content: [] }); setDepartments(departmentItems || []); }).catch(() => setError('Không thể tải cấu hình hoặc lịch sử import chấm công.')).finally(() => setLoading(false)); };
   useEffect(() => { reload(); }, []);
@@ -47,6 +48,7 @@ export default function HrAttendance() {
   return <HrPageShell>
     <SEOHead title="CFC Base | Chấm công" url="https://cfcbooking.io.vn/manager/hr/attendance" />
     <HrPageHeader title="Chấm công" description="Cấu hình định dạng file một lần, sau đó mỗi tháng chỉ cần tải file Excel lên để xem trước và lưu dữ liệu." actions={<Button type="button" variant="secondary" onClick={reload}>Tải lại</Button>} />
+    <div className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm"><button type="button" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Hành chính</button><button type="button" onClick={() => onSelectMode('production')} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Ca sản xuất</button></div>
     <section className="mb-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><BarChart3 className="h-5 w-5" /></div><div><h2 className="font-semibold text-gray-900">Tổng hợp tháng đã xác nhận</h2><p className="mt-1 text-sm text-gray-500">KPI chỉ tính các file đã bấm Xác nhận; dữ liệu xem trước không đi vào báo cáo.</p></div></div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[260px_1fr_280px_auto]">
@@ -79,4 +81,11 @@ export default function HrAttendance() {
     </section>
     {preview && <section className="mt-5 rounded-xl border border-gray-200 bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4"><div><h2 className="font-semibold text-gray-900">Xem trước: {preview.batch.fileName}</h2><p className="mt-1 text-sm text-gray-500">{Math.max(0, preview.batch.validRows - (preview.batch.autoFilledRows || 0) - (preview.batch.noPunchRows || 0))} hợp lệ · {preview.batch.autoFilledRows || 0} tự điền · {preview.batch.noPunchRows || 0} không chấm · {preview.batch.excludedRows || 0} miễn chấm · {preview.batch.errorRows} lỗi</p></div><div className="flex items-center gap-2">{preview.batch.status === 'PREVIEWED' && <Button type="button" size="sm" onClick={() => confirm(preview.batch)}><CheckCircle2 className="mr-1 h-4 w-4" />Xác nhận file</Button>}<Clock3 className="h-5 w-5 text-gray-400" /></div></div><div className="max-h-[480px] overflow-auto"><table className="min-w-[900px] w-full text-left text-sm"><thead className="sticky top-0 bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-4 py-3">Dòng</th><th className="px-4 py-3">Mã NV</th><th className="px-4 py-3">Họ tên</th><th className="px-4 py-3">Ngày</th><th className="px-4 py-3">Check in</th><th className="px-4 py-3">Check out</th><th className="px-4 py-3">Kết quả</th></tr></thead><tbody className="divide-y divide-gray-100">{preview.rows.content.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.sourceRowNumber}</td><td className="px-4 py-3 font-medium">{row.employeeCode}</td><td className="px-4 py-3">{row.employeeName || '—'}</td><td className="px-4 py-3">{row.workDate || '—'}</td><td className="px-4 py-3">{row.checkIn || '—'}</td><td className="px-4 py-3">{row.checkOut || '—'}</td><td className="px-4 py-3"><HrStatusBadge status={row.status} label={row.status === 'VALID' ? 'Hợp lệ' : row.status === 'NO_PUNCH' ? 'Không chấm (giữ dòng)' : row.errorMessage || row.status} /></td></tr>)}</tbody></table></div></section>}
   </HrPageShell>;
+}
+
+export default function HrAttendance() {
+  const [mode, setMode] = useState('administrative');
+  return mode === 'production'
+    ? <HrProductionAttendance onSelectMode={setMode} />
+    : <HrAdministrativeAttendance onSelectMode={setMode} />;
 }

@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface HrAttendanceShiftAdjustmentRepository extends HrRepository<HrAttendanceShiftAdjustment, String> {
     List<HrAttendanceShiftAdjustment> findByShiftIdOrderByCreatedAtDesc(String shiftId);
+    List<HrAttendanceShiftAdjustment> findByShiftIdInOrderByCreatedAtDesc(List<String> shiftIds);
 }

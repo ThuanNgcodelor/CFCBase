@@ -4,11 +4,15 @@ import com.booking.system.dto.ApiResponse;
 import com.booking.system.entity.User;
 import com.booking.system.hr.api.dto.HrPageResponse;
 import com.booking.system.hr.api.dto.HrProductionAttendanceDtos;
+import com.booking.system.hr.enums.HrAttendancePolicyGroup;
 import com.booking.system.hr.enums.HrProductionAttendanceShiftStatus;
 import com.booking.system.hr.importer.HrImportActor;
 import com.booking.system.hr.service.HrProductionAttendanceService;
+import com.booking.system.hr.service.HrProductionAttendanceReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,6 +27,7 @@ import java.util.List;
 @RequestMapping("/api/v1/hr/attendance/production")
 public class HrProductionAttendanceController {
     private final HrProductionAttendanceService service;
+    private final HrProductionAttendanceReportService reportService;
     private final HrActorResolver actorResolver;
 
     @GetMapping("/shift-policies")
@@ -37,6 +42,20 @@ public class HrProductionAttendanceController {
             @PathVariable String id, @Valid @RequestBody HrProductionAttendanceDtos.UpdateShiftPolicyRequest request,
             @AuthenticationPrincipal User principal) {
         return ResponseEntity.ok(ApiResponse.success(service.updateShiftPolicy(id, request, actor(principal)), "Đã cập nhật cấu hình ca"));
+    }
+
+    @GetMapping("/work-credit-rules")
+    public ResponseEntity<ApiResponse<List<HrProductionAttendanceDtos.WorkCreditRuleResponse>>> workCreditRules(
+            @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        return ResponseEntity.ok(ApiResponse.success(service.workCreditRules(), "Lấy ngưỡng tính công thành công"));
+    }
+
+    @PutMapping("/work-credit-rules/{id}")
+    public ResponseEntity<ApiResponse<HrProductionAttendanceDtos.WorkCreditRuleResponse>> updateWorkCreditRule(
+            @PathVariable String id, @Valid @RequestBody HrProductionAttendanceDtos.UpdateWorkCreditRuleRequest request,
+            @AuthenticationPrincipal User principal) {
+        return ResponseEntity.ok(ApiResponse.success(service.updateWorkCreditRule(id, request, actor(principal)), "Đã cập nhật ngưỡng tính công"));
     }
 
     @GetMapping("/employee-policies")
@@ -103,6 +122,13 @@ public class HrProductionAttendanceController {
         return ResponseEntity.ok(ApiResponse.success(service.confirmImport(id, actor(principal)), "Đã chốt đợt chấm công"));
     }
 
+    @PostMapping("/imports/{id}/reopen")
+    public ResponseEntity<ApiResponse<HrProductionAttendanceDtos.ImportResponse>> reopenImport(
+            @PathVariable String id, @Valid @RequestBody HrProductionAttendanceDtos.ReopenImportRequest request,
+            @AuthenticationPrincipal User principal) {
+        return ResponseEntity.ok(ApiResponse.success(service.reopenImport(id, request, actor(principal)), "Đã mở khóa đợt chấm công"));
+    }
+
     @GetMapping("/imports/{id}/punches")
     public ResponseEntity<ApiResponse<HrPageResponse<HrProductionAttendanceDtos.PunchResponse>>> punches(
             @PathVariable String id, @RequestParam(defaultValue = "0") int page,
@@ -114,10 +140,21 @@ public class HrProductionAttendanceController {
     @GetMapping("/shifts")
     public ResponseEntity<ApiResponse<HrPageResponse<HrProductionAttendanceDtos.ShiftResponse>>> shifts(
             @RequestParam String importId, @RequestParam(required = false) HrProductionAttendanceShiftStatus status,
+            @RequestParam(required = false) HrAttendancePolicyGroup policyGroup,
+            @RequestParam(defaultValue = "false") boolean incidentOnly,
+            @RequestParam(required = false) String employeeCode,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "100") int size,
             @AuthenticationPrincipal User principal) {
         actorResolver.fromPrincipal(principal);
-        return ResponseEntity.ok(ApiResponse.success(service.shifts(importId, status, page, size), "Lấy kết quả ghép ca thành công"));
+        return ResponseEntity.ok(ApiResponse.success(service.shifts(importId, status, policyGroup, incidentOnly,
+                employeeCode, page, size), "Lấy kết quả ghép ca thành công"));
+    }
+
+    @GetMapping("/shifts/{id}/punches")
+    public ResponseEntity<ApiResponse<List<HrProductionAttendanceDtos.PunchResponse>>> shiftPunches(
+            @PathVariable String id, @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        return ResponseEntity.ok(ApiResponse.success(service.shiftPunches(id), "Lấy dấu chấm của ca thành công"));
     }
 
     @PutMapping("/shifts/{id}/decision")
@@ -175,6 +212,25 @@ public class HrProductionAttendanceController {
     public ResponseEntity<ApiResponse<HrProductionAttendanceDtos.IncidentResponse>> cancelIncident(
             @PathVariable String id, @AuthenticationPrincipal User principal) {
         return ResponseEntity.ok(ApiResponse.success(service.cancelIncident(id, actor(principal)), "Đã hủy bản nháp sự cố"));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<ApiResponse<HrProductionAttendanceDtos.MonthlySummary>> summary(
+            @RequestParam String month, @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        return ResponseEntity.ok(ApiResponse.success(reportService.monthlySummary(month), "Lấy tổng hợp ca sản xuất thành công"));
+    }
+
+    @GetMapping("/summary/export")
+    public ResponseEntity<byte[]> exportSummary(
+            @RequestParam String month, @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        HrProductionAttendanceReportService.ExportFile file = reportService.exportMonthlySummary(month);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(file.fileName()).build().toString())
+                .body(file.content());
     }
 
     private HrImportActor actor(User principal) { return actorResolver.fromPrincipal(principal); }

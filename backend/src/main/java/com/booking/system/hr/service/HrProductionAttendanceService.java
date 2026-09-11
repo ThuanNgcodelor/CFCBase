@@ -11,6 +11,7 @@ import com.booking.system.hr.repository.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -44,6 +45,7 @@ public class HrProductionAttendanceService {
     private final HrAttendanceExemptionRepository exemptionRepository;
     private final HrEmployeeRepository employeeRepository;
     private final HrAuditEventRepository auditRepository;
+    private final EntityManager entityManager;
     /** Spring Boot 4 in this project does not expose a Jackson 2 ObjectMapper bean. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -80,9 +82,42 @@ public class HrProductionAttendanceService {
         policy.setValidTo(request.validTo());
         touch(policy, actor);
         shiftPolicyRepository.save(policy);
+        entityManager.flush();
         audit(actor, "UPDATE_SHIFT_POLICY", "HR_ATTENDANCE_SHIFT_POLICY", id,
                 List.of("schedule", "recognitionWindow", "allowance", "validity"), Map.of("code", policy.getCode()));
         return toPolicyResponse(policy);
+    }
+
+    @Transactional(readOnly = true)
+    public List<HrProductionAttendanceDtos.WorkCreditRuleResponse> workCreditRules() {
+        return creditRuleRepository.findAllByOrderByPriorityDesc().stream().map(this::toCreditRuleResponse).toList();
+    }
+
+    @Transactional
+    public HrProductionAttendanceDtos.WorkCreditRuleResponse updateWorkCreditRule(
+            String id, HrProductionAttendanceDtos.UpdateWorkCreditRuleRequest request, HrImportActor actor) {
+        HrAttendanceWorkCreditRule rule = creditRuleRepository.findById(id)
+                .orElseThrow(() -> HrApiException.notFound("ATTENDANCE_CREDIT_RULE_NOT_FOUND", "Không tìm thấy ngưỡng tính công."));
+        if (rule.getRowVersion() != request.rowVersion()) {
+            throw HrApiException.conflict("ATTENDANCE_CREDIT_RULE_VERSION_CONFLICT", "Ngưỡng tính công vừa được người khác cập nhật.");
+        }
+        validateDates(request.validFrom(), request.validTo());
+        validateWindow(request.checkOutFrom(), request.checkOutUntil(), "khoảng giờ ra tính công");
+        validateWorkValue(request.workValue());
+        rule.setName(request.name().trim());
+        rule.setCheckOutFrom(request.checkOutFrom());
+        rule.setCheckOutUntil(request.checkOutUntil());
+        rule.setWorkValue(request.workValue());
+        rule.setPriority(request.priority());
+        rule.setActive(request.active());
+        rule.setValidFrom(request.validFrom());
+        rule.setValidTo(request.validTo());
+        touch(rule, actor);
+        creditRuleRepository.save(rule);
+        entityManager.flush();
+        audit(actor, "UPDATE_ATTENDANCE_CREDIT_RULE", "HR_ATTENDANCE_WORK_CREDIT_RULE", id,
+                List.of("checkOutWindow", "workValue", "validity"), Map.of("workValue", request.workValue()));
+        return toCreditRuleResponse(rule);
     }
 
     @Transactional
@@ -250,13 +285,33 @@ public class HrProductionAttendanceService {
 
     @Transactional(readOnly = true)
     public HrPageResponse<HrProductionAttendanceDtos.ShiftResponse> shifts(
-            String importId, HrProductionAttendanceShiftStatus status, int page, int size) {
+            String importId, HrProductionAttendanceShiftStatus status, HrAttendancePolicyGroup policyGroup,
+            boolean incidentOnly, String employeeCode, int page, int size) {
         importBatch(importId);
         PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 200));
-        Page<HrProductionAttendanceShift> result = status == null
-                ? shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(importId, pageable)
-                : shiftRepository.findByImportIdAndActiveTrueAndStatusOrderByEmployeeCodeAscWorkDateAsc(importId, status, pageable);
+        String normalizedEmployeeCode = employeeCode == null || employeeCode.isBlank()
+                ? null : normalizeCode(employeeCode);
+        Page<HrProductionAttendanceShift> result = shiftRepository.searchActive(
+                importId, status, policyGroup, incidentOnly, normalizedEmployeeCode, pageable);
         return HrPageResponse.from(result, this::toShiftResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<HrProductionAttendanceDtos.PunchResponse> shiftPunches(String shiftId) {
+        HrProductionAttendanceShift shift = activeShift(shiftId);
+        LinkedHashMap<String, HrAttendancePunch> punches = new LinkedHashMap<>();
+        for (LocalDate date : List.of(shift.getWorkDate(), shift.getWorkDate().plusDays(1))) {
+            punchRepository.findByImportIdAndEmployeeCodeAndWorkDateOrderByPunchedAtAsc(
+                    shift.getImportId(), shift.getEmployeeCode(), date)
+                    .forEach(value -> punches.put(value.getId(), value));
+        }
+        for (String punchId : List.of(Objects.toString(shift.getCheckInPunchId(), ""),
+                Objects.toString(shift.getCheckOutPunchId(), ""))) {
+            if (!punchId.isBlank()) punchRepository.findById(punchId)
+                    .ifPresent(value -> punches.put(value.getId(), value));
+        }
+        return punches.values().stream().sorted(Comparator.comparing(HrAttendancePunch::getPunchedAt))
+                .map(this::toPunchResponse).toList();
     }
 
     @Transactional
@@ -352,8 +407,34 @@ public class HrProductionAttendanceService {
         batch.setConfirmedByActor(actor.subject());
         touch(batch, actor);
         importRepository.save(batch);
+        entityManager.flush();
         audit(actor, "CONFIRM_PRODUCTION_ATTENDANCE_IMPORT", "HR_PRODUCTION_ATTENDANCE_IMPORT", importId,
                 List.of("status", "confirmedAt"), Map.of("month", batch.getAttendanceMonth()));
+        return toImportResponse(batch);
+    }
+
+    @Transactional
+    public HrProductionAttendanceDtos.ImportResponse reopenImport(
+            String importId, HrProductionAttendanceDtos.ReopenImportRequest request, HrImportActor actor) {
+        if (!"ADMIN".equalsIgnoreCase(actor.role())) {
+            throw new HrApiException(org.springframework.http.HttpStatus.FORBIDDEN,
+                    "PRODUCTION_ATTENDANCE_REOPEN_FORBIDDEN", "Chỉ quản trị viên được mở khóa kỳ chấm công.");
+        }
+        HrProductionAttendanceImport batch = importBatch(importId);
+        if (batch.getStatus() != HrAttendanceImportStatus.CONFIRMED) {
+            throw HrApiException.conflict("PRODUCTION_ATTENDANCE_IMPORT_NOT_LOCKED", "Đợt chấm công chưa được chốt.");
+        }
+        if (batch.getRowVersion() != request.rowVersion()) {
+            throw HrApiException.conflict("PRODUCTION_ATTENDANCE_IMPORT_VERSION_CONFLICT", "Đợt chấm công vừa được người khác cập nhật.");
+        }
+        batch.setStatus(HrAttendanceImportStatus.PREVIEWED);
+        batch.setConfirmedAt(null);
+        batch.setConfirmedByActor(null);
+        touch(batch, actor);
+        importRepository.save(batch);
+        entityManager.flush();
+        audit(actor, "REOPEN_PRODUCTION_ATTENDANCE_IMPORT", "HR_PRODUCTION_ATTENDANCE_IMPORT", importId,
+                List.of("status", "confirmedAt"), Map.of("month", batch.getAttendanceMonth(), "reason", request.reason().trim()));
         return toImportResponse(batch);
     }
 
@@ -803,6 +884,12 @@ public class HrProductionAttendanceService {
                 value.getPriority(), value.isActive(), value.getValidFrom(), value.getValidTo(), value.getRowVersion());
     }
 
+    private HrProductionAttendanceDtos.WorkCreditRuleResponse toCreditRuleResponse(HrAttendanceWorkCreditRule value) {
+        return new HrProductionAttendanceDtos.WorkCreditRuleResponse(value.getId(), value.getShiftPolicyId(),
+                value.getName(), value.getCheckOutFrom(), value.getCheckOutUntil(), value.getWorkValue(),
+                value.getPriority(), value.isActive(), value.getValidFrom(), value.getValidTo(), value.getRowVersion());
+    }
+
     private HrProductionAttendanceDtos.EmployeePolicyResponse toEmployeePolicy(HrEmployeeAttendancePolicy value, String code) {
         return new HrProductionAttendanceDtos.EmployeePolicyResponse(value.getId(), code, value.getPolicyGroup(),
                 value.getValidFrom(), value.getValidTo(), value.getSource(), value.getReason());
@@ -818,7 +905,7 @@ public class HrProductionAttendanceService {
         return new HrProductionAttendanceDtos.ImportResponse(value.getId(), value.getSourceFileName(), value.getSourceSheetName(),
                 value.getAttendanceMonth(), value.getStatus(), value.getProcessingVersion(), value.getTotalRows(), value.getTotalPunches(),
                 value.getAutoMatchedShifts(), value.getReviewShifts(), value.getNoPunchRows(), value.getExcludedRows(),
-                value.getCreatedAt(), value.getConfirmedAt());
+                value.getCreatedAt(), value.getConfirmedAt(), value.getRowVersion());
     }
 
     private HrProductionAttendanceDtos.PunchResponse toPunchResponse(HrAttendancePunch value) {
