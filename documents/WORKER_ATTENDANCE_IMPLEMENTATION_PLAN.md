@@ -2,8 +2,9 @@
 
 - Ngày lập: **11/09/2026**.
 - Phạm vi: **Công nhân và KCS** trong chức năng Chấm công của CFCBase.
-- Trạng thái: **Phase 1–4 đã hoàn tất ở backend và kiểm thử local; Phase 5–7 chưa triển khai/nghiệm thu production**.
+- Trạng thái: **Phase 1–6 đã hoàn tất ở source và kiểm thử local; Phase 7 chưa shadow/nghiệm thu production**.
 - Nguồn nghiệp vụ: [WORKER_ATTENDANCE_HR_REVIEW.md](WORKER_ATTENDANCE_HR_REVIEW.md).
+- Hướng sử dụng: [WORKER_ATTENDANCE_USAGE_GUIDE.md](WORKER_ATTENDANCE_USAGE_GUIDE.md).
 
 ## 1. Mục tiêu
 
@@ -70,7 +71,7 @@ Miễn chấm không phải một nhóm chính sách. Nó là ngoại lệ có t
 
 ## 4. Mô hình dữ liệu đề xuất
 
-Migration tiếp theo dự kiến là `V21__add_hr_production_attendance.sql`. Không sửa lại V15/V16 đã chạy.
+Migration đã triển khai là `V21__add_hr_production_attendance.sql`. Không sửa lại V15/V16 đã chạy.
 
 ### 4.1 `hr_attendance_shift_policies`
 
@@ -361,7 +362,7 @@ Số trên web và Excel phải lấy từ cùng query/kết quả kỳ đã xá
 
 ### Phase 5 — Giao diện
 
-**Trạng thái: Chưa triển khai.**
+**Trạng thái local: Hoàn tất.** Tab **Hành chính/Ca sản xuất** dùng chung route Chấm công. Tab ca sản xuất đã có import nhiều file, KPI, bộ lọc, bảng review desktop/mobile, xem dấu chấm gốc và lịch sử, cấu hình ca/ngưỡng công/chính sách nhân viên/miễn chấm, xử lý sự cố và quyền mở khóa dành riêng cho ADMIN.
 
 - Tách tab Hành chính/Ca sản xuất.
 - Thêm bộ lọc Công nhân/KCS/Cần kiểm tra/Sự cố.
@@ -373,7 +374,7 @@ Số trên web và Excel phải lấy từ cùng query/kết quả kỳ đã xá
 
 ### Phase 6 — Tổng hợp và xuất Excel
 
-**Trạng thái: Chưa triển khai.**
+**Trạng thái local: Hoàn tất.** Tổng hợp chỉ đọc file `CONFIRMED`, cộng `BigDecimal work_value`, khử trùng theo mã nhân viên/ngày và cảnh báo dòng nguồn trùng. Excel có sheet **Bảng công** đủ ngày 1–31 và sheet **Đối soát** cho ca bất thường, dòng trùng, dấu chưa dùng và lịch sử điều chỉnh. File đã chốt chỉ xem; ADMIN phải nhập lý do để mở khóa trước khi sửa.
 
 - Tổng công dùng `BigDecimal` và phép cộng `work_value`.
 - Xuất đúng bố cục bảng ngang.
@@ -384,7 +385,7 @@ Số trên web và Excel phải lấy từ cùng query/kết quả kỳ đã xá
 
 ### Phase 7 — Kiểm thử hồi quy và bật production
 
-**Trạng thái: Chưa nghiệm thu production.** Full suite backend local hiện có 188 test case: 187 pass, 0 failure/error và 1 skipped; đây không thay thế shadow run và ký nghiệm thu HR.
+**Trạng thái: Chưa nghiệm thu production.** Full suite backend local ngày 11/09/2026 có 188 test case: 187 pass, 0 failure/error và 1 fixture tùy chọn skipped. Frontend build/lint đạt; lint còn 10 cảnh báo unused có sẵn ngoài trang ca sản xuất. Đây không thay thế shadow run và ký nghiệm thu HR.
 
 - Test backend, frontend và migration.
 - Chạy shadow trên bộ tháng 08, chưa ghi đè báo cáo chính thức.

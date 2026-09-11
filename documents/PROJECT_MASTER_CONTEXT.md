@@ -13,7 +13,7 @@ CFCBase là hệ thống web nội bộ của CFC. Từ 27/07/2026, phạm vi ph
 | HR core | Đang phát triển | Hồ sơ, biến động, roster, danh mục, hợp đồng, tài liệu, thử việc, LĐPT |
 | OCR hồ sơ | Đã có | Gemini/Groq cấu hình trong `hr_system_settings`, key lấy từ DB hoặc env |
 | Payroll Telegram | Đã có | Import Excel → campaign → gửi/retry qua bot; nhân viên dùng Telegram, không dùng React HR |
-| Attendance | Hành chính đã có; ca sản xuất backend Phase 1–4 | Hành chính giữ luồng cũ; Công nhân/KCS đã có import, matcher, review, sự cố và miễn chấm, chưa có UI/export riêng |
+| Attendance | Hành chính đã có; ca sản xuất Phase 1–6 hoàn tất local | Hành chính giữ luồng cũ; Công nhân/KCS đã có import, matcher, review, sự cố, miễn chấm, UI riêng và xuất bảng công ngang |
 | Tổng hợp đi trễ/TONGHOP Attendance | Đã có bản CFCBase | Chỉ tính batch đã xác nhận, có KPI/lọc/xuất Excel; Apps Script vẫn là nguồn đối chiếu nghiệp vụ |
 | Google Apps Script ngày phép | API đọc đã có | `/api/v1/hr/sync/leave-roster` hiện được permit trong Security; cần bổ sung cơ chế secret/API key khi harden |
 | Booking phòng/xe | Đóng băng | Không xóa code/bảng/route legacy; frontend cũ đã redirect các URL chính về HR |
@@ -202,7 +202,7 @@ Phase 3 bổ sung tab Lịch sử trong hồ sơ: biến động theo nhân sự
 
 Phần tổng hợp cốt lõi của Apps Script **Lateness → TONGHOP** đã có trong CFCBase; các dashboard biểu đồ chuyên sâu vẫn là phần mở rộng. Kế hoạch chi tiết nằm ở [ATTENDANCE_MIGRATION_PLAN.md](ATTENDANCE_MIGRATION_PLAN.md). Lưu ý script `verify-hr-phase1.sh` vẫn kiểm tra bộ 15 bảng Phase 1, không phải toàn bộ 31 bảng sau V16; cần cập nhật trước khi dùng làm healthcheck tổng.
 
-### 5.1 Chấm công ca sản xuất — backend Phase 1–4
+### 5.1 Chấm công ca sản xuất — Phase 1–6 local
 
 V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi luồng hành chính V15/V16:
 
@@ -211,9 +211,11 @@ V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi lu�
 - Matcher ghép ca cùng ngày, qua ngày và đầu tháng kế tiếp; import tháng mới tự tính lại batch `PREVIEWED` tháng trước có cùng mã nhân viên, đồng thời ngăn dùng trùng lượt ra đầu tháng giữa hai batch. Kết quả chỉ nhận 0/1/1,5/2 công.
 - Ca đêm `CN_18_5` nhận 1,5 công và 50.000 đồng; trường hợp thiếu/mơ hồ đi vào `NEEDS_REVIEW`.
 - Có tính lại theo revision, quyết định có lý do, history trước/sau, sự cố máy draft/analyze/confirm/cancel và miễn chấm tạo/hủy.
+- Tab **Ca sản xuất** nằm cạnh tab **Hành chính**, có KPI, bộ lọc Công nhân/KCS/cần kiểm tra/sự cố/đã xác nhận, bảng review responsive, cấu hình ca/ngưỡng công/chính sách nhân viên/miễn chấm và chi tiết read-only sau khi chốt.
+- Tổng hợp chỉ đọc import `CONFIRMED`; file Excel có sheet **Bảng công** đủ ngày 1–31 và sheet **Đối soát**. Manager không thể mở khóa; ADMIN phải nhập lý do để mở khóa trước khi điều chỉnh.
 - Đã kiểm thử local B124: đủ 31 ngày, tổng 45 công, 19 ca đêm, phụ cấp 950.000 đồng; ngày 31 thiếu lượt ra vẫn giữ trống và cần review/sự cố xác nhận.
 
-API backend nằm dưới `/api/v1/hr/attendance/production`. Giao diện Phase 5, tổng hợp/export Phase 6 và shadow nghiệm thu production Phase 7 vẫn chưa triển khai. Chi tiết: [WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md).
+API backend nằm dưới `/api/v1/hr/attendance/production`. Phase 7 shadow và nghiệm thu production vẫn chưa thực hiện. Chi tiết: [kế hoạch](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md) và [hướng sử dụng](WORKER_ATTENDANCE_USAGE_GUIDE.md).
 
 ## 6. Phân quyền và đăng nhập
 
@@ -259,7 +261,7 @@ Frontend `App.jsx` dùng `ProtectedRoute`, `AdminRoute`, `HrRoute`; `roleNavigat
 - Payroll: `/api/v1/hr/payroll/imports` GET/POST, preview, campaigns POST, campaign GET/start/deliveries/retry.
 - Telegram: `/api/v1/hr/telegram/settings` GET/PUT, test-connection, common-link, registrations, employees, summary, verify/reject/revoke, export; webhook `/api/v1/integrations/telegram/payroll/webhook`.
 - Attendance: `/api/v1/hr/attendance/settings` GET/PUT; `/imports` POST, `/imports/batch` POST, list, preview, confirm, export, cong-export, delete; `/summary` và `/summary/export`.
-- Attendance ca sản xuất: `/api/v1/hr/attendance/production` gồm shift-policies, employee-policies, exemptions, imports/recalculate/confirm/punches, shifts/decision/adjustments/bulk-confirm và incidents/analyze/confirm/cancel.
+- Attendance ca sản xuất: `/api/v1/hr/attendance/production` gồm shift-policies, work-credit-rules, employee-policies, exemptions, imports/recalculate/confirm/reopen/punches, shifts/decision/adjustments/bulk-confirm, incidents/analyze/confirm/cancel và summary/export.
 - Leave sync: `GET /api/v1/hr/sync/leave-roster?period=&activeOnly=`.
 
 ### Legacy/frozen endpoints
@@ -329,7 +331,7 @@ Không ghi token Cloudflare, Telegram, JWT, SMTP, VAPID hay database password v�
 - Backend có test unit/API/schema/migration cho auth, dashboard, HR import/workforce/probation/document/OCR/leave và legacy service.
 - Frontend có lệnh `npm run lint` và `npm run build`; baseline gần nhất build/lint đạt, còn một số cảnh báo unused hiện hữu.
 - Ngày 07/09/2026: `./mvnw test` đạt 139 test, 0 failure/error, 1 skipped; schema fixture đến V16. Mockito/Byte Buddy self-attach bị chặn trong sandbox; chạy ngoài sandbox đã đạt. Frontend build/lint và test JavaScript nhắc hạn đạt, còn 11 cảnh báo unused hiện hữu. Chưa nghiệm thu UI trực quan vì Browser chưa kết nối.
-- Ngày 11/09/2026: backend Phase 1–4 chấm công ca sản xuất đã qua full test local đến V21; số liệu kiểm thử chính xác được ghi tại [WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md). Chưa triển khai Phase 5 UI, Phase 6 export hoặc shadow production.
+- Ngày 11/09/2026: Phase 1–6 chấm công ca sản xuất đã qua full test local đến V21. Backend 188 test: 187 pass, 0 failure/error, 1 fixture tùy chọn skipped; frontend build/lint đạt với 10 cảnh báo unused hiện hữu ngoài trang ca sản xuất. Chưa shadow hoặc nghiệm thu production.
 - Các kiểm tra trên là static/unit; chưa chứng minh Cloudflare, Telegram, Gemini/Groq, Google Drive/Apps Script hay database production đang reachable.
 
 ## 12. Khoảng trống và roadmap ưu tiên

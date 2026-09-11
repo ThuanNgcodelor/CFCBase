@@ -63,26 +63,28 @@ function Metric({ label, value, tone = 'slate' }) {
   </div>;
 }
 
-function ImportCard({ item, active, onSelect, onConfirm, onRecalculate, onReopen }) {
-  return <button type="button" onClick={onSelect} className={`w-full rounded-xl border p-4 text-left transition ${active ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-emerald-200'}`}>
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-900">{item.sourceFileName}</p><p className="mt-1 text-xs text-gray-500">{item.attendanceMonth} · lần tính {item.processingVersion}</p></div>
-      <HrStatusBadge status={item.status} />
-    </div>
-    <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
-      <div><p className="font-semibold">{item.totalRows}</p><p className="text-gray-500">Dòng</p></div>
-      <div><p className="font-semibold text-emerald-700">{item.autoMatchedShifts}</p><p className="text-gray-500">Tự ghép</p></div>
-      <div><p className="font-semibold text-amber-700">{item.reviewShifts}</p><p className="text-gray-500">Kiểm tra</p></div>
-      <div><p className="font-semibold text-gray-600">{item.noPunchRows}</p><p className="text-gray-500">Trống</p></div>
-    </div>
-    <div className="mt-3 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+function ImportCard({ item, active, canReopen, onSelect, onConfirm, onRecalculate, onReopen }) {
+  return <div className={`w-full rounded-xl border p-4 text-left transition ${active ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-emerald-200'}`}>
+    <button type="button" onClick={onSelect} className="w-full text-left">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-900">{item.sourceFileName}</p><p className="mt-1 text-xs text-gray-500">{item.attendanceMonth} · lần tính {item.processingVersion}</p></div>
+        <HrStatusBadge status={item.status} />
+      </div>
+      <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+        <div><p className="font-semibold">{item.totalRows}</p><p className="text-gray-500">Dòng</p></div>
+        <div><p className="font-semibold text-emerald-700">{item.autoMatchedShifts}</p><p className="text-gray-500">Tự ghép</p></div>
+        <div><p className="font-semibold text-amber-700">{item.reviewShifts}</p><p className="text-gray-500">Kiểm tra</p></div>
+        <div><p className="font-semibold text-gray-600">{item.noPunchRows}</p><p className="text-gray-500">Trống</p></div>
+      </div>
+    </button>
+    <div className="mt-3 flex flex-wrap gap-2">
       {item.status === 'PREVIEWED' && <>
         <Button type="button" size="sm" variant="secondary" onClick={onRecalculate}><RefreshCw className="h-3.5 w-3.5" />Tính lại</Button>
         <Button type="button" size="sm" onClick={onConfirm}><Lock className="h-3.5 w-3.5" />Chốt</Button>
       </>}
-      {item.status === 'CONFIRMED' && <Button type="button" size="sm" variant="secondary" onClick={onReopen}><Unlock className="h-3.5 w-3.5" />Mở khóa</Button>}
+      {item.status === 'CONFIRMED' && canReopen && <Button type="button" size="sm" variant="secondary" onClick={onReopen}><Unlock className="h-3.5 w-3.5" />Mở khóa</Button>}
     </div>
-  </button>;
+  </div>;
 }
 
 function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
@@ -327,7 +329,7 @@ export default function HrProductionAttendance({ onSelectMode }) {
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-start gap-3"><UploadCloud className="mt-0.5 h-5 w-5 text-blue-600" /><div><h2 className="font-semibold">Import Time Attendance</h2><p className="mt-1 text-xs text-gray-500">Có thể chọn nhiều file; mỗi file giữ nguyên G–J và đủ ngày.</p></div></div><input id="production-attendance-files" type="file" multiple accept=".xlsx,.xls,.xlsm" onChange={(event) => setFiles(Array.from(event.target.files || []))} className="mt-4 block w-full text-sm" /><Button type="button" className="mt-4 w-full" disabled={!files.length || working} onClick={upload}><FileSpreadsheet className="h-4 w-4" />{working ? 'Đang xử lý...' : `Import ${files.length || ''} file`}</Button></div>
     </section>
 
-    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Các file trong tháng</h2><p className="mt-1 text-xs text-gray-500">Chọn một file để review. Chỉ file đã chốt mới vào tổng hợp.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onReopen={() => isAdmin ? reopen(item) : toast.error('Chỉ quản trị viên được mở khóa.')} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
+    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Các file trong tháng</h2><p className="mt-1 text-xs text-gray-500">Chọn một file để review. Chỉ file đã chốt mới vào tổng hợp.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={isAdmin} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
 
     {activeImport && <section className="mt-5 space-y-4"><div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap items-center gap-2">{views.map(([key, label]) => <button key={key} type="button" onClick={() => { setView(key); setPage(0); }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${view === key ? 'bg-emerald-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>{label}</button>)}<input value={employeeCode} onChange={(event) => { setEmployeeCode(event.target.value.toUpperCase()); setPage(0); }} placeholder="Lọc mã nhân viên" className="h-10 min-w-44 flex-1 rounded-lg border border-gray-300 px-3 text-sm" />{selected.size > 0 && <Button type="button" size="sm" onClick={bulkConfirm}><CheckCircle2 className="h-4 w-4" />Xác nhận {selected.size} ca</Button>}</div></div>
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"><div className="hidden overflow-x-auto md:block"><table className="min-w-[1250px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-3 py-3"><input type="checkbox" checked={selectableIds.length > 0 && selectableIds.every((id) => selected.has(id))} onChange={(event) => setSelected(event.target.checked ? new Set(selectableIds) : new Set())} /></th><th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Ngày</th><th className="px-3 py-3">Nhóm / ca</th><th className="px-3 py-3">Vào</th><th className="px-3 py-3">Ra</th><th className="px-3 py-3">Công</th><th className="px-3 py-3">Phụ cấp</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{shifts.content.map((item) => <tr key={item.id} className={item.status === 'NEEDS_REVIEW' ? 'bg-amber-50/60' : ''}><td className="px-3 py-3"><input type="checkbox" disabled={item.status !== 'AUTO_MATCHED'} checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} /></td><td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{formatHrDate(item.workDate)}</td><td className="px-3 py-3">{policyLabel(item.policyGroup)}<p className="text-xs text-gray-500">{item.shiftCode || '—'}</p></td><td className="px-3 py-3">{time(item.checkInAt)}</td><td className="px-3 py-3">{time(item.checkOutAt)}</td><td className="px-3 py-3 font-semibold">{work(item.workValue)}</td><td className="px-3 py-3">{money(item.nightAllowanceAmount)}</td><td className="px-3 py-3"><HrStatusBadge status={item.status} /></td><td className="px-3 py-3"><Button type="button" size="sm" variant="secondary" onClick={() => setDecisionShift(item)}><Eye className="h-4 w-4" />{activeImport.status === 'PREVIEWED' ? 'Review' : 'Chi tiết'}</Button></td></tr>)}</tbody></table></div><div className="divide-y divide-gray-100 md:hidden">{shifts.content.map((item) => <article key={item.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><b>{item.employeeCode} · {item.employeeName}</b><p className="text-sm text-gray-500">{formatHrDate(item.workDate)} · {item.shiftCode || 'Chưa rõ ca'}</p></div><HrStatusBadge status={item.status} /></div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>Vào: {time(item.checkInAt)}</p><p>Ra: {time(item.checkOutAt)}</p><p>Công: <b>{work(item.workValue)}</b></p><p>Phụ cấp: {money(item.nightAllowanceAmount)}</p></div><Button type="button" size="sm" variant="secondary" className="mt-3 w-full" onClick={() => setDecisionShift(item)}>{activeImport.status === 'PREVIEWED' ? 'Review chi tiết' : 'Xem chi tiết'}</Button></article>)}</div>{!shifts.content.length && <div className="p-6"><HrEmpty title="Không có ca phù hợp bộ lọc" /></div>}</div><HrPagination page={shifts.page || 0} totalPages={shifts.totalPages || 0} totalElements={shifts.totalElements || 0} onPageChange={setPage} />
