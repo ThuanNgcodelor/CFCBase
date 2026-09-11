@@ -1,11 +1,30 @@
 # Chấm công công nhân — dữ kiện, mẫu đối chiếu và câu hỏi cho HR
 
-- Ngày lưu: **10/09/2026**.
+- Ngày lưu: **11/09/2026**.
 - Dự án: **CFCBase**.
-- Trạng thái: **Đã phân tích file mẫu; chờ HR bổ sung quy tắc trước khi triển khai**.
+- Trạng thái: **Đã chốt quy tắc nền cho phiên bản đầu; còn kiểm thử thêm các trường hợp biên trước khi triển khai**.
 - Phạm vi: chức năng **Chấm công công nhân** trong một tab riêng.
 - Mục đích: giữ lại dữ kiện của cuộc trao đổi để HR trả lời và người tiếp tục công việc không phải suy đoán lại.
 - Hiện tại chỉ lưu tài liệu nghiệp vụ. Chưa triển khai tab công nhân, chưa sửa cách tính chấm công hiện hành và chưa thay đổi hai file Excel gốc.
+
+## 0. Quyết định nghiệp vụ chốt ngày 11/09/2026
+
+Các quyết định dưới đây là phạm vi triển khai phiên bản đầu theo xác nhận mới nhất của người dùng:
+
+1. **Trưởng ca phân ca ngoài hệ thống.** CFCBase hiện không nhận được bảng phân ca; đầu vào duy nhất là file chấm công. Hệ thống sẽ nhận diện ca từ chuỗi lượt chấm. Trường hợp không nhận diện chắc chắn phải đưa vào danh sách cần kiểm tra, không tự chọn ca tùy ý.
+2. **Công không tính bằng tổng giờ chia 8.** Hệ thống nhận diện loại ca và quy đổi thẳng sang các mức được phép là 1; 1,5; hoặc 2 công.
+3. **Ca ngày bắt đầu khoảng 06:00:**
+   - Kết thúc khoảng 14:00: 1 công.
+   - Kết thúc theo nhóm ca 16:00 và các ca mẫu kết thúc 17:12–17:34: 1,5 công.
+   - Kết thúc quanh 18:00, gồm hai ví dụ 17:59 và 18:01: 2 công.
+   - Để biểu diễn “khoảng dao động”, phiên bản đầu dùng cửa nhận mốc 18:00 từ **17:45 trở đi**; đây là cấu hình có thể điều chỉnh. Ra muộn hơn vẫn tối đa 2 công nếu không có quy tắc khác được duyệt.
+4. **Không làm tròn số công thập phân bằng công thức chung.** Sau khi nhận diện ca/mốc checkout, kết quả được chuẩn hóa trực tiếp về 1; 1,5; hoặc 2. Vì vậy các kết quả cũ 1,40–1,45 thuộc nhóm 1,5 sẽ thành 1,5; không áp dụng kiểu cứ có số lẻ là làm tròn lên.
+5. **Ca đêm:** nhận diện từ lượt vào chiều/tối và lượt ra sáng hôm sau, tính cho ngày bắt đầu ca. Một ca đêm hợp lệ hoặc đã được người có quyền xác nhận được tính **1,5 công và 50.000 đồng phụ cấp ca đêm**.
+6. **Phụ cấp ca đêm lưu riêng:** `số ca đêm × 50.000 đồng`; không cộng 50.000 vào số công và không gộp vào cột tăng ca. Ca đêm thiếu một lượt chỉ nhận phụ cấp sau khi được xác nhận. Ca 31/08 của mẫu Cường đã được xác nhận 1,5 công nên cũng thuộc diện hưởng 50.000 đồng.
+7. **Không trừ giờ nghỉ giữa ca trong bước quy đổi công.** Với dữ liệu hiện có, không đủ thông tin để tính giờ nghỉ thực tế. Đi trễ/về sớm được lưu để thống kê và kiểm tra riêng, chưa tự trừ công.
+8. **Ca qua ngày/tháng phải ghép theo thời điểm đầy đủ.** Lượt ra sáng hôm sau thuộc ca bắt đầu hôm trước; mỗi lượt chỉ dùng một lần. Cuối tháng có thể đọc thêm lượt đầu tháng sau nhưng phải ghi công và phụ cấp về tháng/ngày bắt đầu ca.
+
+Mốc 17:45 là giá trị cấu hình ban đầu được chọn để bao phủ ý “dao động quanh 18:00” và vẫn giữ các ca mẫu kết thúc 17:12–17:34 ở mức 1,5. Khi có thêm ca thực tế sát mốc, người quản lý có thể điều chỉnh cấu hình mà không sửa thuật toán.
 
 ## 1. Kết luận và giới hạn đã thống nhất
 
@@ -17,6 +36,7 @@ Mẫu **Đỗ Đình Cường — B124 — tháng 08/2026** có kết quả mong
 - Giữ đủ **31 ngày** trong bảng, dù có ngày công bằng 0.
 - Đây là **30 ca được quy đổi thành 45 công**, không phải 45 ngày đi làm.
 - 29 ca ghép được đủ lượt vào/ra theo lịch đã cung cấp. Riêng ca bắt đầu 31/08 thiếu giờ ra 01/09 trong file nhưng được tính **1,5 công theo xác nhận của người dùng**.
+- Có **19 ca đêm**. Với đơn giá đã chốt là 50.000 đồng/ca, mẫu này có **950.000 đồng phụ cấp ca đêm**. Khoản này tách khỏi 45 công và chỉ là kết quả mong đợi khi cả 19 ca được xác nhận hợp lệ.
 
 Kết quả này đủ làm mẫu nghiệm thu đầu tiên. Chưa được suy rộng rằng mọi nhân viên, mọi ca đêm hoặc mọi trường hợp thiếu giờ đều áp dụng cùng quy tắc.
 
@@ -111,19 +131,22 @@ Lịch trên do **người dùng cung cấp**, không phải lịch ca ghi sẵn
 | 06:00 → 14:00 | 1 công | Ví dụ được người dùng nêu |
 | 06:00 → 16:30 | 1,5 công | Ví dụ được người dùng nêu |
 | Các ca ngày của Cường ra khoảng 17 giờ | 1,5 công | Đã hỏi cụ thể 01/08: 05:54–17:31 và 16/08: 05:53–17:12; người dùng trả lời “Câu 1 là 1.5 công” |
-| 06:00 → 18:00 hoặc 18:59; có khi chấm ra 20–21 giờ | 2 công | Người dùng nêu; ngưỡng, thời gian nghỉ và giới hạn chưa rõ |
+| 06:00 → quanh 18:00 hoặc muộn hơn | 2 công | 17:59 và 18:01 đã được xác nhận; mốc chuyển chính xác giữa nhóm 17:34 và 17:59 cần kiểm thử bằng cấu hình |
 | Ca đêm | Được mô tả 17:00 → 05:00 hôm sau | Khung giờ chính xác và các biến thể cần HR xác nhận |
 | Ca đêm cuối tháng của Cường | Vẫn 1,5 công dù thiếu giờ ra 01/09 trong file | Người dùng trả lời “câu 2 vẫn tính là 1.5 công nhé” |
 | 1,43; 1,42; 1,45 trong file cũ | Phải làm tròn lên 1,5 | Người dùng nhấn mạnh 39,68 là sai |
+| 06:00 → khoảng 16:00 | 1,5 công | Xác nhận mới ngày 11/09/2026 |
+| 06:00 → 17:59 hoặc 18:01 | 2 công | Xác nhận mới; coi là khoảng dao động quanh mốc 18:00 |
+| Ca đêm hợp lệ/đã xác nhận | 1,5 công + 50.000 đồng | Phụ cấp ca đêm được lưu riêng khỏi số công |
 
-Mẫu đối chiếu đã thống nhất sử dụng **1,5 công cho 19 ca đêm của Cường**, gồm ca cuối tháng theo xác nhận trên. Chưa có bảng hệ số áp dụng cho toàn bộ loại ca/nhóm công nhân.
+Mẫu đối chiếu đã thống nhất sử dụng **1,5 công cho 19 ca đêm của Cường**, gồm ca cuối tháng theo xác nhận trên. Do đó kết quả nghiệm thu của mẫu là **45 công + 950.000 đồng phụ cấp ca đêm**. Đây chưa phải bảng hệ số cho ngày lễ, Chủ nhật hoặc các nhóm công nhân khác.
 
-### 3.3 Mâu thuẫn phải giữ lại để hỏi HR
+### 3.3 Các mâu thuẫn đã xử lý
 
-1. Mô tả ban đầu có câu **“8 tiếng là 1 công, 12 tiếng sẽ là 1 công”**. Các ví dụ và xác nhận sau lại dùng 1,5 hoặc 2 công. Không xóa thông tin này; hỏi xem có nhóm ca/nhóm người khác áp dụng 12 tiếng = 1 công hay đó là nhầm diễn đạt.
-2. Ảnh cũ ghi `CN-6h-18h = 1,5 công`, còn người dùng nêu `06:00 → 18:00 = 2 công`. Quy định mới và cấu hình cũ đang không trùng nhau.
-3. Người dùng mô tả đêm `17:00 → 05:00`, ảnh có `18:00 → 05:00`, còn giờ thực tế của Cường cũng thay đổi theo giai đoạn. Cần phân biệt giờ chuẩn với khoảng cho phép chấm.
-4. Quy tắc làm tròn mới xác nhận các ví dụ cụ thể, **chưa có cơ sở áp dụng chung công thức làm tròn lên bậc 0,5** cho mọi giá trị như 1,01 hoặc 1,51.
+1. Câu cũ **“12 tiếng = 1 công”** không dùng cho phiên bản chấm công công nhân này. Quy tắc mới theo loại ca/mốc giờ có hiệu lực ưu tiên.
+2. Ảnh cấu hình Time Attendance cũ ghi `CN-6h-18h = 1,5`, nhưng quy tắc mới chốt nhóm kết thúc quanh 18:00 là 2 công. CFCBase dùng quy tắc mới; ảnh cũ chỉ phục vụ phân tích nguyên nhân báo cáo cũ bị sai.
+3. `17:00 → 05:00` và `18:00 → 05:00` được coi là các biến thể trong cửa nhận ca đêm, không bắt buộc dấu vân tay đúng từng phút theo giờ chuẩn.
+4. Các giá trị 1,40–1,45 được chuẩn hóa thành 1,5 vì thuộc cùng nhóm ca. Không dùng công thức làm tròn số học cho 1,01; 1,24; 1,51 hoặc các số lẻ khác.
 
 ## 4. Cách hiểu lượt chấm và ca qua ngày
 
@@ -231,41 +254,43 @@ Nguồn giờ: `Giờ chấm công!G3:H33`. Nguồn công cũ: `Sheet1!D6:AH6`.
 - Đề xuất khi triển khai: lưu 1,5 công kèm lý do áp dụng quy định cuối tháng, giữ giờ ra thực tế trống. Không tạo một giờ chấm giả như 05:00 hoặc 06:00 rồi trình bày là dữ liệu máy.
 - Khi bổ sung file tháng 9, phải ghép lượt ra này về ca tháng 8 và tránh cộng lại ở tháng 9. Phạm vi ngoại lệ cho các ca cuối tháng khác còn cần HR xác nhận.
 
-## 7. Câu hỏi để HR trả lời
+## 7. Bảng quyết định nghiệp vụ
 
-HR có thể điền trực tiếp cột cuối. Các câu hỏi chưa có câu trả lời không được tự biến thành quy định mặc định khi triển khai.
+Các câu Q01–Q05 đã được người dùng trả lời và chốt thành quy tắc nền. Các mục còn thiếu dữ liệu được xử lý bằng cấu hình hoặc luồng kiểm tra thủ công, không được âm thầm suy đoán.
 
 | Mã | Câu hỏi cần HR xác nhận | Vì sao cần | HR trả lời |
 |---|---|---|---|
-| Q01 | Có bảng phân ca theo người/ngày/tổ không? Ca có luân phiên theo chu kỳ hay đổi linh hoạt? Nếu không có bảng, HR đang xác định ca bằng cách nào? | 05:50 có thể là vào ca ngày hoặc ra ca đêm; không luôn nhận diện chắc chắn chỉ từ một dòng | Chưa trả lời |
-| Q02 | Danh sách ca đang áp dụng, giờ chuẩn bắt đầu/kết thúc và công cho mỗi ca? Đêm 17–05 và 18–05 có phải hai ca khác nhau không? | Ảnh cũ, mô tả và giờ thực tế chưa đồng nhất | Chưa trả lời |
-| Q03 | Bảng ngưỡng cho 1 / 1,5 / 2 công là gì? Ví dụ vào 06:00, ra 14:00, 15:00, 16:00, 16:29, 16:30, 17:59, 18:00, 18:01, 20:00, 21:00? | Chưa biết ngưỡng chính xác và cách xử lý sát ranh giới | Chưa trả lời |
-| Q04 | Làm tròn theo bậc cố định hay chỉ một số khoảng? 1,01; 1,24; 1,26; 1,49; 1,51 được tính bao nhiêu? | Ví dụ 1,42–1,45 lên 1,5 chưa xác định toàn bộ quy tắc | Chưa trả lời |
-| Q05 | Tính theo giờ thực tế, theo ca đăng ký hay mốc checkout? Có trừ nghỉ trưa/nghỉ giữa ca không? | Không thể mặc định lấy tổng giờ chia 8; chưa biết có phải tính số lẻ rồi làm tròn hay quy đổi trực tiếp | Chưa trả lời |
-| Q06 | Ca cho phép chấm vào sớm/muộn, chấm ra sớm/muộn bao nhiêu phút? Đi trễ/về sớm có trừ công hay chỉ thống kê? | Tránh rớt như 16:55/16:59 và hiểu các trường hợp 17:53–05:02 | Chưa trả lời |
-| Q07 | Có nhóm công nhân/ca nào áp dụng 12 tiếng = 1 công không? Hay phát biểu ban đầu là nhầm? | Giải quyết mâu thuẫn với ví dụ 1,5 và 2 công | Chưa trả lời |
-| Q08 | Thiếu lượt vào hoặc ra giữa tháng xử lý thế nào? Không có cả hai lượt thì sao? Ai xác nhận? | Ngoại lệ ca 31 đã chốt không đồng nghĩa được tự điền/tính cho mọi ca thiếu lượt | Chưa trả lời |
-| Q09 | Quy tắc ca đêm cuối tháng tính 1,5 có áp dụng toàn bộ công nhân/tháng không? Có thể xuất kèm sáng ngày đầu tháng sau và cuối tháng trước không? | Ghép ca qua ranh giới kỳ và tránh cộng trùng | Chưa trả lời |
+| Q01 | Có bảng phân ca theo người/ngày/tổ không? Ca có luân phiên theo chu kỳ hay đổi linh hoạt? Nếu không có bảng, HR đang xác định ca bằng cách nào? | 05:50 có thể là vào ca ngày hoặc ra ca đêm; không luôn nhận diện chắc chắn chỉ từ một dòng | Trưởng ca phân ca nhưng hệ thống không có dữ liệu phân ca. Phiên bản đầu nhận diện từ lượt chấm; ca mơ hồ đưa ra kiểm tra thủ công. |
+| Q02 | Danh sách ca đang áp dụng, giờ chuẩn bắt đầu/kết thúc và công cho mỗi ca? Đêm 17–05 và 18–05 có phải hai ca khác nhau không? | Ảnh cũ, mô tả và giờ thực tế chưa đồng nhất | Phạm vi đầu dùng hai nhóm nhận diện: ca ngày bắt đầu khoảng 06:00 và ca đêm vào chiều/tối, ra sáng hôm sau. 17–05 và 18–05 là biến thể ca đêm, cùng mức 1,5 công. |
+| Q03 | Bảng ngưỡng cho 1 / 1,5 / 2 công là gì? Ví dụ vào 06:00, ra 14:00, 15:00, 16:00, 16:29, 16:30, 17:59, 18:00, 18:01, 20:00, 21:00? | Chưa biết ngưỡng chính xác và cách xử lý sát ranh giới | 06–14 = 1; nhóm kết thúc khoảng 16:00 và mẫu 17:12–17:34 = 1,5; từ cửa nhận 17:45 quanh mốc 18:00 trở đi = 2, tối đa 2. Các mốc là cấu hình. |
+| Q04 | Làm tròn theo bậc cố định hay chỉ một số khoảng? 1,01; 1,24; 1,26; 1,49; 1,51 được tính bao nhiêu? | Ví dụ 1,42–1,45 lên 1,5 chưa xác định toàn bộ quy tắc | Không làm tròn số học. Nhận diện nhóm rồi trả đúng 1; 1,5; hoặc 2. Các số lẻ ngoài nhóm không được dùng làm đầu ra. |
+| Q05 | Tính theo giờ thực tế, theo ca đăng ký hay mốc checkout? Có trừ nghỉ trưa/nghỉ giữa ca không? | Không thể mặc định lấy tổng giờ chia 8; chưa biết có phải tính số lẻ rồi làm tròn hay quy đổi trực tiếp | Tính theo ca nhận diện và mốc checkout; không lấy giờ chia 8, không trừ nghỉ giữa ca do file không có dữ liệu nghỉ. Ca đêm hợp lệ/đã xác nhận được thêm 50.000 đồng riêng. |
+| Q06 | Ca cho phép chấm vào sớm/muộn, chấm ra sớm/muộn bao nhiêu phút? Đi trễ/về sớm có trừ công hay chỉ thống kê? | Tránh rớt như 16:55/16:59 và hiểu các trường hợp 17:53–05:02 | Giờ chấm có khoảng dao động. Dùng cửa nhận cấu hình; mốc 2 công mặc định bắt đầu 17:45. Đi trễ/về sớm chỉ thống kê và cảnh báo trong phiên bản đầu. |
+| Q07 | Có nhóm công nhân/ca nào áp dụng 12 tiếng = 1 công không? Hay phát biểu ban đầu là nhầm? | Giải quyết mâu thuẫn với ví dụ 1,5 và 2 công | Không áp dụng 12 tiếng = 1 công trong phạm vi này. Dùng bảng quy đổi mới. |
+| Q08 | Thiếu lượt vào hoặc ra giữa tháng xử lý thế nào? Không có cả hai lượt thì sao? Ai xác nhận? | Ngoại lệ ca 31 đã chốt không đồng nghĩa được tự điền/tính cho mọi ca thiếu lượt | Thiếu một lượt: cần kiểm tra/xác nhận, giữ giờ thiếu là trống. Không có cả hai lượt: 0 công, không tự tạo ca. |
+| Q09 | Quy tắc ca đêm cuối tháng tính 1,5 có áp dụng toàn bộ công nhân/tháng không? Có thể xuất kèm sáng ngày đầu tháng sau và cuối tháng trước không? | Ghép ca qua ranh giới kỳ và tránh cộng trùng | Ghép lượt đầu tháng sau về ngày bắt đầu ca tháng trước. Nếu vẫn thiếu, người có quyền xác nhận. Ca đêm đã xác nhận được 1,5 công và 50.000 đồng. |
 | Q10 | Có ca nối tiếp/ca kéo dài hơn một ngày hoặc nhiều lần ra vào không? File hai lượt/ngày có giữ đủ lượt gốc không? | Thiếu lượt do báo cáo đã gộp sẽ không thể tái tạo chắc chắn | Chưa trả lời |
-| Q11 | 1,5/2 công đã bao gồm tăng ca hay tăng ca còn tính riêng? BT, CN, TC có ý nghĩa và đơn vị gì? | Tránh tính cùng thời gian hai lần | Chưa trả lời |
+| Q11 | 1,5/2 công đã bao gồm tăng ca hay tăng ca còn tính riêng? BT, CN, TC có ý nghĩa và đơn vị gì? | Tránh tính cùng thời gian hai lần | Phiên bản đầu coi 1/1,5/2 là kết quả công cuối của ca. Phụ cấp đêm 50.000 đồng tính riêng. Chưa tự tính BT/CN/TC khi chưa có định nghĩa. |
 | Q12 | Chủ nhật/lễ có hệ số riêng? Nguồn xác nhận phép/nghỉ có lương/không lương là đâu? | Không suy ra lý do nghỉ từ lượt vân tay; mẫu có đi làm cuối tuần | Chưa trả lời |
-| Q13 | Ca đêm và nghỉ sau ca cần ký hiệu gì trong file xuất? Có cần tổng số ca đêm, công ngày/đêm riêng không? | Chốt nội dung xuất ngoài việc giữ bố cục mẫu | Chưa trả lời |
-| Q14 | Nhân viên không có trong danh mục CFCBase, mã trùng hoặc đổi mã được xử lý thế nào? Ai được điều chỉnh và xác nhận bảng công? | Chốt đối chiếu nhân viên và trách nhiệm sửa số liệu | Chưa trả lời |
+| Q13 | Ca đêm và nghỉ sau ca cần ký hiệu gì trong file xuất? Có cần tổng số ca đêm, công ngày/đêm riêng không? | Chốt nội dung xuất ngoài việc giữ bố cục mẫu | Xuất thêm số ca đêm và tổng phụ cấp ca đêm; chi tiết web hiển thị loại ca. Ngày nghỉ sau ca chỉ có 0 công nếu không bắt đầu ca mới. |
+| Q14 | Nhân viên không có trong danh mục CFCBase, mã trùng hoặc đổi mã được xử lý thế nào? Ai được điều chỉnh và xác nhận bảng công? | Chốt đối chiếu nhân viên và trách nhiệm sửa số liệu | Đối chiếu theo mã nhân viên. Mã thiếu/trùng/không tồn tại phải đưa ra kiểm tra; người quản lý HR xác nhận và mọi điều chỉnh phải lưu lý do/lịch sử. |
 
-HR nên gửi kèm bảng quy đổi và vài ca mẫu đã tính đúng, đặc biệt các trường hợp sát ngưỡng, đổi ca, thiếu lượt và qua tháng. Không yêu cầu HR diễn giải bằng công thức lập trình.
+Trước khi nghiệm thu production cần lấy thêm vài ca thực tế sát 17:45, ca thiếu lượt giữa tháng và ca qua tháng để kiểm thử cửa nhận. Không cần HR diễn giải bằng công thức lập trình.
 
-## 8. Hướng chức năng dự kiến sau khi HR trả lời
+## 8. Hướng chức năng đã chốt cho phiên bản đầu
 
-Đây là **đề xuất để tiếp tục**, chưa phải tính năng đã làm hoặc quy trình đã được HR duyệt.
+Đây là phạm vi đã đủ để bắt đầu thiết kế/triển khai. Các mốc giờ phải nằm trong cấu hình để có thể hiệu chỉnh sau nghiệm thu.
 
 1. Tab **Chấm công công nhân** riêng, có cấu hình nghiệp vụ riêng để không làm thay đổi chấm công hành chính hiện hành.
 2. Import file giờ chấm; chọn/nhận diện kỳ, mã nhân viên và các lượt chấm. Lưu bản gốc để đối soát, không ghi đè giờ gốc khi điều chỉnh.
 3. Đối chiếu lịch ca; ghép lượt vào/ra qua ngày theo thời gian đầy đủ; không tái sử dụng một lượt cho hai ca.
-4. Quy đổi công theo cấu hình HR xác nhận. Nếu có làm tròn thì thực hiện tại cấp ca trước khi cộng tháng, theo phạm vi/ngưỡng được phê duyệt.
-5. Xem chi tiết trên web: ngày bắt đầu ca, loại ca, ngày giờ vào/ra, công và lý do. Hiển thị rõ dữ liệu thiếu, ghép chưa chắc chắn và ngoại lệ cuối tháng; không âm thầm biến chúng thành 0.
-6. HR kiểm tra/điều chỉnh với lý do; lưu người sửa và lịch sử; xác nhận bảng công.
-7. Xuất bảng ngang theo mẫu: một người/một dòng, đủ ngày trong kỳ, tổng công và các nhóm cột bổ sung có đủ dữ liệu.
-8. Xem trên web và xuất Excel dùng cùng kết quả đã xác nhận. Giữ khả năng đối chiếu ngược mỗi ô công về các lượt chấm và quy tắc đã áp dụng.
+4. Quy đổi trực tiếp từng ca theo nhóm mốc đã cấu hình rồi mới cộng tháng; không tính số công thập phân trung gian và không làm tròn số học.
+5. Nhận diện ca ngày theo nhóm mốc kết thúc và ca đêm theo cặp lượt qua ngày. Kết quả công chỉ nhận 0; 1; 1,5; hoặc 2; không lưu số lẻ kiểu 1,43.
+6. Tính phụ cấp đêm riêng bằng số ca đêm hợp lệ/đã xác nhận nhân 50.000 đồng. Lưu số ca, đơn giá và thành tiền để đối soát.
+7. Xem chi tiết trên web: ngày bắt đầu ca, loại ca, ngày giờ vào/ra, công, phụ cấp đêm và lý do. Hiển thị rõ dữ liệu thiếu, ghép chưa chắc chắn và ngoại lệ cuối tháng; không âm thầm biến chúng thành 0.
+8. HR kiểm tra/điều chỉnh với lý do; lưu người sửa và lịch sử; xác nhận bảng công.
+9. Xuất bảng ngang theo mẫu: một người/một dòng, đủ ngày trong kỳ, tổng công, số ca đêm, phụ cấp đêm và các nhóm cột bổ sung có đủ dữ liệu.
+10. Xem trên web và xuất Excel dùng cùng kết quả đã xác nhận. Giữ khả năng đối chiếu ngược mỗi ô công về các lượt chấm và quy tắc đã áp dụng.
 
 Không tự suy ra phép/nghỉ/tăng ca từ file giờ chấm nếu chưa có định nghĩa hoặc nguồn bổ sung. Không chọn mặc định xóa dòng không chấm. Không dùng bảng kết quả lỗi của Time Attendance làm dữ liệu đầu vào tính công mới.
 
@@ -285,12 +310,11 @@ Không tự suy ra phép/nghỉ/tăng ca từ file giờ chấm nếu chưa có 
 - [ ] Giữ đủ lượt gốc; một lượt ra sáng không bị tính thêm như lượt vào ca ngày.
 - [ ] Ca 31 giữ giờ ra thực tế thiếu và lý do tính 1,5; không bịa dấu vân tay.
 - [ ] Các ca ngày mẫu hiển thị 1,5, không còn 1,40/1,41/1,42/1,43/1,44/1,45.
+- [ ] B124 có 19 ca đêm và **950.000 đồng** phụ cấp đêm; phụ cấp không làm thay đổi tổng 45 công.
 - [ ] File xuất và số hiển thị trên web khớp nhau.
 - [ ] Bổ sung tháng 9 không làm cộng trùng ca 31/08.
 - [ ] Kiểm tra thêm nhân viên khác và các mốc quy đổi sau khi HR cung cấp đáp án.
 
 ### Điểm tiếp tục công việc
 
-Chờ câu trả lời HR ở mục 7 rồi cập nhật quy tắc. Sau đó mới đọc source để thiết kế và triển khai tab công nhân theo phạm vi đã chốt. Phân tích mẫu 45 công không chứng minh hệ thống đã tự nhận ca đúng trên production.
-
-Người dùng đã yêu cầu lưu lại dữ kiện và chuyển sang task **LĐ phổ thông, thao tác thêm lao động phổ thông**. Yêu cầu thay đổi cụ thể của task đó chưa được mô tả trong thời điểm lưu tài liệu này.
+Có thể bắt đầu đọc source và thiết kế tab **Chấm công công nhân** theo mục 0 và mục 8. Trước khi production cần kiểm thử nhiều nhân viên, đặc biệt các lượt sát cửa 17:45, ca thiếu lượt và ca qua tháng. Phân tích mẫu 45 công chưa tự chứng minh nhận diện đúng cho toàn bộ công nhân.
