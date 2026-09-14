@@ -17,8 +17,9 @@ const currentMonth = () => new Date().toISOString().slice(0, 7);
 const shadowMode = import.meta.env.VITE_HR_PRODUCTION_ATTENDANCE_SHADOW_MODE === 'true';
 const emptyPage = { content: [], page: 0, totalPages: 0, totalElements: 0 };
 const views = [
-  ['ALL', 'Tất cả'], ['PRODUCTION_WORKER', 'Công nhân'], ['KCS', 'KCS'],
-  ['NEEDS_REVIEW', 'Cần kiểm tra'], ['INCIDENT', 'Sự cố máy'], ['CONFIRMED', 'Đã xác nhận'],
+  ['NEEDS_REVIEW', 'Cần xử lý'], ['AUTO_MATCHED', 'Sẵn sàng'], ['NO_PUNCH', 'Không chấm'],
+  ['CONFIRMED', 'Đã xác nhận'], ['INCIDENT', 'Sự cố máy'], ['PRODUCTION_WORKER', 'Công nhân'],
+  ['KCS', 'KCS'], ['ALL', 'Tất cả'],
 ];
 
 function money(value) {
@@ -73,19 +74,45 @@ function ImportCard({ item, active, canReopen, onSelect, onConfirm, onRecalculat
       </div>
       <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
         <div><p className="font-semibold">{item.totalRows}</p><p className="text-gray-500">Dòng</p></div>
-        <div><p className="font-semibold text-emerald-700">{item.autoMatchedShifts}</p><p className="text-gray-500">Tự ghép</p></div>
-        <div><p className="font-semibold text-amber-700">{item.reviewShifts}</p><p className="text-gray-500">Kiểm tra</p></div>
-        <div><p className="font-semibold text-gray-600">{item.noPunchRows}</p><p className="text-gray-500">Trống</p></div>
+        <div><p className="font-semibold text-emerald-700">{item.autoMatchedShifts}</p><p className="text-gray-500">Sẵn sàng</p></div>
+        <div><p className="font-semibold text-amber-700">{item.reviewShifts}</p><p className="text-gray-500">Cần xử lý</p></div>
+        <div><p className="font-semibold text-gray-600">{item.noPunchRows}</p><p className="text-gray-500">Không chấm</p></div>
       </div>
     </button>
     <div className="mt-3 flex flex-wrap gap-2">
       {item.status === 'PREVIEWED' && <>
         <Button type="button" size="sm" variant="secondary" onClick={onRecalculate}><RefreshCw className="h-3.5 w-3.5" />Tính lại</Button>
-        <Button type="button" size="sm" onClick={onConfirm}><Lock className="h-3.5 w-3.5" />Chốt</Button>
+        <Button type="button" size="sm" disabled={item.reviewShifts > 0} title={item.reviewShifts > 0 ? `Còn ${item.reviewShifts} ca cần xử lý` : 'Xác nhận các ca hợp lệ và khóa file'} onClick={onConfirm}><Lock className="h-3.5 w-3.5" />Chốt file</Button>
       </>}
       {item.status === 'CONFIRMED' && canReopen && <Button type="button" size="sm" variant="secondary" onClick={onReopen}><Unlock className="h-3.5 w-3.5" />Mở khóa</Button>}
     </div>
   </div>;
+}
+
+function WorkflowGuide({ item }) {
+  if (!item) return null;
+  const confirmed = item.status === 'CONFIRMED';
+  const reviewDone = item.reviewShifts === 0;
+  const steps = [
+    ['1', 'Đã nhập file', true],
+    ['2', reviewDone ? 'Đã xử lý bất thường' : `Xử lý ${item.reviewShifts} ca`, reviewDone],
+    ['3', reviewDone ? `${item.autoMatchedShifts} ca sẵn sàng` : 'Chờ xử lý xong', reviewDone],
+    ['4', confirmed ? 'Đã chốt file' : 'Chốt file', confirmed],
+    ['5', confirmed ? 'Có thể xuất Excel' : 'Chờ chốt file', confirmed],
+  ];
+  return <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold text-gray-900">Quy trình xử lý</h2><p className="mt-1 text-xs text-gray-500">Làm lần lượt từ trái sang phải; hệ thống sẽ chỉ rõ bước tiếp theo.</p></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${confirmed ? 'bg-emerald-100 text-emerald-800' : item.reviewShifts > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>{confirmed ? 'Hoàn tất' : item.reviewShifts > 0 ? 'Đang kiểm tra' : 'Sẵn sàng chốt'}</span></div>
+    <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{steps.map(([number, label, done]) => <div key={number} className={`rounded-lg border p-3 ${done ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'}`}>{done ? '✓' : number}</span><p className="mt-2 text-sm font-medium text-gray-800">{label}</p></div>)}</div>
+    {!confirmed && <p className={`mt-4 rounded-lg px-4 py-3 text-sm ${item.reviewShifts > 0 ? 'bg-amber-50 text-amber-900' : 'bg-emerald-50 text-emerald-900'}`}>{item.reviewShifts > 0 ? `Bước tiếp theo: mở “Cần xử lý” và kiểm tra ${item.reviewShifts} ca bất thường. Ngày không chấm được giữ nguyên và không phải lỗi.` : `Đã xử lý hết bất thường. Bấm “Chốt file” để xác nhận ${item.autoMatchedShifts} ca hợp lệ còn lại và khóa kết quả.`}</p>}
+  </section>;
+}
+
+function EmployeeOverview({ employees, selectedCode, onSelect }) {
+  if (!employees.length) return null;
+  return <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div><h2 className="font-semibold text-gray-900">Tổng quan theo nhân viên</h2><p className="mt-1 text-xs text-gray-500">Chọn một người để mở bảng ngày; số công dưới đây là tạm tính trước khi chốt.</p></div>
+    <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[820px] text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Nhóm</th><th className="px-3 py-3 text-center">Ngày</th><th className="px-3 py-3 text-center">Công tạm tính</th><th className="px-3 py-3 text-center">Ca đêm</th><th className="px-3 py-3 text-center">Cần xử lý</th><th className="px-3 py-3">Trạng thái</th></tr></thead><tbody className="divide-y divide-gray-100">{employees.map((item) => <tr key={item.employeeCode} onClick={() => onSelect(item)} className={`cursor-pointer hover:bg-emerald-50 ${selectedCode === item.employeeCode ? 'bg-emerald-50' : ''}`}><td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{policyLabel(item.policyGroup)}</td><td className="px-3 py-3 text-center">{item.totalDays}</td><td className="px-3 py-3 text-center font-semibold">{work(item.proposedWorkValue)}</td><td className="px-3 py-3 text-center">{item.nightShifts}</td><td className={`px-3 py-3 text-center font-semibold ${item.reviewShifts ? 'text-amber-700' : 'text-emerald-700'}`}>{item.reviewShifts}</td><td className="px-3 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.reviewShifts ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>{item.reviewShifts ? 'Cần kiểm tra' : 'Đã ổn'}</span></td></tr>)}</tbody></table></div>
+  </section>;
 }
 
 function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
@@ -243,12 +270,13 @@ export default function HrProductionAttendance({ onSelectMode }) {
   const [month, setMonth] = useState(currentMonth());
   const [imports, setImports] = useState([]);
   const [activeImportId, setActiveImportId] = useState('');
+  const [employeeSummaries, setEmployeeSummaries] = useState([]);
   const [shifts, setShifts] = useState(emptyPage);
   const [summary, setSummary] = useState(null);
   const [policies, setPolicies] = useState([]);
   const [creditRules, setCreditRules] = useState([]);
   const [incidents, setIncidents] = useState([]);
-  const [view, setView] = useState('ALL');
+  const [view, setView] = useState('NEEDS_REVIEW');
   const [employeeCode, setEmployeeCode] = useState('');
   const [page, setPage] = useState(0);
   const [files, setFiles] = useState([]);
@@ -279,29 +307,54 @@ export default function HrProductionAttendance({ onSelectMode }) {
     if (!activeImportId) { setShifts(emptyPage); return; }
     const params = { importId: activeImportId, page, size: 50, employeeCode: employeeCode.trim() || undefined };
     if (view === 'PRODUCTION_WORKER' || view === 'KCS') params.policyGroup = view;
-    if (view === 'NEEDS_REVIEW' || view === 'CONFIRMED') params.status = view;
+    if (['NEEDS_REVIEW', 'AUTO_MATCHED', 'NO_PUNCH', 'CONFIRMED'].includes(view)) params.status = view;
     if (view === 'INCIDENT') params.incidentOnly = true;
     try { setShifts(await api.shifts(params)); setSelected(new Set()); }
     catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể tải danh sách ca.')); }
   }, [activeImportId, employeeCode, page, view]);
 
+  const loadEmployeeSummaries = useCallback(async () => {
+    if (!activeImportId) { setEmployeeSummaries([]); return; }
+    try { setEmployeeSummaries(await api.employeeSummaries(activeImportId) || []); }
+    catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể tải tổng quan theo nhân viên.')); }
+  }, [activeImportId]);
+
   useEffect(() => { loadBase(); }, [loadBase]);
   useEffect(() => { loadShifts(); }, [loadShifts]);
+  useEffect(() => { loadEmployeeSummaries(); }, [loadEmployeeSummaries]);
+  useEffect(() => {
+    if (!activeImport) return;
+    setView(activeImport.status === 'CONFIRMED' ? 'CONFIRMED' : activeImport.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'AUTO_MATCHED');
+    setEmployeeCode(''); setPage(0); setSelected(new Set());
+  }, [activeImport, activeImportId]);
 
   const mutate = async (action, success, fallback) => {
     setWorking(true);
-    try { await action(); toast.success(success); await loadBase(); await loadShifts(); }
+    try { await action(); toast.success(success); await loadBase(); await loadShifts(); await loadEmployeeSummaries(); }
     catch (requestError) { toast.error(apiErrorMessage(requestError, fallback)); }
     finally { setWorking(false); }
   };
 
-  const upload = () => mutate(async () => {
-    for (const file of files) await api.upload(file, month);
-    setFiles([]); const input = document.getElementById('production-attendance-files'); if (input) input.value = '';
-  }, `Đã import ${files.length} file ca sản xuất.`, 'Không thể import file ca sản xuất.');
+  const upload = async () => {
+    setWorking(true);
+    try {
+      for (const file of files) await api.upload(file, month);
+      toast.success(`Đã import ${files.length} file. Hãy xử lý các ca bất thường trước.`);
+      setFiles([]); const input = document.getElementById('production-attendance-files'); if (input) input.value = '';
+      await loadBase();
+    } catch (requestError) {
+      const message = apiErrorMessage(requestError, 'Không thể import file ca sản xuất.');
+      const detectedMonth = message.match(/\b(20\d{2}-\d{2})\b/)?.[1];
+      if (detectedMonth && detectedMonth !== month) {
+        setMonth(detectedMonth); setPage(0);
+        toast.error(`File thuộc tháng ${detectedMonth.slice(5)}/${detectedMonth.slice(0, 4)}. Hệ thống đã chuyển đúng tháng; bấm Import lại.`);
+      } else toast.error(message);
+    } finally { setWorking(false); }
+  };
 
   const confirmImport = (item) => {
-    if (!window.confirm(`Chốt file ${item.sourceFileName}? Sau đó file sẽ bị khóa.`)) return;
+    if (item.reviewShifts > 0) return toast.error(`Còn ${item.reviewShifts} ca cần xử lý trước khi chốt.`);
+    if (!window.confirm(`Chốt file ${item.sourceFileName}? Hệ thống sẽ xác nhận ${item.autoMatchedShifts} ca hợp lệ còn lại và khóa file.`)) return;
     mutate(() => api.confirmImport(item.id), 'Đã chốt file chấm công.', 'Không thể chốt vì còn ca cần kiểm tra.');
   };
   const reopen = (item) => {
@@ -315,6 +368,7 @@ export default function HrProductionAttendance({ onSelectMode }) {
   };
 
   const selectableIds = useMemo(() => shifts.content.filter((item) => item.status === 'AUTO_MATCHED').map((item) => item.id), [shifts]);
+  const viewCount = (key) => ({ NEEDS_REVIEW: activeImport?.reviewShifts, AUTO_MATCHED: activeImport?.autoMatchedShifts, NO_PUNCH: activeImport?.noPunchRows }[key]);
   if (loading) return <HrPageShell><HrLoading label="Đang tải chấm công ca sản xuất..." /></HrPageShell>;
   if (error) return <HrPageShell><HrError message={error} onRetry={loadBase} /></HrPageShell>;
 
@@ -331,10 +385,13 @@ export default function HrProductionAttendance({ onSelectMode }) {
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-start gap-3"><UploadCloud className="mt-0.5 h-5 w-5 text-blue-600" /><div><h2 className="font-semibold">Import Time Attendance</h2><p className="mt-1 text-xs text-gray-500">Có thể chọn nhiều file; mỗi file giữ nguyên G–J và đủ ngày.</p></div></div><input id="production-attendance-files" type="file" multiple accept=".xlsx,.xls,.xlsm" onChange={(event) => setFiles(Array.from(event.target.files || []))} className="mt-4 block w-full text-sm" /><Button type="button" className="mt-4 w-full" disabled={!files.length || working} onClick={upload}><FileSpreadsheet className="h-4 w-4" />{working ? 'Đang xử lý...' : `Import ${files.length || ''} file`}</Button></div>
     </section>
 
-    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Các file trong tháng</h2><p className="mt-1 text-xs text-gray-500">Chọn một file để review. Chỉ file đã chốt mới vào tổng hợp.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={isAdmin} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
+    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">File đang xử lý</h2><p className="mt-1 text-xs text-gray-500">Chọn một file. Chỉ file đã chốt mới được cộng vào tổng hợp và xuất Excel.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={isAdmin} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
 
-    {activeImport && <section className="mt-5 space-y-4"><div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap items-center gap-2">{views.map(([key, label]) => <button key={key} type="button" onClick={() => { setView(key); setPage(0); }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${view === key ? 'bg-emerald-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>{label}</button>)}<input value={employeeCode} onChange={(event) => { setEmployeeCode(event.target.value.toUpperCase()); setPage(0); }} placeholder="Lọc mã nhân viên" className="h-10 min-w-44 flex-1 rounded-lg border border-gray-300 px-3 text-sm" />{selected.size > 0 && <Button type="button" size="sm" onClick={bulkConfirm}><CheckCircle2 className="h-4 w-4" />Xác nhận {selected.size} ca</Button>}</div></div>
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"><div className="hidden overflow-x-auto md:block"><table className="min-w-[1250px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-3 py-3"><input type="checkbox" checked={selectableIds.length > 0 && selectableIds.every((id) => selected.has(id))} onChange={(event) => setSelected(event.target.checked ? new Set(selectableIds) : new Set())} /></th><th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Ngày</th><th className="px-3 py-3">Nhóm / ca</th><th className="px-3 py-3">Vào</th><th className="px-3 py-3">Ra</th><th className="px-3 py-3">Công</th><th className="px-3 py-3">Phụ cấp</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{shifts.content.map((item) => <tr key={item.id} className={item.status === 'NEEDS_REVIEW' ? 'bg-amber-50/60' : ''}><td className="px-3 py-3"><input type="checkbox" disabled={item.status !== 'AUTO_MATCHED'} checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} /></td><td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{formatHrDate(item.workDate)}</td><td className="px-3 py-3">{policyLabel(item.policyGroup)}<p className="text-xs text-gray-500">{item.shiftCode || '—'}</p></td><td className="px-3 py-3">{time(item.checkInAt)}</td><td className="px-3 py-3">{time(item.checkOutAt)}</td><td className="px-3 py-3 font-semibold">{work(item.workValue)}</td><td className="px-3 py-3">{money(item.nightAllowanceAmount)}</td><td className="px-3 py-3"><HrStatusBadge status={item.status} /></td><td className="px-3 py-3"><Button type="button" size="sm" variant="secondary" onClick={() => setDecisionShift(item)}><Eye className="h-4 w-4" />{activeImport.status === 'PREVIEWED' ? 'Review' : 'Chi tiết'}</Button></td></tr>)}</tbody></table></div><div className="divide-y divide-gray-100 md:hidden">{shifts.content.map((item) => <article key={item.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><b>{item.employeeCode} · {item.employeeName}</b><p className="text-sm text-gray-500">{formatHrDate(item.workDate)} · {item.shiftCode || 'Chưa rõ ca'}</p></div><HrStatusBadge status={item.status} /></div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>Vào: {time(item.checkInAt)}</p><p>Ra: {time(item.checkOutAt)}</p><p>Công: <b>{work(item.workValue)}</b></p><p>Phụ cấp: {money(item.nightAllowanceAmount)}</p></div><Button type="button" size="sm" variant="secondary" className="mt-3 w-full" onClick={() => setDecisionShift(item)}>{activeImport.status === 'PREVIEWED' ? 'Review chi tiết' : 'Xem chi tiết'}</Button></article>)}</div>{!shifts.content.length && <div className="p-6"><HrEmpty title="Không có ca phù hợp bộ lọc" /></div>}</div><HrPagination page={shifts.page || 0} totalPages={shifts.totalPages || 0} totalElements={shifts.totalElements || 0} onPageChange={setPage} />
+    <WorkflowGuide item={activeImport} />
+    <EmployeeOverview employees={employeeSummaries} selectedCode={employeeCode} onSelect={(item) => { setEmployeeCode(item.employeeCode); setView(item.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'ALL'); setPage(0); }} />
+
+    {activeImport && <section className="mt-5 space-y-4"><div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"><div className="mb-3"><h2 className="font-semibold text-gray-900">Chi tiết ngày chấm công</h2><p className="mt-1 text-xs text-gray-500">Mặc định chỉ hiện việc cần xử lý. Chọn nhân viên ở bảng trên để xem riêng 31 ngày.</p></div><div className="flex flex-wrap items-center gap-2">{views.map(([key, label]) => { const count = viewCount(key); return <button key={key} type="button" onClick={() => { setView(key); setPage(0); setSelected(new Set()); }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${view === key ? 'bg-emerald-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>{label}{Number.isInteger(count) ? ` (${count})` : ''}</button>; })}<input value={employeeCode} onChange={(event) => { setEmployeeCode(event.target.value.toUpperCase()); setPage(0); }} placeholder="Tìm mã nhân viên" className="h-10 min-w-44 flex-1 rounded-lg border border-gray-300 px-3 text-sm" />{employeeCode && <Button type="button" size="sm" variant="secondary" onClick={() => { setEmployeeCode(''); setPage(0); }}>Xem mọi người</Button>}</div>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && selectableIds.length > 0 && <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm"><span className="mr-auto text-blue-900">Các ca này đã được hệ thống ghép đủ lượt vào/ra.</span><Button type="button" size="sm" variant="secondary" onClick={() => setSelected(new Set(selectableIds))}>Chọn {selectableIds.length} ca trang này</Button>{selected.size > 0 && <><Button type="button" size="sm" variant="secondary" onClick={() => setSelected(new Set())}>Bỏ chọn</Button><Button type="button" size="sm" onClick={bulkConfirm}><CheckCircle2 className="h-4 w-4" />Xác nhận {selected.size} ca đã chọn</Button></>}</div>}</div>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"><div className="hidden overflow-x-auto md:block"><table className="min-w-[1180px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && <th className="w-12 px-3 py-3">Chọn</th>}<th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Ngày</th><th className="px-3 py-3">Nhóm / ca</th><th className="px-3 py-3">Vào</th><th className="px-3 py-3">Ra</th><th className="px-3 py-3">Công</th><th className="px-3 py-3">Phụ cấp</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{shifts.content.map((item) => <tr key={item.id} className={item.status === 'NEEDS_REVIEW' ? 'bg-amber-50/60' : ''}>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && <td className="px-3 py-3"><input type="checkbox" checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} /></td>}<td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{formatHrDate(item.workDate)}</td><td className="px-3 py-3">{policyLabel(item.policyGroup)}<p className="text-xs text-gray-500">{item.shiftCode || '—'}</p></td><td className="px-3 py-3">{time(item.checkInAt)}</td><td className="px-3 py-3">{time(item.checkOutAt)}</td><td className="px-3 py-3 font-semibold">{work(item.workValue)}</td><td className="px-3 py-3">{money(item.nightAllowanceAmount)}</td><td className="px-3 py-3">{item.status === 'NO_PUNCH' ? <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">Không có dấu chấm – 0 công</span> : <HrStatusBadge status={item.status} />}</td><td className="px-3 py-3"><Button type="button" size="sm" variant="secondary" onClick={() => setDecisionShift(item)}><Eye className="h-4 w-4" />{activeImport.status === 'PREVIEWED' && item.status === 'NEEDS_REVIEW' ? 'Kiểm tra' : 'Chi tiết'}</Button></td></tr>)}</tbody></table></div><div className="divide-y divide-gray-100 md:hidden">{shifts.content.map((item) => <article key={item.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><b>{item.employeeCode} · {item.employeeName}</b><p className="text-sm text-gray-500">{formatHrDate(item.workDate)} · {item.shiftCode || 'Chưa rõ ca'}</p></div>{item.status === 'NO_PUNCH' ? <span className="rounded-full bg-gray-100 px-2 py-1 text-xs">Không chấm</span> : <HrStatusBadge status={item.status} />}</div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>Vào: {time(item.checkInAt)}</p><p>Ra: {time(item.checkOutAt)}</p><p>Công: <b>{work(item.workValue)}</b></p><p>Phụ cấp: {money(item.nightAllowanceAmount)}</p></div><Button type="button" size="sm" variant="secondary" className="mt-3 w-full" onClick={() => setDecisionShift(item)}>{activeImport.status === 'PREVIEWED' && item.status === 'NEEDS_REVIEW' ? 'Kiểm tra ca này' : 'Xem chi tiết'}</Button></article>)}</div>{!shifts.content.length && <div className="p-6"><HrEmpty title={view === 'NEEDS_REVIEW' ? 'Đã xử lý hết ca cần kiểm tra' : 'Không có dữ liệu phù hợp'} description={view === 'NEEDS_REVIEW' ? 'Chuyển sang “Sẵn sàng” hoặc chốt file nếu không còn bất thường.' : 'Thử bỏ lọc nhân viên hoặc chọn nhóm khác.'} /></div>}</div><HrPagination page={shifts.page || 0} totalPages={shifts.totalPages || 0} totalElements={shifts.totalElements || 0} onPageChange={setPage} />
     </section>}
 
     <ShiftDecisionDrawer shift={decisionShift} policies={policies} readOnly={activeImport?.status !== 'PREVIEWED'} onClose={() => setDecisionShift(null)} onSaved={() => { setDecisionShift(null); loadBase(); loadShifts(); }} />

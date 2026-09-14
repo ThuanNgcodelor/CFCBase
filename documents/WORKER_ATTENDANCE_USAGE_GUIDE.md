@@ -18,11 +18,15 @@ Thay đổi cấu hình không tự sửa file đã chốt. Muốn áp dụng c�
 
 1. Chọn đúng tháng cần xử lý.
 2. Chọn một hoặc nhiều file Time Attendance rồi bấm **Import**.
-3. Chọn từng thẻ file và kiểm tra các chế độ **Công nhân**, **KCS**, **Cần kiểm tra**, **Sự cố máy** và **Đã xác nhận**.
-4. Với ca tự ghép đúng, chọn nhiều dòng và bấm **Xác nhận**. Với ca thiếu/mơ hồ, mở **Review chi tiết** để xem dấu chấm gốc, chọn lượt vào/ra, ca, số công và phụ cấp; bắt buộc nhập lý do.
-5. Nếu máy chấm công gặp sự cố, mở **Sự cố máy**, khai thời gian/phạm vi, bấm **Phân tích**, chọn đúng các ca được ảnh hưởng rồi xác nhận. Hệ thống không sinh giờ chấm giả.
-6. Khi mọi ca cần kiểm tra đã được xử lý, bấm **Chốt** trên thẻ file. File chuyển sang chỉ đọc và mới được cộng vào tổng hợp tháng.
-7. Kiểm tra KPI tháng rồi bấm **Xuất Excel**.
+3. Chọn thẻ file và làm theo thanh **Quy trình xử lý**. Mặc định hệ thống mở **Cần xử lý**, không hiển thị hàng trăm dòng hợp lệ trước.
+4. Xem **Tổng quan theo nhân viên** để biết tổng công tạm tính, ca đêm và số ca cần xử lý của từng người. Bấm một nhân viên để mở chi tiết các ngày của người đó.
+5. Với ca thiếu/mơ hồ, bấm **Kiểm tra** để xem dấu chấm gốc, chọn lượt vào/ra, ca, số công và phụ cấp; bắt buộc nhập lý do. **Ngày không chấm** được giữ nguyên, tính 0 công và không bị coi là lỗi.
+6. Mục **Sẵn sàng** chứa ca đã ghép đủ lượt. Có thể xác nhận theo từng trang; nếu không làm riêng, thao tác **Chốt file** sẽ tự xác nhận toàn bộ ca hợp lệ còn lại.
+7. Nếu máy chấm công gặp sự cố, mở **Sự cố máy**, khai thời gian/phạm vi, bấm **Phân tích**, chọn đúng các ca được ảnh hưởng rồi xác nhận. Hệ thống không sinh giờ chấm giả.
+8. Khi số **Cần xử lý** về 0, bấm **Chốt file**. Nút này bị khóa nếu vẫn còn bất thường; file đã chốt chuyển sang chỉ đọc và mới được cộng vào tổng hợp tháng.
+9. Kiểm tra KPI tháng rồi bấm **Xuất Excel**.
+
+Nếu chọn sai tháng khi import, hệ thống đọc tháng trong file, tự chuyển bộ lọc sang tháng đúng và yêu cầu bấm **Import** lại để người dùng xác nhận.
 
 ## 3. File Excel được xuất
 

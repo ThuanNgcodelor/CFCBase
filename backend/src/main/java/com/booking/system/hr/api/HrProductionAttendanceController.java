@@ -152,6 +152,14 @@ public class HrProductionAttendanceController {
                 employeeCode, page, size), "Lấy kết quả ghép ca thành công"));
     }
 
+    @GetMapping("/imports/{id}/employee-summaries")
+    public ResponseEntity<ApiResponse<List<HrProductionAttendanceDtos.EmployeeReviewSummary>>> employeeSummaries(
+            @PathVariable String id, @AuthenticationPrincipal User principal) {
+        actorResolver.fromPrincipal(principal);
+        return ResponseEntity.ok(ApiResponse.success(service.employeeReviewSummaries(id),
+                "Lấy tổng quan chấm công theo nhân viên thành công"));
+    }
+
     @GetMapping("/shifts/{id}/punches")
     public ResponseEntity<ApiResponse<List<HrProductionAttendanceDtos.PunchResponse>>> shiftPunches(
             @PathVariable String id, @AuthenticationPrincipal User principal) {

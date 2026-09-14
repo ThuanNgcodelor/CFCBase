@@ -74,6 +74,12 @@ public final class HrProductionAttendanceDtos {
                                 String explanation, String incidentId, LocalDateTime confirmedAt,
                                 String confirmedByActor, long rowVersion) { }
 
+    public record EmployeeReviewSummary(String employeeCode, String employeeName,
+                                        HrAttendancePolicyGroup policyGroup, int totalDays,
+                                        int readyShifts, int reviewShifts, int noPunchDays,
+                                        int confirmedShifts, BigDecimal proposedWorkValue,
+                                        int nightShifts, BigDecimal nightAllowanceAmount) { }
+
     public record ShiftDecisionRequest(@NotNull DecisionAction action, String shiftCode,
                                        String checkInPunchId, String checkOutPunchId,
                                        @NotNull BigDecimal workValue, @NotNull BigDecimal nightAllowanceAmount,

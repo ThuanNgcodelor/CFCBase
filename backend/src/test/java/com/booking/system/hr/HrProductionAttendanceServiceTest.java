@@ -112,6 +112,17 @@ class HrProductionAttendanceServiceTest {
         assertThat(punchRepository.count()).isEqualTo(491);
         assertThat(shiftRepository.count()).isEqualTo(279);
 
+        var employeeOverview = service.employeeReviewSummaries(batch.id());
+        assertThat(employeeOverview).hasSize(9);
+        assertThat(employeeOverview).filteredOn(value -> value.employeeCode().equals("B124"))
+                .singleElement()
+                .satisfies(value -> {
+                    assertThat(value.totalDays()).isEqualTo(31);
+                    assertThat(value.proposedWorkValue()).isEqualByComparingTo("45");
+                    assertThat(value.nightShifts()).isEqualTo(19);
+                    assertThat(value.nightAllowanceAmount()).isEqualByComparingTo("950000");
+                });
+
         var b124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
                 .filter(value -> value.getEmployeeCode().equals("B124")).toList();
         assertThat(b124).hasSize(31);

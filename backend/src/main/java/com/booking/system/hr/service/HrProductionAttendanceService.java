@@ -297,6 +297,44 @@ public class HrProductionAttendanceService {
     }
 
     @Transactional(readOnly = true)
+    public List<HrProductionAttendanceDtos.EmployeeReviewSummary> employeeReviewSummaries(String importId) {
+        importBatch(importId);
+        Map<String, List<HrProductionAttendanceShift>> grouped = shiftRepository
+                .findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(importId).stream()
+                .collect(Collectors.groupingBy(HrProductionAttendanceShift::getEmployeeCode,
+                        LinkedHashMap::new, Collectors.toList()));
+        return grouped.values().stream().map(values -> {
+            HrProductionAttendanceShift first = values.getFirst();
+            int ready = countStatus(values, HrProductionAttendanceShiftStatus.AUTO_MATCHED);
+            int review = countStatus(values, HrProductionAttendanceShiftStatus.NEEDS_REVIEW);
+            int noPunch = countStatus(values, HrProductionAttendanceShiftStatus.NO_PUNCH);
+            int confirmed = countStatus(values, HrProductionAttendanceShiftStatus.CONFIRMED);
+            BigDecimal proposedWork = values.stream()
+                    .filter(value -> value.getStatus() != HrProductionAttendanceShiftStatus.EXCLUDED
+                            && value.getStatus() != HrProductionAttendanceShiftStatus.REJECTED)
+                    .map(HrProductionAttendanceShift::getWorkValue)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            int nightShifts = (int) values.stream()
+                    .filter(value -> value.getNightAllowanceAmount() != null
+                            && value.getNightAllowanceAmount().signum() > 0)
+                    .count();
+            BigDecimal allowance = values.stream()
+                    .map(HrProductionAttendanceShift::getNightAllowanceAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return new HrProductionAttendanceDtos.EmployeeReviewSummary(first.getEmployeeCode(),
+                    first.getEmployeeName(), first.getPolicyGroup(), values.size(), ready, review, noPunch,
+                    confirmed, proposedWork, nightShifts, allowance);
+        }).toList();
+    }
+
+    private static int countStatus(List<HrProductionAttendanceShift> values,
+                                   HrProductionAttendanceShiftStatus status) {
+        return (int) values.stream().filter(value -> value.getStatus() == status).count();
+    }
+
+    @Transactional(readOnly = true)
     public List<HrProductionAttendanceDtos.PunchResponse> shiftPunches(String shiftId) {
         HrProductionAttendanceShift shift = activeShift(shiftId);
         LinkedHashMap<String, HrAttendancePunch> punches = new LinkedHashMap<>();

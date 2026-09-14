@@ -13,6 +13,7 @@ export const hrProductionAttendanceApi = {
   recalculate: async (id) => unwrapApiData(await baseApi.post(`${root}/imports/${id}/recalculate`)),
   confirmImport: async (id) => unwrapApiData(await baseApi.post(`${root}/imports/${id}/confirm`)),
   reopenImport: async (id, payload) => unwrapApiData(await baseApi.post(`${root}/imports/${id}/reopen`, payload)),
+  employeeSummaries: async (id) => unwrapApiData(await baseApi.get(`${root}/imports/${id}/employee-summaries`)),
   shifts: async (params) => unwrapApiData(await baseApi.get(`${root}/shifts`, { params })),
   shiftPunches: async (id) => unwrapApiData(await baseApi.get(`${root}/shifts/${id}/punches`)),
   decideShift: async (id, payload) => unwrapApiData(await baseApi.put(`${root}/shifts/${id}/decision`, payload)),
