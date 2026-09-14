@@ -242,7 +242,7 @@ public class HrProductionAttendanceService {
         for (HrProductionAttendanceImport previous : importRepository
                 .findByAttendanceMonthAndStatusOrderByCreatedAtAsc(previousMonth, HrAttendanceImportStatus.PREVIEWED)) {
             if (!sourceDayRepository.existsByImportIdAndEmployeeCodeIn(previous.getId(), importedCodes)) continue;
-            shiftRepository.deactivateByImportId(previous.getId());
+            shiftRepository.deactivateDerivedByImportId(previous.getId(), HrAttendanceResolutionType.MANUAL_OVERRIDE);
             previous.setProcessingVersion(previous.getProcessingVersion() + 1);
             previous.setConfigurationJson(configurationSnapshot());
             touch(previous, actor);
@@ -257,7 +257,7 @@ public class HrProductionAttendanceService {
     @Transactional
     public HrProductionAttendanceDtos.ImportResponse recalculate(String importId, HrImportActor actor) {
         HrProductionAttendanceImport batch = editableImport(importId);
-        shiftRepository.deactivateByImportId(importId);
+        shiftRepository.deactivateDerivedByImportId(importId, HrAttendanceResolutionType.MANUAL_OVERRIDE);
         batch.setProcessingVersion(batch.getProcessingVersion() + 1);
         batch.setConfigurationJson(configurationSnapshot());
         touch(batch, actor);
@@ -265,6 +265,30 @@ public class HrProductionAttendanceService {
         audit(actor, "RECALCULATE_PRODUCTION_ATTENDANCE", "HR_PRODUCTION_ATTENDANCE_IMPORT", batch.getId(),
                 List.of("processingVersion", "calculatedShifts"), Map.of("version", batch.getProcessingVersion()));
         return toImportResponse(batch);
+    }
+
+    @Transactional
+    public void deleteImport(String importId, HrImportActor actor) {
+        HrProductionAttendanceImport batch = importBatch(importId);
+        if (batch.getStatus() != HrAttendanceImportStatus.PREVIEWED) {
+            throw HrApiException.conflict("PRODUCTION_ATTENDANCE_DELETE_CONFIRMED",
+                    "File đã chốt không thể xóa. ADMIN phải mở khóa file trước.");
+        }
+        List<String> punchIds = punchRepository.findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(importId).stream()
+                .map(HrAttendancePunch::getId).toList();
+        if (!punchIds.isEmpty()
+                && !shiftRepository.findOtherActiveCompleteShiftsUsingPunches(importId, punchIds).isEmpty()) {
+            throw HrApiException.conflict("PRODUCTION_ATTENDANCE_DELETE_HAS_DEPENDENCIES",
+                    "File đang cung cấp lượt ra qua tháng cho file khác. Hãy xử lý hoặc xóa file phụ thuộc trước.");
+        }
+        String fileName = batch.getSourceFileName();
+        String month = batch.getAttendanceMonth();
+        // Delete shifts first because they reference punches that are cascaded
+        // from the import through source days. This keeps FK ordering explicit.
+        shiftRepository.deleteByImportId(importId);
+        importRepository.deleteById(importId);
+        audit(actor, "DELETE_PRODUCTION_ATTENDANCE_IMPORT", "HR_PRODUCTION_ATTENDANCE_IMPORT", importId,
+                List.of("deleted"), Map.of("fileName", fileName, "month", month));
     }
 
     @Transactional(readOnly = true)
@@ -356,7 +380,7 @@ public class HrProductionAttendanceService {
     public HrProductionAttendanceDtos.ShiftResponse decideShift(
             String id, HrProductionAttendanceDtos.ShiftDecisionRequest request, HrImportActor actor) {
         HrProductionAttendanceShift shift = activeShift(id);
-        editableImport(shift.getImportId());
+        HrProductionAttendanceImport batch = editableImport(shift.getImportId());
         if (shift.getRowVersion() != request.rowVersion()) {
             throw HrApiException.conflict("ATTENDANCE_SHIFT_VERSION_CONFLICT", "Ca vừa được người khác cập nhật.");
         }
@@ -382,10 +406,19 @@ public class HrProductionAttendanceService {
         touch(shift, actor);
         shiftRepository.save(shift);
         adjustment(shift, before, request.reason(), actor);
-        refreshCounts(importBatch(shift.getImportId()), actor);
+        rematchDerivedShifts(batch, actor);
         audit(actor, "DECIDE_PRODUCTION_ATTENDANCE_SHIFT", "HR_ATTENDANCE_SHIFT", shift.getId(),
-                List.of("status", "policy", "punches", "workValue", "allowance"), Map.of("action", request.action().name()));
+                List.of("status", "policy", "punches", "workValue", "allowance", "dependentShifts"),
+                Map.of("action", request.action().name(), "processingVersion", batch.getProcessingVersion()));
         return toShiftResponse(shift);
+    }
+
+    private void rematchDerivedShifts(HrProductionAttendanceImport batch, HrImportActor actor) {
+        shiftRepository.deactivateDerivedByImportId(batch.getId(), HrAttendanceResolutionType.MANUAL_OVERRIDE);
+        batch.setProcessingVersion(batch.getProcessingVersion() + 1);
+        batch.setConfigurationJson(configurationSnapshot());
+        touch(batch, actor);
+        calculate(batch, actor, true);
     }
 
     @Transactional(readOnly = true)
@@ -618,6 +651,17 @@ public class HrProductionAttendanceService {
     private void calculate(HrProductionAttendanceImport batch, HrImportActor actor, boolean recalculation) {
         List<HrAttendanceSourceDay> sourceDays = sourceDayRepository.findByImportIdOrderByEmployeeCodeAscWorkDateAsc(batch.getId());
         List<HrAttendancePunch> punches = punchRepository.findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(batch.getId());
+        List<HrProductionAttendanceShift> manualAnchors = shiftRepository
+                .findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.getId()).stream()
+                .filter(value -> value.getResolutionType() == HrAttendanceResolutionType.MANUAL_OVERRIDE)
+                .toList();
+        Set<String> anchoredDays = manualAnchors.stream()
+                .map(value -> attendanceDayKey(value.getEmployeeCode(), value.getWorkDate()))
+                .collect(Collectors.toSet());
+        Set<String> reservedByManualAnchors = manualAnchors.stream()
+                .flatMap(value -> java.util.stream.Stream.of(value.getCheckInPunchId(), value.getCheckOutPunchId()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
         Map<String, HrEmployee> employees = employees(sourceDays.stream().map(HrAttendanceSourceDay::getEmployeeCode).toList());
         Map<String, List<HrAttendancePunch>> punchesByCode = punches.stream().collect(Collectors.groupingBy(HrAttendancePunch::getEmployeeCode));
         YearMonth attendanceMonth = YearMonth.parse(batch.getAttendanceMonth());
@@ -630,16 +674,18 @@ public class HrProductionAttendanceService {
         List<String> candidatePunchIds = java.util.stream.Stream.concat(
                         punches.stream(), boundaryPunchesByCode.values().stream().flatMap(Collection::stream))
                 .map(HrAttendancePunch::getId).distinct().toList();
-        Set<String> reservedByOtherImports = candidatePunchIds.isEmpty() ? Set.of()
+        Set<String> reservedPunches = candidatePunchIds.isEmpty() ? new HashSet<>()
                 : shiftRepository.findOtherActiveCompleteShiftsUsingPunches(batch.getId(), candidatePunchIds).stream()
                 .flatMap(value -> java.util.stream.Stream.of(value.getCheckInPunchId(), value.getCheckOutPunchId()))
-                .filter(Objects::nonNull).collect(Collectors.toSet());
+                .filter(Objects::nonNull).collect(Collectors.toCollection(HashSet::new));
+        reservedPunches.addAll(reservedByManualAnchors);
         Map<String, List<HrAttendanceExemption>> exemptions = effectiveExemptions(sourceDays);
         List<HrAttendanceShiftPolicy> allPolicies = shiftPolicyRepository.findAllByOrderByPolicyGroupAscPriorityDescCodeAsc();
         List<HrAttendanceWorkCreditRule> allRules = creditRuleRepository.findAllByOrderByPriorityDesc();
         List<HrProductionAttendanceShift> calculated = new ArrayList<>();
 
         Map<String, List<HrAttendanceSourceDay>> daysByCode = sourceDays.stream()
+                .filter(day -> !anchoredDays.contains(attendanceDayKey(day.getEmployeeCode(), day.getWorkDate())))
                 .collect(Collectors.groupingBy(HrAttendanceSourceDay::getEmployeeCode, LinkedHashMap::new, Collectors.toList()));
         for (Map.Entry<String, List<HrAttendanceSourceDay>> entry : daysByCode.entrySet()) {
             String code = entry.getKey();
@@ -651,7 +697,7 @@ public class HrProductionAttendanceService {
                 List<HrProductionShiftMatcher.WorkDay> matcherDays = groupEntry.getValue().stream().map(day -> {
                     List<HrProductionShiftMatcher.Punch> dayPunches = punchesByCode.getOrDefault(code, List.of()).stream()
                             .filter(punch -> punch.getWorkDate().equals(day.getWorkDate()))
-                            .filter(punch -> !reservedByOtherImports.contains(punch.getId()))
+                            .filter(punch -> !reservedPunches.contains(punch.getId()))
                             .map(punch -> new HrProductionShiftMatcher.Punch(punch.getId(), punch.getPunchedAt())).toList();
                     boolean excluded = exemptions.getOrDefault(code, List.of()).stream()
                             .anyMatch(value -> between(day.getWorkDate(), value.getValidFrom(), value.getValidTo()));
@@ -665,7 +711,7 @@ public class HrProductionAttendanceService {
                 Map<Integer, HrAttendanceSourceDay> byRow = groupEntry.getValue().stream()
                         .collect(Collectors.toMap(HrAttendanceSourceDay::getSourceRowNumber, Function.identity()));
                 List<HrProductionShiftMatcher.Punch> supplemental = boundaryPunchesByCode.getOrDefault(code, List.of()).stream()
-                        .filter(value -> !reservedByOtherImports.contains(value.getId()))
+                        .filter(value -> !reservedPunches.contains(value.getId()))
                         .map(value -> new HrProductionShiftMatcher.Punch(value.getId(), value.getPunchedAt())).toList();
                 for (HrProductionShiftMatcher.MatchResult match : matcher.match(matcherDays, supplemental, policies, rules)) {
                     HrAttendanceSourceDay source = byRow.get(match.sourceRowNumber());
@@ -699,6 +745,10 @@ public class HrProductionAttendanceService {
         }
         shiftRepository.saveAll(calculated);
         refreshCounts(batch, actor);
+    }
+
+    private String attendanceDayKey(String employeeCode, LocalDate workDate) {
+        return normalizeCode(employeeCode) + "|" + workDate;
     }
 
     private Map<String, List<HrAttendanceExemption>> effectiveExemptions(List<HrAttendanceSourceDay> days) {
@@ -740,14 +790,10 @@ public class HrProductionAttendanceService {
         HrAttendanceShiftPolicy appliedPolicy = shift.getShiftPolicyId() == null ? null : policy(shift.getShiftPolicyId());
         HrAttendancePunch checkIn = selectedPunch(request.checkInPunchId(), shift, appliedPolicy, true, "lượt vào");
         HrAttendancePunch checkOut = selectedPunch(request.checkOutPunchId(), shift, appliedPolicy, false, "lượt ra");
-        if (checkIn != null) {
-            shift.setCheckInPunchId(checkIn.getId());
-            shift.setCheckInAt(checkIn.getPunchedAt());
-        }
-        if (checkOut != null) {
-            shift.setCheckOutPunchId(checkOut.getId());
-            shift.setCheckOutAt(checkOut.getPunchedAt());
-        }
+        shift.setCheckInPunchId(checkIn == null ? null : checkIn.getId());
+        shift.setCheckInAt(checkIn == null ? null : checkIn.getPunchedAt());
+        shift.setCheckOutPunchId(checkOut == null ? null : checkOut.getId());
+        shift.setCheckOutAt(checkOut == null ? null : checkOut.getPunchedAt());
         if (shift.getCheckInAt() != null && shift.getCheckOutAt() != null
                 && !shift.getCheckOutAt().isAfter(shift.getCheckInAt())) {
             throw HrApiException.badRequest("ATTENDANCE_PUNCH_ORDER_INVALID", "Lượt ra phải sau lượt vào.");
@@ -789,8 +835,10 @@ public class HrProductionAttendanceService {
             if (other.getId().equals(selected.getId())) continue;
             Set<String> otherIds = new HashSet<>(Arrays.asList(other.getCheckInPunchId(), other.getCheckOutPunchId()));
             otherIds.remove(null);
-            if (otherIds.contains(selected.getCheckInPunchId()) || otherIds.contains(selected.getCheckOutPunchId())) {
-                throw HrApiException.conflict("ATTENDANCE_PUNCH_ALREADY_USED", "Một dấu chấm đang được dùng cho ca khác.");
+            if ((otherIds.contains(selected.getCheckInPunchId()) || otherIds.contains(selected.getCheckOutPunchId()))
+                    && other.getResolutionType() == HrAttendanceResolutionType.MANUAL_OVERRIDE) {
+                throw HrApiException.conflict("ATTENDANCE_PUNCH_ALREADY_USED",
+                        "Dấu chấm đang thuộc một ngày đã điều chỉnh thủ công; hãy kiểm tra mốc đã xác nhận trước.");
             }
         }
         List<String> selectedIds = java.util.stream.Stream.of(selected.getCheckInPunchId(), selected.getCheckOutPunchId())

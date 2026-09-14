@@ -347,7 +347,7 @@ Số trên web và Excel phải lấy từ cùng query/kết quả kỳ đã xá
 - Tính 0/1/1,5/2 và phụ cấp đêm.
 - Đưa trường hợp mơ hồ/thiếu lượt vào `NEEDS_REVIEW`.
 
-**Nghiệm thu:** B124 có 31 ô ngày, ngày 09 = 0, ngày 25/30/31 = 1,5, tổng 45 công, 19 ca đêm và 950.000 đồng phụ cấp.
+**Nghiệm thu:** B124 có 31 ô ngày, ngày 09 = 0, ngày 25/30/31 = 1,5, tổng 45 công, đúng 5 ca đêm ngày 04–08 và 250.000 đồng phụ cấp. Ngày 18 là ca ngày thiếu lượt vào do mất điện; điều chỉnh ngày này phải ghép lại chuỗi ngày sau mà không ghi đè các quyết định thủ công.
 
 ### Phase 4 — Sự cố máy, miễn chấm và review
 

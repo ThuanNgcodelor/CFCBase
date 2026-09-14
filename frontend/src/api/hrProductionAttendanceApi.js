@@ -11,6 +11,7 @@ export const hrProductionAttendanceApi = {
     return unwrapApiData(await baseApi.post(`${root}/imports`, body, { params: month ? { month } : undefined }));
   },
   recalculate: async (id) => unwrapApiData(await baseApi.post(`${root}/imports/${id}/recalculate`)),
+  deleteImport: async (id) => unwrapApiData(await baseApi.delete(`${root}/imports/${id}`)),
   confirmImport: async (id) => unwrapApiData(await baseApi.post(`${root}/imports/${id}/confirm`)),
   reopenImport: async (id, payload) => unwrapApiData(await baseApi.post(`${root}/imports/${id}/reopen`, payload)),
   employeeSummaries: async (id) => unwrapApiData(await baseApi.get(`${root}/imports/${id}/employee-summaries`)),

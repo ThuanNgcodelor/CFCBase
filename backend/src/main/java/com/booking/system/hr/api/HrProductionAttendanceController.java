@@ -118,6 +118,13 @@ public class HrProductionAttendanceController {
         return ResponseEntity.ok(ApiResponse.success(service.recalculate(id, actor(principal)), "Đã tính lại từ dấu chấm gốc"));
     }
 
+    @DeleteMapping("/imports/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteImport(
+            @PathVariable String id, @AuthenticationPrincipal User principal) {
+        service.deleteImport(id, actor(principal));
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã xóa file chấm công ca sản xuất"));
+    }
+
     @PostMapping("/imports/{id}/confirm")
     public ResponseEntity<ApiResponse<HrProductionAttendanceDtos.ImportResponse>> confirmImport(
             @PathVariable String id, @AuthenticationPrincipal User principal) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, CheckCircle2, Download, Eye, FileSpreadsheet,
-  Lock, RefreshCw, Settings2, Unlock, UploadCloud,
+  Lock, RefreshCw, Settings2, Trash2, Unlock, UploadCloud,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hrProductionAttendanceApi as api } from '../../api/hrProductionAttendanceApi';
@@ -65,7 +65,7 @@ function Metric({ label, value, tone = 'slate' }) {
   </div>;
 }
 
-function ImportCard({ item, active, canReopen, onSelect, onConfirm, onRecalculate, onReopen }) {
+function ImportCard({ item, active, canReopen, onSelect, onConfirm, onRecalculate, onDelete, onReopen }) {
   return <div className={`w-full rounded-xl border p-4 text-left transition ${active ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-emerald-200'}`}>
     <button type="button" onClick={onSelect} className="w-full text-left">
       <div className="flex items-start justify-between gap-3">
@@ -83,6 +83,7 @@ function ImportCard({ item, active, canReopen, onSelect, onConfirm, onRecalculat
       {item.status === 'PREVIEWED' && <>
         <Button type="button" size="sm" variant="secondary" onClick={onRecalculate}><RefreshCw className="h-3.5 w-3.5" />Tính lại</Button>
         <Button type="button" size="sm" disabled={item.reviewShifts > 0} title={item.reviewShifts > 0 ? `Còn ${item.reviewShifts} ca cần xử lý` : 'Xác nhận các ca hợp lệ và khóa file'} onClick={onConfirm}><Lock className="h-3.5 w-3.5" />Chốt file</Button>
+        <Button type="button" size="sm" variant="danger" onClick={onDelete}><Trash2 className="h-3.5 w-3.5" />Xóa file</Button>
       </>}
       {item.status === 'CONFIRMED' && canReopen && <Button type="button" size="sm" variant="secondary" onClick={onReopen}><Unlock className="h-3.5 w-3.5" />Mở khóa</Button>}
     </div>
@@ -149,7 +150,7 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
         nightAllowanceAmount: Number(form.nightAllowanceAmount),
         rowVersion: shift.rowVersion,
       });
-      toast.success(form.action === 'REJECT' ? 'Đã từ chối ca.' : 'Đã xác nhận điều chỉnh ca.');
+      toast.success(form.action === 'REJECT' ? 'Đã từ chối ca và tính lại các ngày liên quan.' : 'Đã lưu và tính lại chuỗi ngày liên quan.');
       onSaved();
     } catch (error) { toast.error(apiErrorMessage(error, 'Không thể lưu quyết định ca.')); }
     finally { setSaving(false); }
@@ -159,17 +160,18 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
     {shift && form && <form onSubmit={submit} className="space-y-5 p-5 sm:p-7">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium text-gray-700">Quyết định<select disabled={readOnly} value={form.action} onChange={(event) => setForm({ ...form, action: event.target.value })} className="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3"><option value="CONFIRM">Xác nhận/điều chỉnh</option><option value="REJECT">Từ chối, tính 0 công</option></select></label>
-        <label className="text-sm font-medium text-gray-700">Ca<select disabled={readOnly} value={form.shiftCode} onChange={(event) => setForm({ ...form, shiftCode: event.target.value })} className="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3"><option value="">Giữ ca đề xuất</option>{policies.filter((item) => item.policyGroup === shift.policyGroup).map((item) => <option key={item.id} value={item.code}>{item.code} · {item.name}</option>)}</select></label>
+        <label className="text-sm font-medium text-gray-700">Ca<select disabled={readOnly} value={form.shiftCode} onChange={(event) => { const shiftCode = event.target.value; const selected = policies.find((item) => item.code === shiftCode); setForm({ ...form, shiftCode, nightAllowanceAmount: String(selected?.nightAllowanceAmount ?? form.nightAllowanceAmount) }); }} className="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3"><option value="">Giữ ca đề xuất</option>{policies.filter((item) => item.policyGroup === shift.policyGroup).map((item) => <option key={item.id} value={item.code}>{item.code} · {item.name}</option>)}</select></label>
         <label className="text-sm font-medium text-gray-700">Lượt vào<select disabled={readOnly} value={form.checkInPunchId} onChange={(event) => setForm({ ...form, checkInPunchId: event.target.value })} className="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3"><option value="">Để trống</option>{punches.map((item) => <option key={item.id} value={item.id}>{time(item.punchedAt)} · cột {item.sourceColumn}</option>)}</select></label>
         <label className="text-sm font-medium text-gray-700">Lượt ra<select disabled={readOnly} value={form.checkOutPunchId} onChange={(event) => setForm({ ...form, checkOutPunchId: event.target.value })} className="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3"><option value="">Để trống</option>{punches.map((item) => <option key={item.id} value={item.id}>{time(item.punchedAt)} · cột {item.sourceColumn}</option>)}</select></label>
         <label className="text-sm font-medium text-gray-700">Số công<select disabled={readOnly} value={form.workValue} onChange={(event) => setForm({ ...form, workValue: event.target.value })} className="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3"><option value="0">0</option><option value="1">1</option><option value="1.5">1,5</option><option value="2">2</option></select></label>
         <label className="text-sm font-medium text-gray-700">Phụ cấp đêm<input disabled={readOnly} type="number" min="0" step="1000" value={form.nightAllowanceAmount} onChange={(event) => setForm({ ...form, nightAllowanceAmount: event.target.value })} className="mt-1 h-11 w-full rounded-lg border border-gray-300 px-3" /></label>
       </div>
       {!readOnly && <label className="block text-sm font-medium text-gray-700">Lý do bắt buộc<textarea value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} rows={3} className="mt-1 w-full rounded-lg border border-gray-300 p-3" /></label>}
+      {!readOnly && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><p className="font-semibold">Hệ thống sẽ sửa theo chuỗi, không chỉ riêng một dòng</p><p className="mt-1">Sau khi lưu, dấu chấm của các ngày chưa xác nhận cùng file sẽ được ghép lại. Những ngày đã điều chỉnh thủ công được giữ nguyên.</p></div>}
       <div className="rounded-xl bg-slate-50 p-4 text-sm text-gray-600"><p className="font-semibold text-gray-800">Giải thích hệ thống</p><p className="mt-1">{shift.explanation || 'Không có.'}</p></div>
       <div><h3 className="text-sm font-semibold text-gray-900">Dấu chấm gốc</h3><div className="mt-2 space-y-2">{punches.map((item) => <div key={item.id} className="flex justify-between rounded-lg border border-gray-200 p-3 text-sm"><span>{time(item.punchedAt)}</span><span className="text-gray-500">Dòng {item.sourceRowNumber} · {item.sourceColumn} · {item.rawValue}</span></div>)}{!punches.length && <p className="text-sm text-gray-500">Không có dấu chấm.</p>}</div></div>
       <details><summary className="cursor-pointer text-sm font-semibold text-gray-800">Lịch sử điều chỉnh ({adjustments.length})</summary><div className="mt-2 space-y-2">{adjustments.map((item) => <div key={item.id} className="rounded-lg border border-gray-200 p-3 text-sm"><p>{item.reason}</p><p className="mt-1 text-xs text-gray-500">{formatHrDateTime(item.createdAt)} · {item.createdByActor}</p></div>)}</div></details>
-      <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>{readOnly ? 'Đóng' : 'Hủy'}</Button>{!readOnly && <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu quyết định'}</Button>}</div>
+      <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>{readOnly ? 'Đóng' : 'Hủy'}</Button>{!readOnly && <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu và tính lại chuỗi'}</Button>}</div>
     </form>}
   </HrDrawer>;
 }
@@ -361,6 +363,10 @@ export default function HrProductionAttendance({ onSelectMode }) {
     const reason = window.prompt('Nhập lý do mở khóa file đã chốt:'); if (!reason?.trim()) return;
     mutate(() => api.reopenImport(item.id, { reason: reason.trim(), rowVersion: item.rowVersion }), 'Đã mở khóa file để điều chỉnh.', 'Không thể mở khóa file.');
   };
+  const deleteImport = (item) => {
+    if (!window.confirm(`Xóa file ${item.sourceFileName}?\n\nToàn bộ dòng nguồn, dấu chấm và kết quả tính của file này sẽ bị xóa. Thao tác này không thể hoàn tác.`)) return;
+    mutate(() => api.deleteImport(item.id), 'Đã xóa file chấm công.', 'Không thể xóa file chấm công.');
+  };
   const bulkConfirm = () => {
     if (!selected.size) return toast.error('Chọn ít nhất một ca tự ghép.');
     const reason = window.prompt('Lý do xác nhận hàng loạt:'); if (!reason?.trim()) return;
@@ -385,7 +391,7 @@ export default function HrProductionAttendance({ onSelectMode }) {
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-start gap-3"><UploadCloud className="mt-0.5 h-5 w-5 text-blue-600" /><div><h2 className="font-semibold">Import Time Attendance</h2><p className="mt-1 text-xs text-gray-500">Có thể chọn nhiều file; mỗi file giữ nguyên G–J và đủ ngày.</p></div></div><input id="production-attendance-files" type="file" multiple accept=".xlsx,.xls,.xlsm" onChange={(event) => setFiles(Array.from(event.target.files || []))} className="mt-4 block w-full text-sm" /><Button type="button" className="mt-4 w-full" disabled={!files.length || working} onClick={upload}><FileSpreadsheet className="h-4 w-4" />{working ? 'Đang xử lý...' : `Import ${files.length || ''} file`}</Button></div>
     </section>
 
-    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">File đang xử lý</h2><p className="mt-1 text-xs text-gray-500">Chọn một file. Chỉ file đã chốt mới được cộng vào tổng hợp và xuất Excel.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={isAdmin} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
+    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">File đang xử lý</h2><p className="mt-1 text-xs text-gray-500">Chọn một file. File chờ xác nhận có thể xóa; file đã chốt phải được ADMIN mở khóa trước.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={isAdmin} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onDelete={() => deleteImport(item)} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
 
     <WorkflowGuide item={activeImport} />
     <EmployeeOverview employees={employeeSummaries} selectedCode={employeeCode} onSelect={(item) => { setEmployeeCode(item.employeeCode); setView(item.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'ALL'); setPage(0); }} />

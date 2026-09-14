@@ -213,7 +213,7 @@ V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi lu�
 - Có tính lại theo revision, quyết định có lý do, history trước/sau, sự cố máy draft/analyze/confirm/cancel và miễn chấm tạo/hủy.
 - Tab **Ca sản xuất** nằm cạnh tab **Hành chính**, có KPI, bộ lọc Công nhân/KCS/cần kiểm tra/sự cố/đã xác nhận, bảng review responsive, cấu hình ca/ngưỡng công/chính sách nhân viên/miễn chấm và chi tiết read-only sau khi chốt.
 - Tổng hợp chỉ đọc import `CONFIRMED`; file Excel có sheet **Bảng công** đủ ngày 1–31 và sheet **Đối soát**. Manager không thể mở khóa; ADMIN phải nhập lý do để mở khóa trước khi điều chỉnh.
-- Đã kiểm thử local B124: đủ 31 ngày, tổng 45 công, 19 ca đêm, phụ cấp 950.000 đồng; ngày 31 thiếu lượt ra vẫn giữ trống và cần review/sự cố xác nhận.
+- Đã kiểm thử local B124: đủ 31 ngày, tổng 45 công, đúng 5 ca đêm ngày 04–08 và phụ cấp 250.000 đồng. Ngày 18 là ca ngày thiếu lượt vào do mất điện; quyết định thủ công giữ lượt vào trống, dùng lượt ra 17:24 và tự ghép lại chuỗi ngày sau mà không ghi đè các mốc thủ công.
 - Phase 7 đã bổ sung feature flag, chế độ SHADOW có cảnh báo/watermark Excel, gate local một lệnh, healthcheck V21/schema/seed/API trong deploy Linux và rollback không xóa dữ liệu.
 
 API backend nằm dưới `/api/v1/hr/attendance/production`. Source và gate local Phase 7 đã hoàn tất; deploy SHADOW và nghiệm thu production vẫn chưa thực hiện. Chi tiết: [kế hoạch](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md), [hướng sử dụng](WORKER_ATTENDANCE_USAGE_GUIDE.md) và [rollout Phase 7](WORKER_ATTENDANCE_PHASE7_ROLLOUT.md).

@@ -1,6 +1,7 @@
 package com.booking.system.hr.repository;
 
 import com.booking.system.hr.entity.HrProductionAttendanceShift;
+import com.booking.system.hr.enums.HrAttendanceResolutionType;
 import com.booking.system.hr.enums.HrProductionAttendanceShiftStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,7 +56,16 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
     List<HrProductionAttendanceShift> findOtherActiveCompleteShiftsUsingPunches(
             @Param("importId") String importId, @Param("punchIds") List<String> punchIds);
 
-    @Modifying
-    @Query("update HrProductionAttendanceShift shift set shift.active = false where shift.importId = :importId and shift.active = true")
-    void deactivateByImportId(String importId);
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            update HrProductionAttendanceShift shift set shift.active = false
+            where shift.importId = :importId and shift.active = true
+              and shift.resolutionType <> :manualResolution
+            """)
+    void deactivateDerivedByImportId(@Param("importId") String importId,
+                                     @Param("manualResolution") HrAttendanceResolutionType manualResolution);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from HrProductionAttendanceShift shift where shift.importId = :importId")
+    void deleteByImportId(@Param("importId") String importId);
 }

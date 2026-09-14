@@ -35,13 +35,13 @@ Trong tài liệu này, câu **“bỏ số 2”** đang được hiểu là b�
 
 Mẫu **Đỗ Đình Cường — B124 — tháng 08/2026** có kết quả mong đợi là **45 công**, theo lịch ca người dùng cung cấp và các xác nhận trong cuộc trao đổi.
 
-- 11 ca ngày × 1,5 = **16,5 công**.
-- 19 ca đêm × 1,5 = **28,5 công**.
+- 25 ca ngày × 1,5 = **37,5 công**.
+- 5 ca đêm (ngày 04–08/08) × 1,5 = **7,5 công**.
 - Ngày 09/08 không bắt đầu ca mới = **0 công**.
 - Giữ đủ **31 ngày** trong bảng, dù có ngày công bằng 0.
 - Đây là **30 ca được quy đổi thành 45 công**, không phải 45 ngày đi làm.
-- 29 ca ghép được đủ lượt vào/ra theo lịch đã cung cấp. Riêng ca bắt đầu 31/08 thiếu giờ ra 01/09 trong file nhưng được tính **1,5 công theo xác nhận của người dùng**.
-- Có **19 ca đêm**. Với đơn giá đã chốt là 50.000 đồng/ca, mẫu này có **950.000 đồng phụ cấp ca đêm**. Khoản này tách khỏi 45 công và chỉ là kết quả mong đợi khi cả 19 ca được xác nhận hợp lệ.
+- 29 ca ghép được đủ lượt vào/ra. Ngày 18 là ca ngày thiếu lượt vào do máy mất điện, dùng lượt ra 17:24 và chỉ được tính sau khi người có thẩm quyền xác nhận.
+- Có **5 ca đêm**. Với đơn giá đã chốt là 50.000 đồng/ca, mẫu này có **250.000 đồng phụ cấp ca đêm**. Khoản này tách khỏi 45 công.
 
 Kết quả này đủ làm mẫu nghiệm thu đầu tiên. Chưa được suy rộng rằng mọi nhân viên, mọi ca đêm hoặc mọi trường hợp thiếu giờ đều áp dụng cùng quy tắc.
 
@@ -149,13 +149,13 @@ Lịch trên do **người dùng cung cấp**, không phải lịch ca ghi sẵn
 | Các ca ngày của Cường ra khoảng 17 giờ | 1,5 công | Đã hỏi cụ thể 01/08: 05:54–17:31 và 16/08: 05:53–17:12; người dùng trả lời “Câu 1 là 1.5 công” |
 | 06:00 → quanh 18:00 hoặc muộn hơn | 2 công | 17:59 và 18:01 đã được xác nhận; mốc chuyển chính xác giữa nhóm 17:34 và 17:59 cần kiểm thử bằng cấu hình |
 | Ca đêm | Được mô tả 17:00 → 05:00 hôm sau | Khung giờ chính xác và các biến thể cần HR xác nhận |
-| Ca đêm cuối tháng của Cường | Vẫn 1,5 công dù thiếu giờ ra 01/09 trong file | Người dùng trả lời “câu 2 vẫn tính là 1.5 công nhé” |
+| Ngày 18 của Cường | Ca ngày, thiếu lượt vào do máy mất điện; lượt 17:24 là lượt ra | Phải tạo mốc điều chỉnh và ghép lại các ngày sau, không được nhận nhầm thành ca đêm |
 | 1,43; 1,42; 1,45 trong file cũ | Phải làm tròn lên 1,5 | Người dùng nhấn mạnh 39,68 là sai |
 | 06:00 → khoảng 16:00 | 1,5 công | Xác nhận mới ngày 11/09/2026 |
 | 06:00 → 17:59 hoặc 18:01 | 2 công | Xác nhận mới; coi là khoảng dao động quanh mốc 18:00 |
 | Ca đêm hợp lệ/đã xác nhận | 1,5 công + 50.000 đồng | Phụ cấp ca đêm được lưu riêng khỏi số công |
 
-Mẫu đối chiếu đã thống nhất sử dụng **1,5 công cho 19 ca đêm của Cường**, gồm ca cuối tháng theo xác nhận trên. Do đó kết quả nghiệm thu của mẫu là **45 công + 950.000 đồng phụ cấp ca đêm**. Chức năng này không áp dụng hệ số riêng cho ngày lễ/Chủ nhật; phép và các loại nghỉ được xác nhận ở quy trình riêng của anh Thọ.
+Mẫu đối chiếu đã chốt Cường chỉ có **5 ca đêm từ ngày 04 đến ngày 08/08**. Ngày 09 là ngày nghỉ; lượt 04:58 ngày 09 thuộc ca bắt đầu ngày 08. Các ngày còn lại là ca ngày. Kết quả nghiệm thu là **45 công + 250.000 đồng phụ cấp ca đêm**. Chức năng này không áp dụng hệ số riêng cho ngày lễ/Chủ nhật; phép và các loại nghỉ được xác nhận ở quy trình riêng của anh Thọ.
 
 ### 3.3 Các mâu thuẫn đã xử lý
 
@@ -283,7 +283,7 @@ Các câu Q01–Q05 đã được người dùng trả lời và chốt thành q
 | Q05 | Tính theo giờ thực tế, theo ca đăng ký hay mốc checkout? Có trừ nghỉ trưa/nghỉ giữa ca không? | Không thể mặc định lấy tổng giờ chia 8; chưa biết có phải tính số lẻ rồi làm tròn hay quy đổi trực tiếp | Tính theo ca nhận diện và mốc checkout; không lấy giờ chia 8, không trừ nghỉ giữa ca do file không có dữ liệu nghỉ. Ca đêm hợp lệ/đã xác nhận được thêm 50.000 đồng riêng. |
 | Q06 | Ca cho phép chấm vào sớm/muộn, chấm ra sớm/muộn bao nhiêu phút? Đi trễ/về sớm có trừ công hay chỉ thống kê? | Tránh rớt như 16:55/16:59 và hiểu các trường hợp 17:53–05:02 | Giờ chấm có khoảng dao động. `CN-6h-18h` có thể kết thúc khoảng 17:00. `CN-18h-5h` nhận lượt vào 17:00–trước 19:00 và lượt ra 04:00–trước 06:00 hôm sau. Với ca ngày, mốc 2 công thử nghiệm bắt đầu 17:45. Đi trễ/về sớm chỉ thống kê/cảnh báo trong phiên bản đầu. |
 | Q07 | Có nhóm công nhân/ca nào áp dụng 12 tiếng = 1 công không? Hay phát biểu ban đầu là nhầm? | Giải quyết mâu thuẫn với ví dụ 1,5 và 2 công | Không áp dụng 12 tiếng = 1 công trong phạm vi này. Dùng bảng quy đổi mới. |
-| Q08 | Thiếu lượt vào hoặc ra giữa tháng xử lý thế nào? Không có cả hai lượt thì sao? Ai xác nhận? | Ngoại lệ ca 31 đã chốt không đồng nghĩa được tự điền/tính cho mọi ca thiếu lượt | Thiếu một lượt: cần kiểm tra/xác nhận, giữ giờ thiếu là trống. Không có cả hai lượt: 0 công, không tự tạo ca. |
+| Q08 | Thiếu lượt vào hoặc ra giữa tháng xử lý thế nào? Không có cả hai lượt thì sao? Ai xác nhận? | Ngày 18 của B124 là ca ngày thiếu lượt vào do mất điện; đây là mốc điều chỉnh đã xác định | Thiếu một lượt: cần kiểm tra/xác nhận, giữ giờ thiếu là trống và ghép lại chuỗi liên quan. Không có cả hai lượt: 0 công, không tự tạo ca. |
 | Q09 | Quy tắc ca đêm cuối tháng tính 1,5 có áp dụng toàn bộ công nhân/tháng không? Có thể xuất kèm sáng ngày đầu tháng sau và cuối tháng trước không? | Ghép ca qua ranh giới kỳ và tránh cộng trùng | Ghép lượt đầu tháng sau về ngày bắt đầu ca tháng trước. Nếu vẫn thiếu, người có quyền xác nhận. Ca đêm đã xác nhận được 1,5 công và 50.000 đồng. |
 | Q10 | Có ca nối tiếp/ca kéo dài hơn một ngày hoặc nhiều lần ra vào không? File hai lượt/ngày có giữ đủ lượt gốc không? | Thiếu lượt do báo cáo đã gộp sẽ không thể tái tạo chắc chắn | **Không có ca nghiệp vụ nối tiếp hoặc kéo dài hơn một ngày.** Không suy diễn ca đặc biệt từ nhiều lượt chấm. Nếu nguồn có hơn hai dấu chấm, hệ thống giữ toàn bộ để đối soát, ghép theo ca phù hợp và đưa xung đột ra kiểm tra. |
 | Q11 | 1,5/2 công đã bao gồm tăng ca hay tăng ca còn tính riêng? BT, CN, TC có ý nghĩa và đơn vị gì? | Tránh tính cùng thời gian hai lần | Phiên bản đầu coi 1/1,5/2 là kết quả công cuối của ca. Phụ cấp đêm 50.000 đồng tính riêng. Chưa tự tính BT/CN/TC khi chưa có định nghĩa. |
@@ -324,11 +324,11 @@ Không tự suy ra phép/nghỉ từ file giờ chấm. Phép và các loại ng
 
 - [ ] B124 có đủ 31 ô ngày; ngày 09 = 0; ngày 25, 30, 31 = 1,5; tổng **45,00**.
 - [ ] Giữ đủ lượt gốc; một lượt ra sáng không bị tính thêm như lượt vào ca ngày.
-- [ ] Ca 31 giữ giờ ra thực tế thiếu và lý do tính 1,5; không bịa dấu vân tay.
+- [ ] Ngày 18 giữ trống lượt vào, dùng lượt ra 17:24, tính 1,5 sau xác nhận và không bịa dấu vân tay.
 - [ ] Các ca ngày mẫu hiển thị 1,5, không còn 1,40/1,41/1,42/1,43/1,44/1,45.
 - [ ] Ca đêm vào lúc 17:00, 17:30 hoặc 18 giờ mấy và ra lúc 04 giờ mấy hoặc 05 giờ mấy hôm sau đều được nhận diện; kiểm thử ít nhất các cặp 17:30–04:30, 17:30–05:30, 18:30–04:30 và 18:30–05:30, tất cả đều bằng **1,5 công + 50.000 đồng**.
 - [ ] Lượt nằm ngoài cửa ca đêm không bị tự động xóa hoặc tự động cho 0 công; hệ thống đưa ra danh sách cần kiểm tra.
-- [ ] B124 có 19 ca đêm và **950.000 đồng** phụ cấp đêm; phụ cấp không làm thay đổi tổng 45 công.
+- [ ] B124 có đúng 5 ca đêm (04–08/08) và **250.000 đồng** phụ cấp đêm; phụ cấp không làm thay đổi tổng 45 công.
 - [ ] File xuất và số hiển thị trên web khớp nhau.
 - [ ] Bổ sung tháng 9 không làm cộng trùng ca 31/08.
 - [ ] Kiểm tra thêm nhân viên khác và các mốc quy đổi sau khi HR cung cấp đáp án.
@@ -350,7 +350,7 @@ Các phần đã đủ:
 - Cửa nhận ca đêm 17:00–trước 19:00 và 04:00–trước 06:00 hôm sau.
 - Phụ cấp đêm 50.000 đồng/ca.
 - Quy tắc ca qua ngày/tháng, giữ dòng không chấm và không tạo giờ giả.
-- Mẫu nghiệm thu B124: 45 công, 19 ca đêm, 950.000 đồng phụ cấp.
+- Mẫu nghiệm thu B124: 45 công, 5 ca đêm, 250.000 đồng phụ cấp; ngày 18 là ca ngày thiếu lượt vào do mất điện.
 
 Các phần phải tiếp tục xác nhận bằng dữ liệu thực tế trước khi cho tự động chốt:
 

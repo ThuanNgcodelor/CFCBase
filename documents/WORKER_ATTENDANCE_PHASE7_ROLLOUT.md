@@ -74,8 +74,9 @@ Nếu gate schema/seed thất bại, script dừng trước khi mở tunnel. Kh�
 - [ ] Ngày 09 = 0 công.
 - [ ] Ngày 25, 30, 31 = 1,5 công theo quyết định đã chốt.
 - [ ] Tổng = 45 công.
-- [ ] Có 19 ca đêm.
-- [ ] Phụ cấp đêm = 950.000 đồng.
+- [ ] Có đúng 5 ca đêm ngày 04–08/08.
+- [ ] Phụ cấp đêm = 250.000 đồng.
+- [ ] Ngày 18 là `CN_DAY`, lượt vào trống, lượt ra 17:24; ngày 19 trở đi được ghép lại thành ca ngày.
 - [ ] Lượt ra qua tháng chỉ dùng một lần.
 - [ ] Ca thiếu lượt vẫn giữ bên thiếu trống; không sinh giờ giả.
 

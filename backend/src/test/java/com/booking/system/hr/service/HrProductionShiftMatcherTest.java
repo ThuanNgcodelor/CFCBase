@@ -17,7 +17,7 @@ class HrProductionShiftMatcherTest {
     private static final LocalDate FROM = LocalDate.of(2026, 1, 1);
 
     @Test
-    void realCongXnB124Keeps31DaysAndProducesReviewedExpectedTotals() throws Exception {
+    void rawTimeOnlyMatchingShowsWhyTheDay18OutageNeedsAManualAnchor() throws Exception {
         Path workbook = Path.of("..", "CongXn.xlsx");
         var parsed = new com.booking.system.hr.importer.HrProductionAttendanceWorkbookParser()
                 .parse(Files.readAllBytes(workbook), "2026-08");
@@ -38,6 +38,8 @@ class HrProductionShiftMatcherTest {
         assertThat(results).hasSize(31);
         assertThat(results.stream().map(HrProductionShiftMatcher.MatchResult::workValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo("45");
+        // 19 is deliberately the ambiguous raw result: after the missing morning punch on day 18,
+        // a time-only matcher cannot know that 17:24 is a day checkout rather than a night check-in.
         assertThat(results).filteredOn(value -> "CN_18_5".equals(value.shiftCode())).hasSize(19);
         assertThat(results.stream().map(HrProductionShiftMatcher.MatchResult::nightAllowanceAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo("950000");

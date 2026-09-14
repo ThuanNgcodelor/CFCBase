@@ -9,6 +9,7 @@ import com.booking.system.hr.repository.HrAttendancePunchRepository;
 import com.booking.system.hr.repository.HrAttendanceShiftAdjustmentRepository;
 import com.booking.system.hr.repository.HrAttendanceSourceDayRepository;
 import com.booking.system.hr.repository.HrProductionAttendanceShiftRepository;
+import com.booking.system.hr.repository.HrProductionAttendanceImportRepository;
 import com.booking.system.hr.repository.HrAttendanceShiftPolicyRepository;
 import com.booking.system.hr.repository.HrAttendanceWorkCreditRuleRepository;
 import com.booking.system.hr.repository.HrEmployeeRepository;
@@ -75,6 +76,7 @@ class HrProductionAttendanceServiceTest {
     @jakarta.annotation.Resource private HrAttendanceSourceDayRepository sourceDayRepository;
     @jakarta.annotation.Resource private HrAttendancePunchRepository punchRepository;
     @jakarta.annotation.Resource private HrProductionAttendanceShiftRepository shiftRepository;
+    @jakarta.annotation.Resource private HrProductionAttendanceImportRepository productionImportRepository;
     @jakarta.annotation.Resource private HrAttendanceShiftPolicyRepository policyRepository;
     @jakarta.annotation.Resource private HrAttendanceWorkCreditRuleRepository creditRepository;
     @jakarta.annotation.Resource private HrAttendanceShiftAdjustmentRepository adjustmentRepository;
@@ -112,6 +114,48 @@ class HrProductionAttendanceServiceTest {
         assertThat(punchRepository.count()).isEqualTo(491);
         assertThat(shiftRepository.count()).isEqualTo(279);
 
+        var b124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
+                .filter(value -> value.getEmployeeCode().equals("B124")).toList();
+        assertThat(b124).hasSize(31);
+        var august18 = b124.stream().filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 18)))
+                .findFirst().orElseThrow();
+        assertThat(august18.getShiftCodeSnapshot()).isEqualTo("CN_18_5");
+        assertThat(august18.getCheckInAt()).isEqualTo(LocalDateTime.of(2026, 8, 18, 17, 24));
+        assertThat(august18.getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 8, 19, 5, 49));
+
+        var august18Checkout = punchRepository.findByImportIdAndEmployeeCodeAndWorkDateOrderByPunchedAtAsc(
+                        batch.id(), "B124", LocalDate.of(2026, 8, 18)).stream()
+                .filter(value -> value.getPunchedAt().equals(LocalDateTime.of(2026, 8, 18, 17, 24)))
+                .findFirst().orElseThrow();
+        service.decideShift(august18.getId(), new HrProductionAttendanceDtos.ShiftDecisionRequest(
+                HrProductionAttendanceDtos.DecisionAction.CONFIRM, "CN_DAY", null, august18Checkout.getId(),
+                new BigDecimal("1.5"), BigDecimal.ZERO,
+                "Ca ngày thiếu lượt vào do máy chấm công mất điện", august18.getRowVersion()), ACTOR);
+
+        b124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
+                .filter(value -> value.getEmployeeCode().equals("B124")).toList();
+        assertThat(b124).hasSize(31);
+        assertThat(b124.stream().map(value -> value.getWorkValue()).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .as(b124.stream().map(value -> value.getWorkDate() + ":" + value.getShiftCodeSnapshot() + ":" + value.getStatus() + ":" + value.getExplanation()).toList().toString())
+                .isEqualByComparingTo("45");
+        assertThat(b124).filteredOn(value -> "CN_18_5".equals(value.getShiftCodeSnapshot())).hasSize(5);
+        assertThat(b124.stream().map(value -> value.getNightAllowanceAmount()).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo("250000");
+        assertThat(b124).filteredOn(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 18)))
+                .singleElement().satisfies(value -> {
+                    assertThat(value.getShiftCodeSnapshot()).isEqualTo("CN_DAY");
+                    assertThat(value.getCheckInAt()).isNull();
+                    assertThat(value.getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 8, 18, 17, 24));
+                    assertThat(value.getNightAllowanceAmount()).isEqualByComparingTo("0");
+                    assertThat(value.getResolutionType()).isEqualTo(HrAttendanceResolutionType.MANUAL_OVERRIDE);
+                });
+        assertThat(b124).filteredOn(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 19)))
+                .singleElement().satisfies(value -> {
+                    assertThat(value.getShiftCodeSnapshot()).isEqualTo("CN_DAY");
+                    assertThat(value.getCheckInAt()).isEqualTo(LocalDateTime.of(2026, 8, 19, 5, 49));
+                    assertThat(value.getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 8, 19, 17, 23));
+                });
+
         var employeeOverview = service.employeeReviewSummaries(batch.id());
         assertThat(employeeOverview).hasSize(9);
         assertThat(employeeOverview).filteredOn(value -> value.employeeCode().equals("B124"))
@@ -119,29 +163,19 @@ class HrProductionAttendanceServiceTest {
                 .satisfies(value -> {
                     assertThat(value.totalDays()).isEqualTo(31);
                     assertThat(value.proposedWorkValue()).isEqualByComparingTo("45");
-                    assertThat(value.nightShifts()).isEqualTo(19);
-                    assertThat(value.nightAllowanceAmount()).isEqualByComparingTo("950000");
+                    assertThat(value.nightShifts()).isEqualTo(5);
+                    assertThat(value.nightAllowanceAmount()).isEqualByComparingTo("250000");
                 });
-
-        var b124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
-                .filter(value -> value.getEmployeeCode().equals("B124")).toList();
-        assertThat(b124).hasSize(31);
-        assertThat(b124.stream().map(value -> value.getWorkValue()).reduce(BigDecimal.ZERO, BigDecimal::add))
-                .as(b124.stream().map(value -> value.getWorkDate() + ":" + value.getShiftCodeSnapshot() + ":" + value.getStatus() + ":" + value.getExplanation()).toList().toString())
-                .isEqualByComparingTo("45");
-        assertThat(b124).filteredOn(value -> "CN_18_5".equals(value.getShiftCodeSnapshot())).hasSize(19);
-        assertThat(b124.stream().map(value -> value.getNightAllowanceAmount()).reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualByComparingTo("950000");
 
         var september = service.upload("B124-2026-09.xlsx", septemberBoundaryWorkbook(), "2026-09", ACTOR);
         assertThat(september.totalRows()).isEqualTo(3);
         assertThat(september.totalPunches()).isEqualTo(4);
         assertThat(sourceDayRepository.count()).isEqualTo(282);
         assertThat(punchRepository.count()).isEqualTo(495);
-        assertThat(shiftRepository.count()).isEqualTo(561);
+        assertThat(shiftRepository.count()).isEqualTo(838);
         var allShiftRevisions = shiftRepository.findAll(PageRequest.of(0, 1000)).getContent();
         assertThat(allShiftRevisions).filteredOn(value -> value.isActive()).hasSize(282);
-        assertThat(allShiftRevisions).filteredOn(value -> !value.isActive()).hasSize(279);
+        assertThat(allShiftRevisions).filteredOn(value -> !value.isActive()).hasSize(556);
 
         var activeB124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
                 .filter(value -> value.getEmployeeCode().equals("B124")).toList();
@@ -151,19 +185,22 @@ class HrProductionAttendanceServiceTest {
                 .filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 31)))
                 .findFirst().orElseThrow();
         assertThat(monthBoundaryShift.getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.AUTO_MATCHED);
-        assertThat(monthBoundaryShift.getCalculationVersion()).isEqualTo(2);
+        assertThat(monthBoundaryShift.getCalculationVersion()).isEqualTo(3);
         assertThat(monthBoundaryShift.getCheckInAt()).isNotNull();
-        assertThat(monthBoundaryShift.getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 9, 1, 5, 30));
-        assertThat(monthBoundaryShift.getResolutionType()).isEqualTo(HrAttendanceResolutionType.MONTH_BOUNDARY);
+        assertThat(monthBoundaryShift.getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 8, 31, 17, 8));
+        assertThat(monthBoundaryShift.getResolutionType()).isEqualTo(HrAttendanceResolutionType.NORMAL);
         assertThat(monthBoundaryShift.getWorkValue()).isEqualByComparingTo("1.5");
 
         var septemberShifts = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(september.id());
         assertThat(septemberShifts).hasSize(3);
         assertThat(septemberShifts.get(0).getWorkDate()).isEqualTo(LocalDate.of(2026, 9, 1));
-        assertThat(septemberShifts.get(0).getCheckInAt()).isEqualTo(LocalDateTime.of(2026, 9, 1, 17, 30));
-        assertThat(septemberShifts.get(0).getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 9, 2, 5, 0));
+        assertThat(septemberShifts.get(0).getShiftCodeSnapshot()).isEqualTo("CN_DAY");
+        assertThat(septemberShifts.get(0).getCheckInAt()).isEqualTo(LocalDateTime.of(2026, 9, 1, 5, 30));
+        assertThat(septemberShifts.get(0).getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 9, 1, 17, 30));
         assertThat(septemberShifts.get(0).getWorkValue()).isEqualByComparingTo("1.5");
-        assertThat(septemberShifts.get(1).getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.NO_PUNCH);
+        assertThat(septemberShifts.get(1).getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.NEEDS_REVIEW);
+        assertThat(septemberShifts.get(1).getCheckInAt()).isEqualTo(LocalDateTime.of(2026, 9, 2, 5, 0));
+        assertThat(septemberShifts.get(1).getCheckOutAt()).isNull();
         assertThat(septemberShifts.get(2).getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.NEEDS_REVIEW);
         assertThat(septemberShifts.get(2).getCheckInAt()).isEqualTo(LocalDateTime.of(2026, 9, 3, 17, 30));
         assertThat(septemberShifts.get(2).getCheckOutAt()).isNull();
@@ -241,8 +278,8 @@ class HrProductionAttendanceServiceTest {
                 .singleElement().satisfies(value -> {
                     assertThat(value.days()).hasSize(31);
                     assertThat(value.totalWorkValue()).isEqualByComparingTo("45");
-                    assertThat(value.nightShifts()).isEqualTo(19);
-                    assertThat(value.nightAllowanceAmount()).isEqualByComparingTo("950000");
+                    assertThat(value.nightShifts()).isEqualTo(5);
+                    assertThat(value.nightAllowanceAmount()).isEqualByComparingTo("250000");
                 });
         var exported = reportService.exportMonthlySummary("2026-08");
         assertThat(exported.fileName()).isEqualTo("BANG_CONG_CA_SAN_XUAT_2026-08.xlsx");
@@ -265,10 +302,16 @@ class HrProductionAttendanceServiceTest {
                 new HrProductionAttendanceDtos.ReopenImportRequest("Manager không được mở khóa", confirmedAugust.rowVersion()), ACTOR))
                 .isInstanceOfSatisfying(HrApiException.class,
                         exception -> assertThat(exception.code()).isEqualTo("PRODUCTION_ATTENDANCE_REOPEN_FORBIDDEN"));
+        assertThatThrownBy(() -> service.deleteImport(batch.id(), ACTOR))
+                .isInstanceOfSatisfying(HrApiException.class,
+                        exception -> assertThat(exception.code()).isEqualTo("PRODUCTION_ATTENDANCE_DELETE_CONFIRMED"));
         var reopened = service.reopenImport(batch.id(),
                 new HrProductionAttendanceDtos.ReopenImportRequest("Điều chỉnh sau đối soát", confirmedAugust.rowVersion()),
                 new HrImportActor("admin@example.test", "Admin", "ADMIN"));
         assertThat(reopened.status().name()).isEqualTo("PREVIEWED");
+
+        service.deleteImport(overlappingAugust.id(), ACTOR);
+        assertThat(productionImportRepository.findById(overlappingAugust.id())).isEmpty();
     }
 
     private byte[] septemberBoundaryWorkbook() throws Exception {

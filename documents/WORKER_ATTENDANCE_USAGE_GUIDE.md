@@ -45,7 +45,7 @@ Nếu chọn sai tháng khi import, hệ thống đọc tháng trong file, tự 
 
 1. Deploy backend để Flyway áp dụng V21, sau đó deploy frontend cùng phiên bản.
 2. Chạy shadow tháng 08/2026, không dùng file xuất mới để trả lương ngay.
-3. Đối chiếu B124: 31 ngày, 45 công, 19 ca đêm và 950.000 đồng phụ cấp theo bộ dữ liệu nghiệm thu.
+3. Đối chiếu B124: 31 ngày, 45 công, đúng 5 ca đêm ngày 04–08 và 250.000 đồng phụ cấp. Ngày 18 chọn `CN_DAY`, để trống lượt vào, chọn lượt ra 17:24, nhập 1,5 công và phụ cấp 0; hệ thống sẽ tính lại các ngày chưa xác nhận phía sau.
 4. HR kiểm tra thêm KCS ca 2, người miễn chấm và sự cố máy tối 17/08.
 5. Chỉ chuyển sang sử dụng chính thức sau khi HR ký xác nhận web và Excel khớp bảng đối chiếu.
 
