@@ -49,7 +49,7 @@ app:
   hr:
     attendance:
       production:
-        enabled: ${HR_PRODUCTION_ATTENDANCE_ENABLED:false}
+        enabled: ${HR_PRODUCTION_ATTENDANCE_ENABLED:true}
         shadow-mode: ${HR_PRODUCTION_ATTENDANCE_SHADOW_MODE:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

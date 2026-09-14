@@ -13,6 +13,8 @@
 | `HR_PRODUCTION_ATTENDANCE_SHADOW_MODE=true` | Hiện cảnh báo chạy thử; tên và tiêu đề Excel có dấu `SHADOW`/`KHÔNG DÙNG TRẢ LƯƠNG`. |
 | `HR_PRODUCTION_ATTENDANCE_SHADOW_MODE=false` | Chế độ chính thức sau khi HR ký nghiệm thu. |
 
+Mặc định của source/deploy hiện tại là `ENABLED=true` và `SHADOW_MODE=true`: tab được mở để demo nhưng kết quả vẫn mang dấu SHADOW. Đặt rõ `ENABLED=false` trong `.env` khi cần rollback khẩn cấp.
+
 `build-prod.sh` nạp hai biến từ `deployserver/linux/.env`, truyền đúng cờ vào Vite và backend, sau đó `run.sh` kiểm tra Flyway V21, 10 bảng, seed ca/ngưỡng công và biên bảo vệ API trước khi mở Cloudflare Tunnel.
 
 ## 2. Kiểm tra source trước deploy

@@ -22,7 +22,7 @@ app.hr.import.payload-retention-days=${HR_IMPORT_PAYLOAD_RETENTION_DAYS:30}
 app.hr.import.payload-purge-cron=${HR_IMPORT_PAYLOAD_PURGE_CRON:0 30 2 * * *}
 
 # Production attendance rollout: enable first with shadow mode, then turn shadow off after HR sign-off.
-app.hr.attendance.production.enabled=${HR_PRODUCTION_ATTENDANCE_ENABLED:false}
+app.hr.attendance.production.enabled=${HR_PRODUCTION_ATTENDANCE_ENABLED:true}
 app.hr.attendance.production.shadow-mode=${HR_PRODUCTION_ATTENDANCE_SHADOW_MODE:true}
 
 # Multipart Upload Settings for OCR and Document attachments
