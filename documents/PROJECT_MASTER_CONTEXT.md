@@ -43,7 +43,7 @@ flowchart TB
 
 - Backend: Spring Boot **4.0.0**, Java **21**, Spring MVC, JPA/Hibernate, Security, WebSocket/STOMP, Redis, Mail, Actuator.
 - Database: MySQL 8; các đối tượng HR do Flyway sở hữu. `LegacySchemaFilterProvider` ngăn Hibernate tự tạo/sửa/xóa bảng `hr_*`.
-- Migration hiện có: **V1 đến V21**, tổng cộng **46 bảng `hr_*`** được tạo bởi các migration. V17 thêm kho mẫu Word, V18 thêm snapshot tin nhắn lương, V19 thêm phiên sửa Word, V20 thêm OCR realtime cho LĐ phổ thông và V21 thêm pipeline chấm công ca sản xuất. Tích hợp ONLYOFFICE mặc định tắt; [hướng dẫn bật](HR_WORD_EDITOR_SETUP.md). Chưa deploy/kiểm thử Document Server live.
+- Migration hiện có: **V1 đến V22**, tổng cộng **46 bảng `hr_*`** được tạo bởi các migration. V17 thêm kho mẫu Word, V18 thêm snapshot tin nhắn lương, V19 thêm phiên sửa Word, V20 thêm OCR realtime cho LĐ phổ thông, V21 thêm pipeline chấm công ca sản xuất và V22 thêm chỉ mục phân trang tổng quan nhân viên ca sản xuất. Tích hợp ONLYOFFICE mặc định tắt; [hướng dẫn bật](HR_WORD_EDITOR_SETUP.md). Chưa deploy/kiểm thử Document Server live.
 - File Excel/DOCX: Apache POI 5.4.1; hợp đồng DOCX dùng mẫu classpath mặc định hoặc phiên bản active trong kho DB. `HrDocxEngine` thay biến xuyên qua các Word run. Hướng dẫn và giới hạn hiện hành: [Word và Payroll](HR_WORD_PAYROLL_GUIDE.md).
 - Frontend: React **19.2**, React Router **7**, Vite **8**, Tailwind CSS **4**, Axios, `react-datepicker`, `xlsx`, Lucide, PWA Workbox.
 - Token: access JWT ngắn hạn, refresh JWT lưu cookie/Redis; mọi API HR yêu cầu principal ADMIN hoặc MANAGER, trừ các route được permit riêng.
@@ -213,6 +213,7 @@ V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi lu�
 - Có tính lại theo revision, quyết định có lý do, history trước/sau, sự cố máy draft/analyze/confirm/cancel và miễn chấm tạo/hủy.
 - Tab **Ca sản xuất** nằm cạnh tab **Hành chính**, có KPI, bộ lọc Công nhân/KCS/cần kiểm tra/sự cố/đã xác nhận, bảng review responsive, cấu hình ca/ngưỡng công/chính sách nhân viên/miễn chấm và chi tiết read-only sau khi chốt.
 - Tổng hợp chỉ đọc import `CONFIRMED`; file Excel có sheet **Bảng công** đủ ngày 1–31 và sheet **Đối soát**. Manager không thể mở khóa; ADMIN phải nhập lý do để mở khóa trước khi điều chỉnh.
+- Tổng quan nhân viên được phân trang/tìm kiếm tại database; tháng đang chọn được nhớ trên trình duyệt. Sau thao tác điều chỉnh, khi quay lại tab và theo chu kỳ 30 giây, UI tự tải lại các bảng liên quan. Chỉ số **Ca đêm + tăng ca** bằng số ca đêm cộng số ca có mức 2 công và cũng được ghi vào file Excel xuất.
 - Đã kiểm thử local B124: đủ 31 ngày, tổng 45 công, đúng 5 ca đêm ngày 04–08 và phụ cấp 250.000 đồng. Ngày 18 là ca ngày thiếu lượt vào do mất điện; quyết định thủ công giữ lượt vào trống, dùng lượt ra 17:24 và tự ghép lại chuỗi ngày sau mà không ghi đè các mốc thủ công.
 - Phase 7 đã bổ sung feature flag, chế độ SHADOW có cảnh báo/watermark Excel, gate local một lệnh, healthcheck V21/schema/seed/API trong deploy Linux và rollback không xóa dữ liệu.
 

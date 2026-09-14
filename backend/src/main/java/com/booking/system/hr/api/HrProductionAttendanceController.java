@@ -160,10 +160,12 @@ public class HrProductionAttendanceController {
     }
 
     @GetMapping("/imports/{id}/employee-summaries")
-    public ResponseEntity<ApiResponse<List<HrProductionAttendanceDtos.EmployeeReviewSummary>>> employeeSummaries(
-            @PathVariable String id, @AuthenticationPrincipal User principal) {
+    public ResponseEntity<ApiResponse<HrPageResponse<HrProductionAttendanceDtos.EmployeeReviewSummary>>> employeeSummaries(
+            @PathVariable String id, @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal User principal) {
         actorResolver.fromPrincipal(principal);
-        return ResponseEntity.ok(ApiResponse.success(service.employeeReviewSummaries(id),
+        return ResponseEntity.ok(ApiResponse.success(service.employeeReviewSummaries(id, keyword, page, size),
                 "Lấy tổng quan chấm công theo nhân viên thành công"));
     }
 

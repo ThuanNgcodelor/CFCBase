@@ -15,6 +15,7 @@ import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -321,13 +322,24 @@ public class HrProductionAttendanceService {
     }
 
     @Transactional(readOnly = true)
-    public List<HrProductionAttendanceDtos.EmployeeReviewSummary> employeeReviewSummaries(String importId) {
+    public HrPageResponse<HrProductionAttendanceDtos.EmployeeReviewSummary> employeeReviewSummaries(
+            String importId, String keyword, int page, int size) {
         importBatch(importId);
+        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100),
+                Sort.by(Sort.Direction.ASC, "employeeCode"));
+        String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
+        Page<String> employeeCodes = shiftRepository.findDistinctEmployeeCodes(importId, normalizedKeyword, pageable);
+        if (employeeCodes.isEmpty()) {
+            return new HrPageResponse<>(List.of(), employeeCodes.getNumber(), employeeCodes.getSize(),
+                    employeeCodes.getTotalElements(), employeeCodes.getTotalPages(),
+                    employeeCodes.isFirst(), employeeCodes.isLast());
+        }
         Map<String, List<HrProductionAttendanceShift>> grouped = shiftRepository
-                .findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(importId).stream()
+                .findActiveByImportIdAndEmployeeCodeIn(importId, employeeCodes.getContent()).stream()
                 .collect(Collectors.groupingBy(HrProductionAttendanceShift::getEmployeeCode,
                         LinkedHashMap::new, Collectors.toList()));
-        return grouped.values().stream().map(values -> {
+        List<HrProductionAttendanceDtos.EmployeeReviewSummary> content = employeeCodes.getContent().stream()
+                .map(grouped::get).filter(Objects::nonNull).map(values -> {
             HrProductionAttendanceShift first = values.getFirst();
             int ready = countStatus(values, HrProductionAttendanceShiftStatus.AUTO_MATCHED);
             int review = countStatus(values, HrProductionAttendanceShiftStatus.NEEDS_REVIEW);
@@ -343,14 +355,24 @@ public class HrProductionAttendanceService {
                     .filter(value -> value.getNightAllowanceAmount() != null
                             && value.getNightAllowanceAmount().signum() > 0)
                     .count();
+            int overtimeShifts = (int) values.stream()
+                    .filter(value -> value.getStatus() != HrProductionAttendanceShiftStatus.EXCLUDED
+                            && value.getStatus() != HrProductionAttendanceShiftStatus.REJECTED)
+                    .filter(value -> value.getWorkValue() != null
+                            && value.getWorkValue().compareTo(new BigDecimal("2")) == 0)
+                    .count();
             BigDecimal allowance = values.stream()
                     .map(HrProductionAttendanceShift::getNightAllowanceAmount)
                     .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             return new HrProductionAttendanceDtos.EmployeeReviewSummary(first.getEmployeeCode(),
                     first.getEmployeeName(), first.getPolicyGroup(), values.size(), ready, review, noPunch,
-                    confirmed, proposedWork, nightShifts, allowance);
+                    confirmed, proposedWork, nightShifts, overtimeShifts,
+                    nightShifts + overtimeShifts, allowance);
         }).toList();
+        return new HrPageResponse<>(content, employeeCodes.getNumber(), employeeCodes.getSize(),
+                employeeCodes.getTotalElements(), employeeCodes.getTotalPages(),
+                employeeCodes.isFirst(), employeeCodes.isLast());
     }
 
     private static int countStatus(List<HrProductionAttendanceShift> values,

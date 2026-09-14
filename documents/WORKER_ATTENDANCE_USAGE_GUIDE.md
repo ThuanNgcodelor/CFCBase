@@ -19,7 +19,7 @@ Thay đổi cấu hình không tự sửa file đã chốt. Muốn áp dụng c�
 1. Chọn đúng tháng cần xử lý.
 2. Chọn một hoặc nhiều file Time Attendance rồi bấm **Import**.
 3. Chọn thẻ file và làm theo thanh **Quy trình xử lý**. Mặc định hệ thống mở **Cần xử lý**, không hiển thị hàng trăm dòng hợp lệ trước.
-4. Xem **Tổng quan theo nhân viên** để biết tổng công tạm tính, ca đêm và số ca cần xử lý của từng người. Bấm một nhân viên để mở chi tiết các ngày của người đó.
+4. Xem **Tổng quan theo nhân viên** để biết tổng công tạm tính, ca đêm, tăng ca 2 công và số ca cần xử lý của từng người. Cột **Đêm + tăng ca** là tổng số ca đêm cộng số ca có mức 2 công (ví dụ 4 + 4 = 8). Danh sách được tìm kiếm và phân trang từ máy chủ; bấm một nhân viên để mở chi tiết các ngày của người đó.
 5. Với ca thiếu/mơ hồ, bấm **Kiểm tra** để xem dấu chấm gốc, chọn lượt vào/ra, ca, số công và phụ cấp; bắt buộc nhập lý do. **Ngày không chấm** được giữ nguyên, tính 0 công và không bị coi là lỗi.
 6. Mục **Sẵn sàng** chứa ca đã ghép đủ lượt. Có thể xác nhận theo từng trang; nếu không làm riêng, thao tác **Chốt file** sẽ tự xác nhận toàn bộ ca hợp lệ còn lại.
 7. Nếu máy chấm công gặp sự cố, mở **Sự cố máy**, khai thời gian/phạm vi, bấm **Phân tích**, chọn đúng các ca được ảnh hưởng rồi xác nhận. Hệ thống không sinh giờ chấm giả.

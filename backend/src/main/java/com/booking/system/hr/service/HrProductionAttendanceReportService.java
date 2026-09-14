@@ -99,11 +99,13 @@ public class HrProductionAttendanceReportService {
             BigDecimal allowance = BigDecimal.ZERO;
             int dayShifts = 0;
             int nightShifts = 0;
+            int overtimeShifts = 0;
             for (HrProductionAttendanceShift shift : shifts) {
                 BigDecimal workValue = officialWorkValue(shift);
                 days.put(shift.getWorkDate().getDayOfMonth(), new HrProductionAttendanceDtos.DailyWorkValue(
                         shift.getWorkDate().getDayOfMonth(), workValue, shift.getShiftCodeSnapshot(), shift.getStatus()));
                 total = total.add(workValue);
+                if (workValue.compareTo(new BigDecimal("2")) == 0) overtimeShifts++;
                 if (workValue.signum() > 0) {
                     if (isNightShift(shift)) nightShifts++; else dayShifts++;
                 }
@@ -113,7 +115,8 @@ public class HrProductionAttendanceReportService {
             }
             employeeRows.add(new HrProductionAttendanceDtos.EmployeeSummary(entry.getKey(),
                     employee == null ? first.getEmployeeName() : employee.getFullName(), departmentName(employee),
-                    dominantPolicy(shifts), Collections.unmodifiableMap(days), total, dayShifts, nightShifts, allowance));
+                    dominantPolicy(shifts), Collections.unmodifiableMap(days), total, dayShifts, nightShifts,
+                    overtimeShifts, nightShifts + overtimeShifts, allowance));
         }
 
         BigDecimal totalWork = employeeRows.stream().map(HrProductionAttendanceDtos.EmployeeSummary::totalWorkValue)
@@ -122,6 +125,7 @@ public class HrProductionAttendanceReportService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         int dayShifts = employeeRows.stream().mapToInt(HrProductionAttendanceDtos.EmployeeSummary::dayShifts).sum();
         int nightShifts = employeeRows.stream().mapToInt(HrProductionAttendanceDtos.EmployeeSummary::nightShifts).sum();
+        int overtimeShifts = employeeRows.stream().mapToInt(HrProductionAttendanceDtos.EmployeeSummary::overtimeShifts).sum();
         int reviewShifts = confirmedImports.stream().mapToInt(HrProductionAttendanceImport::getReviewShifts).sum();
         int incidentShifts = (int) unique.values().stream()
                 .filter(value -> value.getStatus() == HrProductionAttendanceShiftStatus.CONFIRMED)
@@ -130,7 +134,8 @@ public class HrProductionAttendanceReportService {
 
         HrProductionAttendanceDtos.MonthlySummary summary = new HrProductionAttendanceDtos.MonthlySummary(
                 month, locked, confirmedImports.size(), previewImports.size(), employeeRows.size(), totalWork,
-                dayShifts, nightShifts, totalAllowance, reviewShifts, incidentShifts, exemptedCodes.size(),
+                dayShifts, nightShifts, overtimeShifts, nightShifts + overtimeShifts,
+                totalAllowance, reviewShifts, incidentShifts, exemptedCodes.size(),
                 duplicates.size(), List.copyOf(employeeRows));
         return new ReportData(summary, confirmedImports, allShifts, duplicates);
     }
@@ -150,7 +155,7 @@ public class HrProductionAttendanceReportService {
         int column = 0;
         for (String value : fixed) cell(header, column++, value, styles.header());
         for (int day = 1; day <= 31; day++) cell(header, column++, "Ngày " + day, styles.header());
-        for (String value : List.of("Tổng công", "Ca ngày", "Ca đêm", "Phụ cấp đêm")) {
+        for (String value : List.of("Tổng công", "Ca ngày", "Ca đêm + tăng ca", "Phụ cấp đêm")) {
             cell(header, column++, value, styles.header());
         }
 
@@ -170,7 +175,7 @@ public class HrProductionAttendanceReportService {
             }
             decimal(row, 36, employee.totalWorkValue(), styles.total());
             number(row, 37, employee.dayShifts(), styles.center());
-            number(row, 38, employee.nightShifts(), styles.center());
+            number(row, 38, employee.nightAndOvertimeShifts(), styles.center());
             decimal(row, 39, employee.nightAllowanceAmount(), styles.money());
         }
         sheet.createFreezePane(5, 3);

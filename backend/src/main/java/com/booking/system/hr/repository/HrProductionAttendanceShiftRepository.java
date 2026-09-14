@@ -15,6 +15,29 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
     Page<HrProductionAttendanceShift> findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(String importId, Pageable pageable);
     Page<HrProductionAttendanceShift> findByImportIdAndActiveTrueAndStatusOrderByEmployeeCodeAscWorkDateAsc(String importId, HrProductionAttendanceShiftStatus status, Pageable pageable);
     List<HrProductionAttendanceShift> findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(String importId);
+
+    @Query(value = """
+            select distinct shift.employeeCode from HrProductionAttendanceShift shift
+            where shift.importId = :importId and shift.active = true
+              and (:keyword is null or lower(shift.employeeCode) like lower(concat('%', :keyword, '%'))
+                   or lower(shift.employeeName) like lower(concat('%', :keyword, '%')))
+            """, countQuery = """
+            select count(distinct shift.employeeCode) from HrProductionAttendanceShift shift
+            where shift.importId = :importId and shift.active = true
+              and (:keyword is null or lower(shift.employeeCode) like lower(concat('%', :keyword, '%'))
+                   or lower(shift.employeeName) like lower(concat('%', :keyword, '%')))
+            """)
+    Page<String> findDistinctEmployeeCodes(@Param("importId") String importId,
+                                           @Param("keyword") String keyword,
+                                           Pageable pageable);
+
+    @Query("""
+            select shift from HrProductionAttendanceShift shift
+            where shift.importId = :importId and shift.active = true and shift.employeeCode in :employeeCodes
+            order by shift.employeeCode, shift.workDate
+            """)
+    List<HrProductionAttendanceShift> findActiveByImportIdAndEmployeeCodeIn(
+            @Param("importId") String importId, @Param("employeeCodes") List<String> employeeCodes);
     List<HrProductionAttendanceShift> findAllByIdIn(List<String> ids);
     long countByImportIdAndActiveTrueAndStatus(String importId, HrProductionAttendanceShiftStatus status);
 

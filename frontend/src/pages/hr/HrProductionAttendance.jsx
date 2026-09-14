@@ -14,6 +14,7 @@ import SEOHead from '../../components/SEOHead';
 import { apiErrorMessage, formatHrDate, formatHrDateTime } from '../../utils/hr';
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
+const storedMonth = () => localStorage.getItem('hr-production-attendance-month') || currentMonth();
 const shadowMode = import.meta.env.VITE_HR_PRODUCTION_ATTENDANCE_SHADOW_MODE === 'true';
 const emptyPage = { content: [], page: 0, totalPages: 0, totalElements: 0 };
 const views = [
@@ -108,11 +109,14 @@ function WorkflowGuide({ item }) {
   </section>;
 }
 
-function EmployeeOverview({ employees, selectedCode, onSelect }) {
-  if (!employees.length) return null;
+function EmployeeOverview({ result, keyword, onKeywordChange, selectedCode, onSelect, onPageChange }) {
+  const employees = result.content || [];
+  if (!employees.length && !keyword) return null;
   return <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-    <div><h2 className="font-semibold text-gray-900">Tổng quan theo nhân viên</h2><p className="mt-1 text-xs text-gray-500">Chọn một người để mở bảng ngày; số công dưới đây là tạm tính trước khi chốt.</p></div>
-    <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[820px] text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Nhóm</th><th className="px-3 py-3 text-center">Ngày</th><th className="px-3 py-3 text-center">Công tạm tính</th><th className="px-3 py-3 text-center">Ca đêm</th><th className="px-3 py-3 text-center">Cần xử lý</th><th className="px-3 py-3">Trạng thái</th></tr></thead><tbody className="divide-y divide-gray-100">{employees.map((item) => <tr key={item.employeeCode} onClick={() => onSelect(item)} className={`cursor-pointer hover:bg-emerald-50 ${selectedCode === item.employeeCode ? 'bg-emerald-50' : ''}`}><td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{policyLabel(item.policyGroup)}</td><td className="px-3 py-3 text-center">{item.totalDays}</td><td className="px-3 py-3 text-center font-semibold">{work(item.proposedWorkValue)}</td><td className="px-3 py-3 text-center">{item.nightShifts}</td><td className={`px-3 py-3 text-center font-semibold ${item.reviewShifts ? 'text-amber-700' : 'text-emerald-700'}`}>{item.reviewShifts}</td><td className="px-3 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.reviewShifts ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>{item.reviewShifts ? 'Cần kiểm tra' : 'Đã ổn'}</span></td></tr>)}</tbody></table></div>
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="font-semibold text-gray-900">Tổng quan theo nhân viên</h2><p className="mt-1 text-xs text-gray-500">Dữ liệu được phân trang từ máy chủ. Chọn một người để xem riêng từng ngày.</p></div><input value={keyword} onChange={(event) => onKeywordChange(event.target.value)} placeholder="Tìm mã hoặc tên nhân viên" className="h-10 min-w-64 rounded-lg border border-gray-300 px-3 text-sm" /></div>
+    <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[940px] text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Nhóm</th><th className="px-3 py-3 text-center">Ngày</th><th className="px-3 py-3 text-center">Công tạm tính</th><th className="px-3 py-3 text-center">Ca đêm</th><th className="px-3 py-3 text-center">Tăng ca (2 công)</th><th className="px-3 py-3 text-center">Đêm + tăng ca</th><th className="px-3 py-3 text-center">Cần xử lý</th><th className="px-3 py-3">Trạng thái</th></tr></thead><tbody className="divide-y divide-gray-100">{employees.map((item) => <tr key={item.employeeCode} onClick={() => onSelect(item)} className={`cursor-pointer hover:bg-emerald-50 ${selectedCode === item.employeeCode ? 'bg-emerald-50' : ''}`}><td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{policyLabel(item.policyGroup)}</td><td className="px-3 py-3 text-center">{item.totalDays}</td><td className="px-3 py-3 text-center font-semibold">{work(item.proposedWorkValue)}</td><td className="px-3 py-3 text-center">{item.nightShifts}</td><td className="px-3 py-3 text-center">{item.overtimeShifts}</td><td className="px-3 py-3 text-center font-bold text-blue-700">{item.nightAndOvertimeShifts}</td><td className={`px-3 py-3 text-center font-semibold ${item.reviewShifts ? 'text-amber-700' : 'text-emerald-700'}`}>{item.reviewShifts}</td><td className="px-3 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.reviewShifts ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>{item.reviewShifts ? 'Cần kiểm tra' : 'Đã ổn'}</span></td></tr>)}</tbody></table></div>
+    {!employees.length && <HrEmpty title="Không tìm thấy nhân viên" description="Thử tìm bằng mã hoặc họ tên khác." />}
+    <HrPagination page={result.page || 0} totalPages={result.totalPages || 0} totalElements={result.totalElements || 0} onPageChange={onPageChange} />
   </section>;
 }
 
@@ -269,10 +273,12 @@ function IncidentDrawer({ open, activeImport, incidents, onClose, onRefresh }) {
 }
 
 export default function HrProductionAttendance({ onSelectMode }) {
-  const [month, setMonth] = useState(currentMonth());
+  const [month, setMonth] = useState(storedMonth);
   const [imports, setImports] = useState([]);
   const [activeImportId, setActiveImportId] = useState('');
-  const [employeeSummaries, setEmployeeSummaries] = useState([]);
+  const [employeeSummaries, setEmployeeSummaries] = useState(emptyPage);
+  const [employeeSummaryPage, setEmployeeSummaryPage] = useState(0);
+  const [employeeSummaryKeyword, setEmployeeSummaryKeyword] = useState('');
   const [shifts, setShifts] = useState(emptyPage);
   const [summary, setSummary] = useState(null);
   const [policies, setPolicies] = useState([]);
@@ -292,8 +298,8 @@ export default function HrProductionAttendance({ onSelectMode }) {
   const activeImport = imports.find((item) => item.id === activeImportId) || null;
   const isAdmin = authApi.getRole() === 'ADMIN';
 
-  const loadBase = useCallback(async () => {
-    setLoading(true); setError('');
+  const loadBase = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true); setError('');
     try {
       const [importPage, nextSummary, nextPolicies, nextCreditRules, incidentPage] = await Promise.all([
         api.listImports({ page: 0, size: 100, month }), api.summary(month), api.shiftPolicies(), api.workCreditRules(), api.incidents({ page: 0, size: 100 }),
@@ -316,18 +322,25 @@ export default function HrProductionAttendance({ onSelectMode }) {
   }, [activeImportId, employeeCode, page, view]);
 
   const loadEmployeeSummaries = useCallback(async () => {
-    if (!activeImportId) { setEmployeeSummaries([]); return; }
-    try { setEmployeeSummaries(await api.employeeSummaries(activeImportId) || []); }
+    if (!activeImportId) { setEmployeeSummaries(emptyPage); return; }
+    try { setEmployeeSummaries(await api.employeeSummaries(activeImportId, { page: employeeSummaryPage, size: 20, keyword: employeeSummaryKeyword.trim() || undefined }) || emptyPage); }
     catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể tải tổng quan theo nhân viên.')); }
-  }, [activeImportId]);
+  }, [activeImportId, employeeSummaryKeyword, employeeSummaryPage]);
 
   useEffect(() => { loadBase(); }, [loadBase]);
   useEffect(() => { loadShifts(); }, [loadShifts]);
   useEffect(() => { loadEmployeeSummaries(); }, [loadEmployeeSummaries]);
+  useEffect(() => { localStorage.setItem('hr-production-attendance-month', month); }, [month]);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === 'visible') { loadBase(true); loadShifts(); loadEmployeeSummaries(); } };
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [loadBase, loadShifts, loadEmployeeSummaries]);
   useEffect(() => {
     if (!activeImport) return;
     setView(activeImport.status === 'CONFIRMED' ? 'CONFIRMED' : activeImport.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'AUTO_MATCHED');
-    setEmployeeCode(''); setPage(0); setSelected(new Set());
+    setEmployeeCode(''); setPage(0); setEmployeeSummaryPage(0); setSelected(new Set());
   }, [activeImport, activeImportId]);
 
   const mutate = async (action, success, fallback) => {
@@ -385,7 +398,7 @@ export default function HrProductionAttendance({ onSelectMode }) {
     {shadowMode && <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"><b>Đang chạy thử (SHADOW).</b> Kết quả dùng để đối chiếu với HR, chưa dùng trả lương. File Excel xuất ra được đóng dấu SHADOW.</div>}
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-end gap-3"><label className="min-w-44 flex-1 text-sm font-medium text-gray-700">Tháng<input type="month" value={month} onChange={(event) => { setMonth(event.target.value); setPage(0); }} className="mt-1 h-11 w-full rounded-lg border border-gray-300 px-3" /></label><Button type="button" variant="secondary" onClick={() => setSettingsOpen(true)}><Settings2 className="h-4 w-4" />Cấu hình</Button><Button type="button" variant="secondary" onClick={() => setIncidentOpen(true)}><AlertTriangle className="h-4 w-4" />Sự cố máy</Button>{summary?.confirmedImports > 0 && <Button type="button" onClick={async () => { try { downloadBlob(await api.exportSummary(month), `${shadowMode ? 'SHADOW_' : ''}BANG_CONG_CA_SAN_XUAT_${month}.xlsx`); } catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể xuất Excel.')); } }}><Download className="h-4 w-4" />Xuất Excel</Button>}</div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Tổng nhân viên" value={summary?.totalEmployees || 0} /><Metric label="Tổng công đã chốt" value={work(summary?.totalWorkValue)} tone="green" /><Metric label="Ca đêm" value={summary?.nightShifts || 0} tone="blue" /><Metric label="Phụ cấp đêm" value={money(summary?.nightAllowanceAmount)} tone="amber" /></div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Tổng nhân viên" value={summary?.totalEmployees || 0} /><Metric label="Tổng công đã chốt" value={work(summary?.totalWorkValue)} tone="green" /><Metric label="Ca đêm + tăng ca" value={summary?.nightAndOvertimeShifts || 0} tone="blue" /><Metric label="Phụ cấp đêm" value={money(summary?.nightAllowanceAmount)} tone="amber" /></div>
         <div className="mt-3 grid gap-3 sm:grid-cols-3"><Metric label="Ca sự cố" value={summary?.incidentShifts || 0} /><Metric label="Người miễn chấm" value={summary?.exemptedEmployees || 0} /><Metric label="Dòng trùng nguồn" value={summary?.duplicateSourceDays || 0} tone={summary?.duplicateSourceDays ? 'amber' : 'slate'} /></div>
       </div>
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-start gap-3"><UploadCloud className="mt-0.5 h-5 w-5 text-blue-600" /><div><h2 className="font-semibold">Import Time Attendance</h2><p className="mt-1 text-xs text-gray-500">Có thể chọn nhiều file; mỗi file giữ nguyên G–J và đủ ngày.</p></div></div><input id="production-attendance-files" type="file" multiple accept=".xlsx,.xls,.xlsm" onChange={(event) => setFiles(Array.from(event.target.files || []))} className="mt-4 block w-full text-sm" /><Button type="button" className="mt-4 w-full" disabled={!files.length || working} onClick={upload}><FileSpreadsheet className="h-4 w-4" />{working ? 'Đang xử lý...' : `Import ${files.length || ''} file`}</Button></div>
@@ -394,13 +407,13 @@ export default function HrProductionAttendance({ onSelectMode }) {
     <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">File đang xử lý</h2><p className="mt-1 text-xs text-gray-500">Chọn một file. File chờ xác nhận có thể xóa; file đã chốt phải được ADMIN mở khóa trước.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={isAdmin} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onDelete={() => deleteImport(item)} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
 
     <WorkflowGuide item={activeImport} />
-    <EmployeeOverview employees={employeeSummaries} selectedCode={employeeCode} onSelect={(item) => { setEmployeeCode(item.employeeCode); setView(item.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'ALL'); setPage(0); }} />
+    <EmployeeOverview result={employeeSummaries} keyword={employeeSummaryKeyword} onKeywordChange={(value) => { setEmployeeSummaryKeyword(value); setEmployeeSummaryPage(0); }} selectedCode={employeeCode} onPageChange={setEmployeeSummaryPage} onSelect={(item) => { setEmployeeCode(item.employeeCode); setView(item.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'ALL'); setPage(0); }} />
 
     {activeImport && <section className="mt-5 space-y-4"><div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"><div className="mb-3"><h2 className="font-semibold text-gray-900">Chi tiết ngày chấm công</h2><p className="mt-1 text-xs text-gray-500">Mặc định chỉ hiện việc cần xử lý. Chọn nhân viên ở bảng trên để xem riêng 31 ngày.</p></div><div className="flex flex-wrap items-center gap-2">{views.map(([key, label]) => { const count = viewCount(key); return <button key={key} type="button" onClick={() => { setView(key); setPage(0); setSelected(new Set()); }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${view === key ? 'bg-emerald-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>{label}{Number.isInteger(count) ? ` (${count})` : ''}</button>; })}<input value={employeeCode} onChange={(event) => { setEmployeeCode(event.target.value.toUpperCase()); setPage(0); }} placeholder="Tìm mã nhân viên" className="h-10 min-w-44 flex-1 rounded-lg border border-gray-300 px-3 text-sm" />{employeeCode && <Button type="button" size="sm" variant="secondary" onClick={() => { setEmployeeCode(''); setPage(0); }}>Xem mọi người</Button>}</div>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && selectableIds.length > 0 && <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm"><span className="mr-auto text-blue-900">Các ca này đã được hệ thống ghép đủ lượt vào/ra.</span><Button type="button" size="sm" variant="secondary" onClick={() => setSelected(new Set(selectableIds))}>Chọn {selectableIds.length} ca trang này</Button>{selected.size > 0 && <><Button type="button" size="sm" variant="secondary" onClick={() => setSelected(new Set())}>Bỏ chọn</Button><Button type="button" size="sm" onClick={bulkConfirm}><CheckCircle2 className="h-4 w-4" />Xác nhận {selected.size} ca đã chọn</Button></>}</div>}</div>
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"><div className="hidden overflow-x-auto md:block"><table className="min-w-[1180px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && <th className="w-12 px-3 py-3">Chọn</th>}<th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Ngày</th><th className="px-3 py-3">Nhóm / ca</th><th className="px-3 py-3">Vào</th><th className="px-3 py-3">Ra</th><th className="px-3 py-3">Công</th><th className="px-3 py-3">Phụ cấp</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{shifts.content.map((item) => <tr key={item.id} className={item.status === 'NEEDS_REVIEW' ? 'bg-amber-50/60' : ''}>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && <td className="px-3 py-3"><input type="checkbox" checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} /></td>}<td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{formatHrDate(item.workDate)}</td><td className="px-3 py-3">{policyLabel(item.policyGroup)}<p className="text-xs text-gray-500">{item.shiftCode || '—'}</p></td><td className="px-3 py-3">{time(item.checkInAt)}</td><td className="px-3 py-3">{time(item.checkOutAt)}</td><td className="px-3 py-3 font-semibold">{work(item.workValue)}</td><td className="px-3 py-3">{money(item.nightAllowanceAmount)}</td><td className="px-3 py-3">{item.status === 'NO_PUNCH' ? <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">Không có dấu chấm – 0 công</span> : <HrStatusBadge status={item.status} />}</td><td className="px-3 py-3"><Button type="button" size="sm" variant="secondary" onClick={() => setDecisionShift(item)}><Eye className="h-4 w-4" />{activeImport.status === 'PREVIEWED' && item.status === 'NEEDS_REVIEW' ? 'Kiểm tra' : 'Chi tiết'}</Button></td></tr>)}</tbody></table></div><div className="divide-y divide-gray-100 md:hidden">{shifts.content.map((item) => <article key={item.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><b>{item.employeeCode} · {item.employeeName}</b><p className="text-sm text-gray-500">{formatHrDate(item.workDate)} · {item.shiftCode || 'Chưa rõ ca'}</p></div>{item.status === 'NO_PUNCH' ? <span className="rounded-full bg-gray-100 px-2 py-1 text-xs">Không chấm</span> : <HrStatusBadge status={item.status} />}</div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>Vào: {time(item.checkInAt)}</p><p>Ra: {time(item.checkOutAt)}</p><p>Công: <b>{work(item.workValue)}</b></p><p>Phụ cấp: {money(item.nightAllowanceAmount)}</p></div><Button type="button" size="sm" variant="secondary" className="mt-3 w-full" onClick={() => setDecisionShift(item)}>{activeImport.status === 'PREVIEWED' && item.status === 'NEEDS_REVIEW' ? 'Kiểm tra ca này' : 'Xem chi tiết'}</Button></article>)}</div>{!shifts.content.length && <div className="p-6"><HrEmpty title={view === 'NEEDS_REVIEW' ? 'Đã xử lý hết ca cần kiểm tra' : 'Không có dữ liệu phù hợp'} description={view === 'NEEDS_REVIEW' ? 'Chuyển sang “Sẵn sàng” hoặc chốt file nếu không còn bất thường.' : 'Thử bỏ lọc nhân viên hoặc chọn nhóm khác.'} /></div>}</div><HrPagination page={shifts.page || 0} totalPages={shifts.totalPages || 0} totalElements={shifts.totalElements || 0} onPageChange={setPage} />
     </section>}
 
-    <ShiftDecisionDrawer shift={decisionShift} policies={policies} readOnly={activeImport?.status !== 'PREVIEWED'} onClose={() => setDecisionShift(null)} onSaved={() => { setDecisionShift(null); loadBase(); loadShifts(); }} />
+    <ShiftDecisionDrawer shift={decisionShift} policies={policies} readOnly={activeImport?.status !== 'PREVIEWED'} onClose={() => setDecisionShift(null)} onSaved={async () => { setDecisionShift(null); await Promise.all([loadBase(true), loadShifts(), loadEmployeeSummaries()]); }} />
     <ConfigurationDrawer open={settingsOpen} policies={policies} creditRules={creditRules} onClose={() => setSettingsOpen(false)} onRefresh={loadBase} />
     <IncidentDrawer open={incidentOpen} activeImport={activeImport} incidents={incidents} onClose={() => setIncidentOpen(false)} onRefresh={() => { loadBase(); loadShifts(); }} />
   </HrPageShell>;

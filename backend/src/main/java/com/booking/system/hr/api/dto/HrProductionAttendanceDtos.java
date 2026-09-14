@@ -78,7 +78,8 @@ public final class HrProductionAttendanceDtos {
                                         HrAttendancePolicyGroup policyGroup, int totalDays,
                                         int readyShifts, int reviewShifts, int noPunchDays,
                                         int confirmedShifts, BigDecimal proposedWorkValue,
-                                        int nightShifts, BigDecimal nightAllowanceAmount) { }
+                                        int nightShifts, int overtimeShifts,
+                                        int nightAndOvertimeShifts, BigDecimal nightAllowanceAmount) { }
 
     public record ShiftDecisionRequest(@NotNull DecisionAction action, String shiftCode,
                                        String checkInPunchId, String checkOutPunchId,
@@ -119,11 +120,13 @@ public final class HrProductionAttendanceDtos {
     public record EmployeeSummary(String employeeCode, String employeeName, String departmentName,
                                   HrAttendancePolicyGroup policyGroup, Map<Integer, DailyWorkValue> days,
                                   BigDecimal totalWorkValue, int dayShifts, int nightShifts,
+                                  int overtimeShifts, int nightAndOvertimeShifts,
                                   BigDecimal nightAllowanceAmount) { }
 
     public record MonthlySummary(String attendanceMonth, boolean locked, int confirmedImports,
                                  int previewImports, int totalEmployees, BigDecimal totalWorkValue,
-                                 int dayShifts, int nightShifts, BigDecimal nightAllowanceAmount,
+                                 int dayShifts, int nightShifts, int overtimeShifts,
+                                 int nightAndOvertimeShifts, BigDecimal nightAllowanceAmount,
                                  int reviewShifts, int incidentShifts, int exemptedEmployees,
                                  int duplicateSourceDays, List<EmployeeSummary> employees) { }
 }

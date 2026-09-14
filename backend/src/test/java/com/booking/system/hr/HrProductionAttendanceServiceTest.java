@@ -156,14 +156,17 @@ class HrProductionAttendanceServiceTest {
                     assertThat(value.getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 8, 19, 17, 23));
                 });
 
-        var employeeOverview = service.employeeReviewSummaries(batch.id());
-        assertThat(employeeOverview).hasSize(9);
-        assertThat(employeeOverview).filteredOn(value -> value.employeeCode().equals("B124"))
+        var employeeOverview = service.employeeReviewSummaries(batch.id(), null, 0, 5);
+        assertThat(employeeOverview.totalElements()).isEqualTo(9);
+        assertThat(employeeOverview.content()).hasSize(5);
+        assertThat(employeeOverview.content()).filteredOn(value -> value.employeeCode().equals("B124"))
                 .singleElement()
                 .satisfies(value -> {
                     assertThat(value.totalDays()).isEqualTo(31);
                     assertThat(value.proposedWorkValue()).isEqualByComparingTo("45");
                     assertThat(value.nightShifts()).isEqualTo(5);
+                    assertThat(value.nightAndOvertimeShifts())
+                            .isEqualTo(value.nightShifts() + value.overtimeShifts());
                     assertThat(value.nightAllowanceAmount()).isEqualByComparingTo("250000");
                 });
 
