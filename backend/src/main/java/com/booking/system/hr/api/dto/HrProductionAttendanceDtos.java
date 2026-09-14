@@ -37,10 +37,12 @@ public final class HrProductionAttendanceDtos {
 
     public record CreateEmployeePolicyRequest(@NotBlank String employeeCode,
                                               @NotNull HrAttendancePolicyGroup policyGroup,
+                                              BigDecimal dayWorkValueOverride,
                                               @NotNull LocalDate validFrom, LocalDate validTo,
                                               @NotBlank String reason) { }
 
     public record EmployeePolicyResponse(String id, String employeeCode, HrAttendancePolicyGroup policyGroup,
+                                         BigDecimal dayWorkValueOverride,
                                          LocalDate validFrom, LocalDate validTo, String source, String reason) { }
 
     public record CreateExemptionRequest(@NotBlank String employeeCode, @NotNull LocalDate validFrom,

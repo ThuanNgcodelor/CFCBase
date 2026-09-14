@@ -20,17 +20,18 @@ Thay đổi cấu hình không tự sửa file đã chốt. Muốn áp dụng c�
 2. Chọn một hoặc nhiều file Time Attendance rồi bấm **Import**.
 3. Chọn thẻ file và làm theo thanh **Quy trình xử lý**. Mặc định hệ thống mở **Cần xử lý**, không hiển thị hàng trăm dòng hợp lệ trước.
 4. Xem **Tổng quan theo nhân viên** để biết tổng công tạm tính, ca đêm, tăng ca 2 công và số ca cần xử lý của từng người. Cột **Đêm + tăng ca** là tổng số ca đêm cộng số ca có mức 2 công (ví dụ 4 + 4 = 8). Danh sách được tìm kiếm và phân trang từ máy chủ; bấm một nhân viên để mở chi tiết các ngày của người đó.
-5. Với ca thiếu/mơ hồ, bấm **Kiểm tra** để xem dấu chấm gốc, chọn lượt vào/ra, ca, số công và phụ cấp; bắt buộc nhập lý do. **Ngày không chấm** được giữ nguyên, tính 0 công và không bị coi là lỗi.
-6. Mục **Sẵn sàng** chứa ca đã ghép đủ lượt. Có thể xác nhận theo từng trang; nếu không làm riêng, thao tác **Chốt file** sẽ tự xác nhận toàn bộ ca hợp lệ còn lại.
-7. Nếu máy chấm công gặp sự cố, mở **Sự cố máy**, khai thời gian/phạm vi, bấm **Phân tích**, chọn đúng các ca được ảnh hưởng rồi xác nhận. Hệ thống không sinh giờ chấm giả.
-8. Khi số **Cần xử lý** về 0, bấm **Chốt file**. Nút này bị khóa nếu vẫn còn bất thường; file đã chốt chuyển sang chỉ đọc và mới được cộng vào tổng hợp tháng.
-9. Kiểm tra KPI tháng rồi bấm **Xuất Excel**.
+5. Nếu một nhân viên làm ca ngày theo mức cố định, mở **Cấu hình → Nhân viên và miễn chấm**, tra mã, chọn **Ca ngày cố định 1,5 công**, nhập thời gian hiệu lực và lý do. Sau đó bấm **Tính lại** trên file đang chờ xác nhận. Mức cố định chỉ áp dụng cho ca ngày có đủ cặp dấu vào/ra; không biến ca đêm hoặc ngày thiếu dấu thành ca hợp lệ.
+6. Với ca thiếu/mơ hồ, bấm **Kiểm tra** để xem dấu chấm gốc, chọn lượt vào/ra, ca, số công và phụ cấp; bắt buộc nhập lý do. **Ngày không chấm** được giữ nguyên, tính 0 công và không bị coi là lỗi.
+7. Mục **Sẵn sàng** chứa ca đã ghép đủ lượt. Có thể xác nhận theo từng trang; nếu không làm riêng, thao tác **Chốt file** sẽ tự xác nhận toàn bộ ca hợp lệ còn lại.
+8. Nếu máy chấm công gặp sự cố, mở **Sự cố máy**, khai thời gian/phạm vi, bấm **Phân tích**, chọn đúng các ca được ảnh hưởng rồi xác nhận. Hệ thống không sinh giờ chấm giả.
+9. Khi số **Cần xử lý** về 0, bấm **Chốt file**. Nút này bị khóa nếu vẫn còn bất thường; file đã chốt chuyển sang chỉ đọc và mới được cộng vào tổng hợp tháng.
+10. Kiểm tra KPI tháng rồi bấm **Xuất Excel**.
 
 Nếu chọn sai tháng khi import, hệ thống đọc tháng trong file, tự chuyển bộ lọc sang tháng đúng và yêu cầu bấm **Import** lại để người dùng xác nhận.
 
 ## 3. File Excel được xuất
 
-- Sheet **Bảng công**: một nhân viên/một dòng, đủ cột ngày 1–31, tổng công, số ca ngày, số ca đêm và tổng phụ cấp đêm.
+- Sheet **Bảng công**: một nhân viên/một dòng, đủ cột ngày 1–31, tổng công, số ca ngày, chỉ tiêu **ca đêm + tăng ca 2 công** và tổng phụ cấp đêm.
 - Sheet **Đối soát**: ca sự cố/điều chỉnh, ngày bị trùng giữa các file, dấu chấm chưa được dùng và lịch sử sửa.
 - Chỉ ca `CONFIRMED` thuộc file đã chốt được cộng công và phụ cấp.
 - Nếu nhiều file chứa cùng mã nhân viên/ngày, hệ thống không cộng lặp; dòng trùng được đưa sang sheet **Đối soát**.

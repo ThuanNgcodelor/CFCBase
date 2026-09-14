@@ -92,6 +92,18 @@ class HrProductionAttendanceServiceTest {
         employee.setUpdatedByActor(ACTOR.subject());
         employeeRepository.save(employee);
 
+        HrEmployee vanNhut = new HrEmployee();
+        vanNhut.setEmployeeCode("B128");
+        vanNhut.setFullName("Phan Văn Nhựt");
+        vanNhut.setWorkforceGroup(HrWorkforceGroup.GENERAL_LABOR);
+        vanNhut.setCreatedByActor(ACTOR.subject());
+        vanNhut.setUpdatedByActor(ACTOR.subject());
+        employeeRepository.save(vanNhut);
+        service.createEmployeePolicy(new HrProductionAttendanceDtos.CreateEmployeePolicyRequest(
+                "B128", com.booking.system.hr.enums.HrAttendancePolicyGroup.PRODUCTION_WORKER,
+                new BigDecimal("1.5"), LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
+                "Ca ngày cố định 1,5 công, không tính theo tổng số phút"), ACTOR);
+
         byte[] workbook = Files.readAllBytes(Path.of("..", "CongXn.xlsx"));
         assertThat(policyRepository.findAllByOrderByPolicyGroupAscPriorityDescCodeAsc())
                 .extracting(value -> value.getCode() + ":" + value.getPolicyGroup() + ":" + value.isActive())
@@ -116,6 +128,14 @@ class HrProductionAttendanceServiceTest {
 
         var b124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
                 .filter(value -> value.getEmployeeCode().equals("B124")).toList();
+        var b128 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
+                .filter(value -> value.getEmployeeCode().equals("B128")).toList();
+        assertThat(b128).filteredOn(value -> "CN_DAY".equals(value.getShiftCodeSnapshot())
+                        && value.getCheckInAt() != null && value.getCheckOutAt() != null)
+                .allSatisfy(value -> {
+                    assertThat(value.getWorkValue()).isEqualByComparingTo("1.5");
+                    assertThat(value.getExplanation()).contains("mức ca ngày cố định 1.5 công");
+                });
         assertThat(b124).hasSize(31);
         var august18 = b124.stream().filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 18)))
                 .findFirst().orElseThrow();

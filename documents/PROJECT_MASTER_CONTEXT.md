@@ -43,7 +43,7 @@ flowchart TB
 
 - Backend: Spring Boot **4.0.0**, Java **21**, Spring MVC, JPA/Hibernate, Security, WebSocket/STOMP, Redis, Mail, Actuator.
 - Database: MySQL 8; các đối tượng HR do Flyway sở hữu. `LegacySchemaFilterProvider` ngăn Hibernate tự tạo/sửa/xóa bảng `hr_*`.
-- Migration hiện có: **V1 đến V22**, tổng cộng **46 bảng `hr_*`** được tạo bởi các migration. V17 thêm kho mẫu Word, V18 thêm snapshot tin nhắn lương, V19 thêm phiên sửa Word, V20 thêm OCR realtime cho LĐ phổ thông, V21 thêm pipeline chấm công ca sản xuất và V22 thêm chỉ mục phân trang tổng quan nhân viên ca sản xuất. Tích hợp ONLYOFFICE mặc định tắt; [hướng dẫn bật](HR_WORD_EDITOR_SETUP.md). Chưa deploy/kiểm thử Document Server live.
+- Migration hiện có: **V1 đến V23**, tổng cộng **46 bảng `hr_*`** được tạo bởi các migration. V17 thêm kho mẫu Word, V18 thêm snapshot tin nhắn lương, V19 thêm phiên sửa Word, V20 thêm OCR realtime cho LĐ phổ thông, V21 thêm pipeline chấm công ca sản xuất, V22 thêm chỉ mục phân trang tổng quan nhân viên và V23 thêm mức công ca ngày cố định theo nhân viên. Tích hợp ONLYOFFICE mặc định tắt; [hướng dẫn bật](HR_WORD_EDITOR_SETUP.md). Chưa deploy/kiểm thử Document Server live.
 - File Excel/DOCX: Apache POI 5.4.1; hợp đồng DOCX dùng mẫu classpath mặc định hoặc phiên bản active trong kho DB. `HrDocxEngine` thay biến xuyên qua các Word run. Hướng dẫn và giới hạn hiện hành: [Word và Payroll](HR_WORD_PAYROLL_GUIDE.md).
 - Frontend: React **19.2**, React Router **7**, Vite **8**, Tailwind CSS **4**, Axios, `react-datepicker`, `xlsx`, Lucide, PWA Workbox.
 - Token: access JWT ngắn hạn, refresh JWT lưu cookie/Redis; mọi API HR yêu cầu principal ADMIN hoặc MANAGER, trừ các route được permit riêng.

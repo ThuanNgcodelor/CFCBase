@@ -125,6 +125,13 @@ public class HrProductionAttendanceService {
     public HrProductionAttendanceDtos.EmployeePolicyResponse createEmployeePolicy(
             HrProductionAttendanceDtos.CreateEmployeePolicyRequest request, HrImportActor actor) {
         validateDates(request.validFrom(), request.validTo());
+        if (request.dayWorkValueOverride() != null) {
+            validateWorkValue(request.dayWorkValueOverride());
+            if (request.dayWorkValueOverride().signum() <= 0) {
+                throw HrApiException.badRequest("ATTENDANCE_DAY_OVERRIDE_INVALID",
+                        "Mức công ca ngày cố định phải lớn hơn 0.");
+            }
+        }
         HrEmployee employee = employee(request.employeeCode());
         if (!employeePolicyRepository.findOverlapping(employee.getId(), request.validFrom(), request.validTo()).isEmpty()) {
             throw HrApiException.conflict("ATTENDANCE_EMPLOYEE_POLICY_OVERLAP", "Nhân viên đã có chính sách chấm công chồng thời gian.");
@@ -132,6 +139,7 @@ public class HrProductionAttendanceService {
         HrEmployeeAttendancePolicy policy = new HrEmployeeAttendancePolicy();
         policy.setEmployeeId(employee.getId());
         policy.setPolicyGroup(request.policyGroup());
+        policy.setDayWorkValueOverride(request.dayWorkValueOverride());
         policy.setValidFrom(request.validFrom());
         policy.setValidTo(request.validTo());
         policy.setSource("MANUAL");
@@ -139,7 +147,8 @@ public class HrProductionAttendanceService {
         initialize(policy, actor);
         employeePolicyRepository.save(policy);
         audit(actor, "CREATE_EMPLOYEE_POLICY", "HR_EMPLOYEE_ATTENDANCE_POLICY", policy.getId(),
-                List.of("policyGroup", "validity"), Map.of("employeeCode", employee.getEmployeeCode()));
+                List.of("policyGroup", "dayWorkValueOverride", "validity"),
+                Map.of("employeeCode", employee.getEmployeeCode()));
         return toEmployeePolicy(policy, employee.getEmployeeCode());
     }
 
@@ -712,10 +721,12 @@ public class HrProductionAttendanceService {
         for (Map.Entry<String, List<HrAttendanceSourceDay>> entry : daysByCode.entrySet()) {
             String code = entry.getKey();
             HrEmployee employee = employees.get(code);
-            Map<HrAttendancePolicyGroup, List<HrAttendanceSourceDay>> groupedDays = entry.getValue().stream()
-                    .collect(Collectors.groupingBy(day -> policyGroup(employee, day.getWorkDate()), LinkedHashMap::new, Collectors.toList()));
-            for (Map.Entry<HrAttendancePolicyGroup, List<HrAttendanceSourceDay>> groupEntry : groupedDays.entrySet()) {
-                HrAttendancePolicyGroup group = groupEntry.getKey();
+            Map<AttendanceAssignment, List<HrAttendanceSourceDay>> groupedDays = entry.getValue().stream()
+                    .collect(Collectors.groupingBy(day -> attendanceAssignment(employee, day.getWorkDate()),
+                            LinkedHashMap::new, Collectors.toList()));
+            for (Map.Entry<AttendanceAssignment, List<HrAttendanceSourceDay>> groupEntry : groupedDays.entrySet()) {
+                HrAttendancePolicyGroup group = groupEntry.getKey().policyGroup();
+                BigDecimal dayWorkValueOverride = groupEntry.getKey().dayWorkValueOverride();
                 List<HrProductionShiftMatcher.WorkDay> matcherDays = groupEntry.getValue().stream().map(day -> {
                     List<HrProductionShiftMatcher.Punch> dayPunches = punchesByCode.getOrDefault(code, List.of()).stream()
                             .filter(punch -> punch.getWorkDate().equals(day.getWorkDate()))
@@ -753,13 +764,21 @@ public class HrProductionAttendanceService {
                     shift.setCheckOutPunchId(match.checkOutPunchId());
                     shift.setCheckInAt(match.checkInAt());
                     shift.setCheckOutAt(match.checkOutAt());
-                    shift.setWorkValue(match.workValue());
+                    boolean completeDayShift = "CN_DAY".equals(match.shiftCode())
+                            && match.checkInAt() != null && match.checkOutAt() != null;
+                    shift.setWorkValue(completeDayShift && dayWorkValueOverride != null
+                            ? dayWorkValueOverride : match.workValue());
                     shift.setNightAllowanceAmount(match.nightAllowanceAmount());
                     shift.setStatus(employee == null && match.status() == HrProductionAttendanceShiftStatus.AUTO_MATCHED
                             ? HrProductionAttendanceShiftStatus.NEEDS_REVIEW : match.status());
                     shift.setResolutionType(match.resolutionType());
+                    String explanation = completeDayShift && dayWorkValueOverride != null
+                            ? match.explanation() + " Áp dụng mức ca ngày cố định "
+                                + dayWorkValueOverride.stripTrailingZeros().toPlainString()
+                                + " công theo chính sách nhân viên."
+                            : match.explanation();
                     shift.setExplanation(employee == null
-                            ? "Không tìm thấy mã nhân viên trong hồ sơ; " + match.explanation() : match.explanation());
+                            ? "Không tìm thấy mã nhân viên trong hồ sơ; " + explanation : explanation);
                     initialize(shift, actor);
                     calculated.add(shift);
                 }
@@ -782,21 +801,26 @@ public class HrProductionAttendanceService {
                 .collect(Collectors.groupingBy(HrAttendanceExemption::getEmployeeCode));
     }
 
-    private HrAttendancePolicyGroup policyGroup(HrEmployee employee, LocalDate date) {
+    private AttendanceAssignment attendanceAssignment(HrEmployee employee, LocalDate date) {
         if (employee != null) {
             List<HrEmployeeAttendancePolicy> explicit = employeePolicyRepository.findEffective(employee.getId(), date);
-            if (!explicit.isEmpty()) return explicit.get(0).getPolicyGroup();
+            if (!explicit.isEmpty()) {
+                HrEmployeeAttendancePolicy policy = explicit.get(0);
+                return new AttendanceAssignment(policy.getPolicyGroup(), policy.getDayWorkValueOverride());
+            }
             if (employee.getEmployment() != null && employee.getEmployment().getDepartment() != null) {
                 String department = (employee.getEmployment().getDepartment().getCode() + " "
                         + employee.getEmployment().getDepartment().getName()).toUpperCase(Locale.ROOT);
-                if (department.contains("KCS")) return HrAttendancePolicyGroup.KCS;
+                if (department.contains("KCS")) return new AttendanceAssignment(HrAttendancePolicyGroup.KCS, null);
             }
             if (employee.getWorkforceGroup() == HrWorkforceGroup.GENERAL_LABOR) {
-                return HrAttendancePolicyGroup.PRODUCTION_WORKER;
+                return new AttendanceAssignment(HrAttendancePolicyGroup.PRODUCTION_WORKER, null);
             }
         }
-        return HrAttendancePolicyGroup.PRODUCTION_WORKER;
+        return new AttendanceAssignment(HrAttendancePolicyGroup.PRODUCTION_WORKER, null);
     }
+
+    private record AttendanceAssignment(HrAttendancePolicyGroup policyGroup, BigDecimal dayWorkValueOverride) { }
 
     private void applyPolicyAndPunchSelection(HrProductionAttendanceShift shift,
                                               HrProductionAttendanceDtos.ShiftDecisionRequest request) {
@@ -1000,6 +1024,7 @@ public class HrProductionAttendanceService {
 
     private HrProductionAttendanceDtos.EmployeePolicyResponse toEmployeePolicy(HrEmployeeAttendancePolicy value, String code) {
         return new HrProductionAttendanceDtos.EmployeePolicyResponse(value.getId(), code, value.getPolicyGroup(),
+                value.getDayWorkValueOverride(),
                 value.getValidFrom(), value.getValidTo(), value.getSource(), value.getReason());
     }
 

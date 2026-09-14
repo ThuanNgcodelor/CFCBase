@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -16,6 +17,8 @@ public class HrEmployeeAttendancePolicy extends HrBaseEntity {
     private String employeeId;
     @Enumerated(EnumType.STRING) @Column(name = "policy_group", nullable = false, length = 32) 
     private HrAttendancePolicyGroup policyGroup;
+    @Column(name = "day_work_value_override", precision = 4, scale = 2)
+    private BigDecimal dayWorkValueOverride;
     @Column(name = "valid_from", nullable = false) 
     private LocalDate validFrom;
     @Column(name = "valid_to") 
