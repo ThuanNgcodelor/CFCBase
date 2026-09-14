@@ -11,6 +11,7 @@ import com.booking.system.hr.service.HrProductionAttendanceService;
 import com.booking.system.hr.service.HrProductionAttendanceReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -24,6 +25,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "app.hr.attendance.production", name = "enabled", havingValue = "true", matchIfMissing = true)
 @RequestMapping("/api/v1/hr/attendance/production")
 public class HrProductionAttendanceController {
     private final HrProductionAttendanceService service;

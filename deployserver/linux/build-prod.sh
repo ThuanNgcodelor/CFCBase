@@ -14,6 +14,17 @@ PREVIOUS_JAR="$TARGET_JAR.previous"
 BUILD_ONLY=false
 RUN_ARGUMENTS=()
 
+# Vite flags are resolved at build time. Load the same private production env
+# that run.sh uses, without printing its contents or copying it into dist.
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/.env"
+  set +a
+fi
+HR_PRODUCTION_ATTENDANCE_ENABLED="${HR_PRODUCTION_ATTENDANCE_ENABLED:-false}"
+HR_PRODUCTION_ATTENDANCE_SHADOW_MODE="${HR_PRODUCTION_ATTENDANCE_SHADOW_MODE:-true}"
+
 usage() {
   cat <<'EOF'
 Cach dung:
@@ -34,6 +45,13 @@ fail() {
   printf '[BookingBase Build] ERROR: %s\n' "$*" >&2
   exit 1
 }
+
+for flag_value in "$HR_PRODUCTION_ATTENDANCE_ENABLED" "$HR_PRODUCTION_ATTENDANCE_SHADOW_MODE"; do
+  [[ "$flag_value" == true || "$flag_value" == false ]] \
+    || fail "HR_PRODUCTION_ATTENDANCE_ENABLED/SHADOW_MODE chi duoc la true hoac false."
+done
+export VITE_HR_PRODUCTION_ATTENDANCE_ENABLED="$HR_PRODUCTION_ATTENDANCE_ENABLED"
+export VITE_HR_PRODUCTION_ATTENDANCE_SHADOW_MODE="$HR_PRODUCTION_ATTENDANCE_SHADOW_MODE"
 
 case "${1:-}" in
   "")

@@ -2,9 +2,10 @@
 
 - Ngày lập: **11/09/2026**.
 - Phạm vi: **Công nhân và KCS** trong chức năng Chấm công của CFCBase.
-- Trạng thái: **Phase 1–6 đã hoàn tất ở source và kiểm thử local; Phase 7 chưa shadow/nghiệm thu production**.
+- Trạng thái: **Phase 1–7 đã hoàn tất ở source và kiểm thử local; còn deploy SHADOW và nghiệm thu HR trên production**.
 - Nguồn nghiệp vụ: [WORKER_ATTENDANCE_HR_REVIEW.md](WORKER_ATTENDANCE_HR_REVIEW.md).
 - Hướng sử dụng: [WORKER_ATTENDANCE_USAGE_GUIDE.md](WORKER_ATTENDANCE_USAGE_GUIDE.md).
+- Hướng rollout Phase 7: [WORKER_ATTENDANCE_PHASE7_ROLLOUT.md](WORKER_ATTENDANCE_PHASE7_ROLLOUT.md).
 
 ## 1. Mục tiêu
 
@@ -385,7 +386,7 @@ Số trên web và Excel phải lấy từ cùng query/kết quả kỳ đã xá
 
 ### Phase 7 — Kiểm thử hồi quy và bật production
 
-**Trạng thái: Chưa nghiệm thu production.** Full suite backend local ngày 11/09/2026 có 188 test case: 187 pass, 0 failure/error và 1 fixture tùy chọn skipped. Frontend build/lint đạt; lint còn 10 cảnh báo unused có sẵn ngoài trang ca sản xuất. Đây không thay thế shadow run và ký nghiệm thu HR.
+**Trạng thái kỹ thuật local: Hoàn tất ngày 14/09/2026; chưa nghiệm thu production.** Đã có feature flag tắt/bật độc lập, chế độ SHADOW hiển thị cảnh báo và đóng dấu file Excel, healthcheck V21/schema/seed/API trong luồng Linux, rollback không xóa dữ liệu và một lệnh gate local. Gate gần nhất đạt 191 test case backend: 190 pass, 0 failure/error và 1 fixture tùy chọn skipped; frontend lint/build SHADOW đạt, lint còn 10 cảnh báo unused có sẵn ngoài trang ca sản xuất. Maven đã nạp Mockito agent rõ ràng để bộ test ổn định trên JDK 21. Đây không thay thế shadow run và ký nghiệm thu HR.
 
 - Test backend, frontend và migration.
 - Chạy shadow trên bộ tháng 08, chưa ghi đè báo cáo chính thức.
@@ -393,6 +394,8 @@ Số trên web và Excel phải lấy từ cùng query/kết quả kỳ đã xá
 - Bật feature flag sau khi ký nghiệm thu.
 
 **Nghiệm thu:** tab hành chính vẫn cho kết quả cũ; ca sản xuất chỉ dùng dữ liệu đã xác nhận; có phương án tắt feature flag mà không mất dữ liệu.
+
+Quy trình deploy, checklist B124/KCS, chuyển SHADOW sang chính thức và rollback nằm tại [WORKER_ATTENDANCE_PHASE7_ROLLOUT.md](WORKER_ATTENDANCE_PHASE7_ROLLOUT.md).
 
 ## 10. Bộ kiểm thử bắt buộc
 

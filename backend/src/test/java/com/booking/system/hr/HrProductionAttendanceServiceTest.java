@@ -241,6 +241,15 @@ class HrProductionAttendanceServiceTest {
             assertThat(exportedWorkbook.getSheet("Bảng công").getRow(3).getCell(36).getNumericCellValue())
                     .isEqualTo(45d);
         }
+        org.springframework.test.util.ReflectionTestUtils.setField(reportService, "shadowMode", true);
+        var shadowExport = reportService.exportMonthlySummary("2026-08");
+        assertThat(shadowExport.fileName()).isEqualTo("SHADOW_BANG_CONG_CA_SAN_XUAT_2026-08.xlsx");
+        try (XSSFWorkbook shadowWorkbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(shadowExport.content()))) {
+            assertThat(shadowWorkbook.getSheet("Bảng công").getRow(0).getCell(0).getStringCellValue())
+                    .startsWith("BẢN SHADOW - KHÔNG DÙNG TRẢ LƯƠNG");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(reportService, "shadowMode", false);
+        }
         assertThatThrownBy(() -> service.reopenImport(batch.id(),
                 new HrProductionAttendanceDtos.ReopenImportRequest("Manager không được mở khóa", confirmedAugust.rowVersion()), ACTOR))
                 .isInstanceOfSatisfying(HrApiException.class,

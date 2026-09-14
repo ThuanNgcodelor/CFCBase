@@ -19,6 +19,7 @@ TUNNEL_UNIT="bookingbase-tunnel.service"
 BACKUP_SCRIPT="$SCRIPT_DIR/backup-database.sh"
 LEGACY_SNAPSHOT_SCRIPT="$SCRIPT_DIR/capture-legacy-table-counts.sh"
 HR_VERIFY_SCRIPT="$SCRIPT_DIR/verify-hr-phase1.sh"
+PRODUCTION_ATTENDANCE_VERIFY_SCRIPT="$SCRIPT_DIR/verify-production-attendance.sh"
 WORD_EDITOR_COMPOSE="$ROOT_DIR/docker-compose.word-editor.yml"
 JAVA_OPTS="${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Dfile.encoding=UTF-8}"
 HR_LEGACY_SNAPSHOT=""
@@ -96,6 +97,8 @@ ONLYOFFICE_IMAGE="${ONLYOFFICE_IMAGE:-}"
 WORD_EDITOR_JWT_SECRET="${WORD_EDITOR_JWT_SECRET:-}"
 WORD_EDITOR_DOCUMENT_SERVER_URL="${WORD_EDITOR_DOCUMENT_SERVER_URL:-}"
 WORD_EDITOR_BACKEND_URL="${WORD_EDITOR_BACKEND_URL:-}"
+HR_PRODUCTION_ATTENDANCE_ENABLED="${HR_PRODUCTION_ATTENDANCE_ENABLED:-false}"
+HR_PRODUCTION_ATTENDANCE_SHADOW_MODE="${HR_PRODUCTION_ATTENDANCE_SHADOW_MODE:-true}"
 
 case "$WORD_EDITOR_ENABLED" in
   true|false)
@@ -104,6 +107,11 @@ case "$WORD_EDITOR_ENABLED" in
     fail "WORD_EDITOR_ENABLED chi duoc la true hoac false."
     ;;
 esac
+
+for flag_value in "$HR_PRODUCTION_ATTENDANCE_ENABLED" "$HR_PRODUCTION_ATTENDANCE_SHADOW_MODE"; do
+  [[ "$flag_value" == true || "$flag_value" == false ]] \
+    || fail "HR_PRODUCTION_ATTENDANCE_ENABLED/SHADOW_MODE chi duoc la true hoac false."
+done
 
 if [[ "$WORD_EDITOR_ENABLED" == true ]]; then
   [[ -f "$WORD_EDITOR_COMPOSE" ]] || fail "Thieu $WORD_EDITOR_COMPOSE"
@@ -192,6 +200,8 @@ set -a
 [[ ! -f "$SCRIPT_DIR/.env" ]] || source "$SCRIPT_DIR/.env"
 set +a
 export FLYWAY_BASELINE_ON_MIGRATE=$FLYWAY_BASELINE_MODE
+export HR_PRODUCTION_ATTENDANCE_ENABLED=$HR_PRODUCTION_ATTENDANCE_ENABLED
+export HR_PRODUCTION_ATTENDANCE_SHADOW_MODE=$HR_PRODUCTION_ATTENDANCE_SHADOW_MODE
 cd "$BACKEND_DIR"
 exec java $JAVA_OPTS -jar "$JAR_PATH" --spring.profiles.active=prod >> "$BACKEND_LOG" 2>&1
 EOF
@@ -304,6 +314,11 @@ if [[ "$FLYWAY_BASELINE_MODE" == true ]]; then
   fi
 fi
 
+if [[ "$HR_PRODUCTION_ATTENDANCE_ENABLED" == true ]]; then
+  log "Xac minh schema va seed cham cong ca san xuat..."
+  "$PRODUCTION_ATTENDANCE_VERIFY_SCRIPT"
+fi
+
 log "Khoi dong Cloudflare Tunnel bookingbase..."
 : > "$TUNNEL_LOG"
 systemd-run --user --unit "${TUNNEL_UNIT%.service}" --collect \
@@ -327,4 +342,9 @@ if [[ "$WORD_EDITOR_ENABLED" == true ]]; then
   printf '%s\n' \
     "  Word:    https://docs.cfcbooking.io.vn" \
     "  Word local health: http://127.0.0.1:$ONLYOFFICE_PORT/healthcheck"
+fi
+if [[ "$HR_PRODUCTION_ATTENDANCE_ENABLED" == true ]]; then
+  printf '%s\n' "  Cham cong ca san xuat: enabled (shadow=$HR_PRODUCTION_ATTENDANCE_SHADOW_MODE)"
+else
+  printf '%s\n' "  Cham cong ca san xuat: disabled"
 fi

@@ -1,8 +1,8 @@
 # Hướng sử dụng Chấm công ca sản xuất
 
-- Cập nhật: **11/09/2026**.
+- Cập nhật: **14/09/2026**.
 - Phạm vi: tab **Ca sản xuất** dành cho Công nhân và KCS.
-- Trạng thái: chức năng đã hoàn tất và kiểm thử local; chưa thay thế bảng công production trước khi hoàn thành Phase 7 shadow/nghiệm thu HR.
+- Trạng thái: Phase 1–7 đã hoàn tất và qua gate local; chưa thay thế bảng công production trước khi deploy SHADOW và HR ký nghiệm thu.
 
 ## 1. Chuẩn bị lần đầu
 
@@ -46,3 +46,5 @@ Thay đổi cấu hình không tự sửa file đã chốt. Muốn áp dụng c�
 5. Chỉ chuyển sang sử dụng chính thức sau khi HR ký xác nhận web và Excel khớp bảng đối chiếu.
 
 Nếu cần quay về luồng cũ trong thời gian shadow, chọn tab **Hành chính**; hai pipeline được lưu riêng và không ghi đè dữ liệu của nhau.
+
+Các biến bật/tắt, lệnh deploy Linux, checklist nghiệm thu và rollback: [WORKER_ATTENDANCE_PHASE7_ROLLOUT.md](WORKER_ATTENDANCE_PHASE7_ROLLOUT.md).

@@ -202,7 +202,7 @@ Phase 3 bổ sung tab Lịch sử trong hồ sơ: biến động theo nhân sự
 
 Phần tổng hợp cốt lõi của Apps Script **Lateness → TONGHOP** đã có trong CFCBase; các dashboard biểu đồ chuyên sâu vẫn là phần mở rộng. Kế hoạch chi tiết nằm ở [ATTENDANCE_MIGRATION_PLAN.md](ATTENDANCE_MIGRATION_PLAN.md). Lưu ý script `verify-hr-phase1.sh` vẫn kiểm tra bộ 15 bảng Phase 1, không phải toàn bộ 31 bảng sau V16; cần cập nhật trước khi dùng làm healthcheck tổng.
 
-### 5.1 Chấm công ca sản xuất — Phase 1–6 local
+### 5.1 Chấm công ca sản xuất — Phase 1–7 local
 
 V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi luồng hành chính V15/V16:
 
@@ -214,8 +214,9 @@ V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi lu�
 - Tab **Ca sản xuất** nằm cạnh tab **Hành chính**, có KPI, bộ lọc Công nhân/KCS/cần kiểm tra/sự cố/đã xác nhận, bảng review responsive, cấu hình ca/ngưỡng công/chính sách nhân viên/miễn chấm và chi tiết read-only sau khi chốt.
 - Tổng hợp chỉ đọc import `CONFIRMED`; file Excel có sheet **Bảng công** đủ ngày 1–31 và sheet **Đối soát**. Manager không thể mở khóa; ADMIN phải nhập lý do để mở khóa trước khi điều chỉnh.
 - Đã kiểm thử local B124: đủ 31 ngày, tổng 45 công, 19 ca đêm, phụ cấp 950.000 đồng; ngày 31 thiếu lượt ra vẫn giữ trống và cần review/sự cố xác nhận.
+- Phase 7 đã bổ sung feature flag, chế độ SHADOW có cảnh báo/watermark Excel, gate local một lệnh, healthcheck V21/schema/seed/API trong deploy Linux và rollback không xóa dữ liệu.
 
-API backend nằm dưới `/api/v1/hr/attendance/production`. Phase 7 shadow và nghiệm thu production vẫn chưa thực hiện. Chi tiết: [kế hoạch](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md) và [hướng sử dụng](WORKER_ATTENDANCE_USAGE_GUIDE.md).
+API backend nằm dưới `/api/v1/hr/attendance/production`. Source và gate local Phase 7 đã hoàn tất; deploy SHADOW và nghiệm thu production vẫn chưa thực hiện. Chi tiết: [kế hoạch](WORKER_ATTENDANCE_IMPLEMENTATION_PLAN.md), [hướng sử dụng](WORKER_ATTENDANCE_USAGE_GUIDE.md) và [rollout Phase 7](WORKER_ATTENDANCE_PHASE7_ROLLOUT.md).
 
 ## 6. Phân quyền và đăng nhập
 
@@ -332,6 +333,7 @@ Không ghi token Cloudflare, Telegram, JWT, SMTP, VAPID hay database password v�
 - Frontend có lệnh `npm run lint` và `npm run build`; baseline gần nhất build/lint đạt, còn một số cảnh báo unused hiện hữu.
 - Ngày 07/09/2026: `./mvnw test` đạt 139 test, 0 failure/error, 1 skipped; schema fixture đến V16. Mockito/Byte Buddy self-attach bị chặn trong sandbox; chạy ngoài sandbox đã đạt. Frontend build/lint và test JavaScript nhắc hạn đạt, còn 11 cảnh báo unused hiện hữu. Chưa nghiệm thu UI trực quan vì Browser chưa kết nối.
 - Ngày 11/09/2026: Phase 1–6 chấm công ca sản xuất đã qua full test local đến V21. Backend 188 test: 187 pass, 0 failure/error, 1 fixture tùy chọn skipped; frontend build/lint đạt với 10 cảnh báo unused hiện hữu ngoài trang ca sản xuất. Chưa shadow hoặc nghiệm thu production.
+- Ngày 14/09/2026: Phase 7 chấm công ca sản xuất hoàn tất ở source/local. Gate một lệnh đạt 191 test backend: 190 pass, 0 failure/error, 1 fixture tùy chọn skipped; frontend lint và build SHADOW đạt, còn 10 cảnh báo unused hiện hữu ngoài trang ca sản xuất. Mockito được nạp bằng Java agent rõ ràng để tránh lỗi self-attach trên JDK 21. Chưa deploy SHADOW hoặc ký nghiệm thu HR trên production.
 - Các kiểm tra trên là static/unit; chưa chứng minh Cloudflare, Telegram, Gemini/Groq, Google Drive/Apps Script hay database production đang reachable.
 
 ## 12. Khoảng trống và roadmap ưu tiên

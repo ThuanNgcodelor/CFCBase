@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,9 @@ public class HrProductionAttendanceReportService {
     private final HrAttendanceShiftAdjustmentRepository adjustmentRepository;
     private final HrEmployeeRepository employeeRepository;
 
+    @Value("${app.hr.attendance.production.shadow-mode:false}")
+    private boolean shadowMode;
+
     public HrProductionAttendanceDtos.MonthlySummary monthlySummary(String month) {
         ReportData report = reportData(month);
         return report.summary();
@@ -51,7 +55,8 @@ public class HrProductionAttendanceReportService {
             writeSummarySheet(workbook, styles, report);
             writeReconciliationSheet(workbook, styles, report);
             workbook.write(output);
-            return new ExportFile("BANG_CONG_CA_SAN_XUAT_" + month + ".xlsx", output.toByteArray());
+            String prefix = shadowMode ? "SHADOW_" : "";
+            return new ExportFile(prefix + "BANG_CONG_CA_SAN_XUAT_" + month + ".xlsx", output.toByteArray());
         } catch (IOException ex) {
             throw new IllegalStateException("Không thể tạo file bảng công ca sản xuất.", ex);
         }
@@ -135,7 +140,8 @@ public class HrProductionAttendanceReportService {
         int lastColumn = 39;
         Row title = sheet.createRow(0);
         Cell titleCell = title.createCell(0);
-        titleCell.setCellValue("BẢNG CÔNG CA SẢN XUẤT - " + displayMonth(report.summary().attendanceMonth()));
+        titleCell.setCellValue((shadowMode ? "BẢN SHADOW - KHÔNG DÙNG TRẢ LƯƠNG - " : "")
+                + "BẢNG CÔNG CA SẢN XUẤT - " + displayMonth(report.summary().attendanceMonth()));
         titleCell.setCellStyle(styles.title());
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, lastColumn));
 
