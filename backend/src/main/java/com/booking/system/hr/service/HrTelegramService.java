@@ -115,10 +115,11 @@ public class HrTelegramService {
         for (HrEmployee employee : employees) {
             HrEmployeeTelegramBinding binding = bindings.get(employee.getId());
             HrTelegramRegistration registration = latestRegistrations.get(employee.getId());
-            String resolvedStatus = binding != null && binding.getStatus() == HrTelegramBindingStatus.ACTIVE
-                    ? HrTelegramRegistrationStatus.VERIFIED.name()
+            String resolvedStatus = binding != null
+                    ? (binding.getStatus() == HrTelegramBindingStatus.ACTIVE
+                            ? HrTelegramRegistrationStatus.VERIFIED.name()
+                            : HrTelegramRegistrationStatus.REVOKED.name())
                     : registration != null ? registration.getStatus().name()
-                    : binding != null ? HrTelegramRegistrationStatus.REVOKED.name()
                     : "NOT_REGISTERED";
             String phone = binding != null && binding.getPhoneNumber() != null ? binding.getPhoneNumber()
                     : registration == null ? null : registration.getPhoneNumber();
@@ -138,7 +139,9 @@ public class HrTelegramService {
                             : registration == null ? null : registration.getCreatedAt(),
                     registration == null ? null : registration.getReviewedAt(),
                     registration == null ? null : registration.getReviewedByActor(),
-                    registration == null ? null : registration.getReviewNote()));
+                    registration == null ? null : registration.getReviewNote(),
+                    binding == null ? null : binding.getRevokedAt(),
+                    binding == null ? null : binding.getRevokedReason()));
         }
         int from = (int) Math.min((long) pageable.getPageNumber() * pageable.getPageSize(), filtered.size());
         int to = Math.min(from + pageable.getPageSize(), filtered.size());
@@ -258,16 +261,23 @@ public class HrTelegramService {
     }
 
     @Transactional
-    public void revoke(String employeeId, HrTelegramDtos.ReviewRequest request, HrImportActor actor) {
+    public void revoke(String employeeId, HrTelegramDtos.RevokeRequest request, HrImportActor actor) {
+        String reason = request == null || request.note() == null ? "" : request.note().trim();
+        if (reason.isBlank()) {
+            throw HrApiException.badRequest("TELEGRAM_REVOKE_REASON_REQUIRED", "Lý do thu hồi liên kết là bắt buộc.");
+        }
         HrEmployeeTelegramBinding binding = bindingRepository.findByEmployeeIdForUpdate(employeeId)
                 .orElseThrow(() -> HrApiException.notFound("TELEGRAM_BINDING_NOT_FOUND", "Nhân sự chưa có liên kết Telegram."));
+        if (binding.getStatus() != HrTelegramBindingStatus.ACTIVE) {
+            throw HrApiException.conflict("TELEGRAM_BINDING_ALREADY_REVOKED", "Liên kết Telegram đã được thu hồi trước đó.");
+        }
         binding.setStatus(HrTelegramBindingStatus.REVOKED);
         binding.setRevokedAt(now());
-        binding.setRevokedReason(request == null ? null : request.note());
+        binding.setRevokedReason(reason);
         binding.setUpdatedByActor(actor.subject());
         bindingRepository.save(binding);
         audit(actor, "HR_TELEGRAM_BINDING_REVOKED", "HR_TELEGRAM_BINDING", binding.getId(),
-                List.of("status", "revokedReason"), Map.of("employeeId", employeeId));
+                List.of("status", "revokedReason"), Map.of("employeeId", employeeId, "reason", reason));
     }
 
     public String commonBotLink() {
@@ -309,8 +319,15 @@ public class HrTelegramService {
             registration.setAttemptCount(0);
             registration.setCreatedByActor("TELEGRAM:" + userId);
         } else {
-            registration.setStatus(HrTelegramRegistrationStatus.STARTED);
             registration.setTelegramChatId(chatId);
+            registration.setTelegramUsername(from == null ? registration.getTelegramUsername() : textValue(from.get("username")));
+            registration.setUpdatedByActor("TELEGRAM:" + userId);
+            if (registration.getPhoneNumber() != null && !registration.getPhoneNumber().isBlank()) {
+                registration.setStatus(HrTelegramRegistrationStatus.PHONE_RECEIVED);
+                registrationRepository.save(registration);
+                botClient.sendText(chatId, "Đăng ký của bạn đang thực hiện. Vui lòng nhập Mã nhân viên để tiếp tục, ví dụ: B092.");
+                return;
+            }
         }
         registration.setTelegramUsername(from == null ? null : textValue(from.get("username")));
         registration.setUpdatedByActor("TELEGRAM:" + userId);

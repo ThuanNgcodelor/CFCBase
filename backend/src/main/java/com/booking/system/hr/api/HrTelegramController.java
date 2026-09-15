@@ -117,7 +117,7 @@ public class HrTelegramController {
     public ResponseEntity<ApiResponse<Void>> revoke(
             @AuthenticationPrincipal User principal,
             @PathVariable String employeeId,
-            @Valid @RequestBody(required = false) HrTelegramDtos.ReviewRequest request) {
+            @Valid @RequestBody HrTelegramDtos.RevokeRequest request) {
         service.revoke(employeeId, request, actorResolver.fromPrincipal(principal));
         return ResponseEntity.ok(ApiResponse.success(null, "Đã thu hồi liên kết Telegram"));
     }

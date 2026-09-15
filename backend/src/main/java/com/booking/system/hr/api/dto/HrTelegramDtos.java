@@ -1,6 +1,7 @@
 package com.booking.system.hr.api.dto;
 
 import com.booking.system.hr.enums.HrTelegramRegistrationStatus;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
@@ -55,11 +56,20 @@ public final class HrTelegramDtos {
             LocalDateTime registeredAt,
             LocalDateTime reviewedAt,
             String reviewedByActor,
-            String reviewNote
+            String reviewNote,
+            LocalDateTime revokedAt,
+            String revokedReason
     ) {
     }
 
     public record ReviewRequest(@Size(max = 1000) String note) {
+    }
+
+    public record RevokeRequest(
+            @NotBlank(message = "Lý do thu hồi là bắt buộc")
+            @Size(max = 500, message = "Lý do thu hồi không được vượt quá 500 ký tự")
+            String note
+    ) {
     }
 
     public record SummaryResponse(

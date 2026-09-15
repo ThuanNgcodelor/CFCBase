@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, Download, ExternalLink, MessageCircle, PlugZap, Printer, RefreshCw, Save, ShieldCheck, XCircle } from 'lucide-react';
+import { AlertTriangle, Copy, Download, ExternalLink, MessageCircle, PlugZap, Printer, RefreshCw, Save, ShieldCheck, XCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import SEOHead from '../../components/SEOHead';
@@ -36,6 +36,8 @@ export default function HrTelegramEmployees() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [busyId, setBusyId] = useState('');
+  const [revokeTarget, setRevokeTarget] = useState(null);
+  const [revokeReason, setRevokeReason] = useState('');
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -68,7 +70,8 @@ export default function HrTelegramEmployees() {
     return username ? `https://t.me/${username}?start=register` : '';
   }, [settings?.botUsername]);
 
-  const selectStatus = (nextStatus) => {
+  const selectStatus = (nextStatus, nextView = viewMode) => {
+    setViewMode(nextView);
     setStatus(nextStatus);
     setPage(0);
   };
@@ -116,7 +119,7 @@ export default function HrTelegramEmployees() {
     const note = action === 'reject' ? window.prompt('Lý do từ chối (có thể bỏ trống):', '') : '';
     if (action === 'reject' && note === null) return;
     if (action === 'verify' && !window.confirm(`Xác minh tài khoản Telegram cho ${item.employeeName || item.employeeCode}?`)) return;
-    setBusyId(item.id);
+    setBusyId(item.id || item.employeeId);
     try {
       if (action === 'verify') await hrTelegramApi.verify(item.id);
       else await hrTelegramApi.reject(item.id, note || '');
@@ -126,12 +129,20 @@ export default function HrTelegramEmployees() {
     finally { setBusyId(''); }
   };
 
-  const revoke = async (item) => {
-    if (!item.employeeId || !window.confirm(`Thu hồi liên kết Telegram của ${item.employeeName || item.employeeCode}?`)) return;
-    setBusyId(item.id);
+  const revoke = async () => {
+    const item = revokeTarget;
+    const reason = revokeReason.trim();
+    if (!item?.employeeId) return;
+    if (!reason) {
+      toast.error('Vui lòng nhập lý do thu hồi liên kết.');
+      return;
+    }
+    setBusyId(item.id || item.employeeId);
     try {
-      await hrTelegramApi.revoke(item.employeeId, 'Thu hồi từ màn hình HR');
-      toast.success('Đã thu hồi liên kết Telegram.');
+      await hrTelegramApi.revoke(item.employeeId, reason);
+      toast.success('Đã ngắt liên kết. Nhân viên sẽ không nhận các phiếu lương gửi sau thao tác này.');
+      setRevokeTarget(null);
+      setRevokeReason('');
       setReloadKey((value) => value + 1);
     } catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể thu hồi liên kết.')); }
     finally { setBusyId(''); }
@@ -164,15 +175,41 @@ export default function HrTelegramEmployees() {
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[
-        ['', 'Tất cả đăng ký', summary?.total], ['PENDING_REVIEW', 'Chờ xác minh', summary?.pendingReview], ['VERIFIED', 'Đã xác minh', summary?.verified], ['REJECTED', 'Từ chối', summary?.rejected], ['REVOKED', 'Đã thu hồi', summary?.revoked],
-      ].map(([cardStatus, label, value]) => <button type="button" key={label} onClick={() => selectStatus(cardStatus)} className={`rounded-xl border p-4 text-left shadow-sm transition hover:border-emerald-300 hover:shadow ${status === cardStatus ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' : 'border-gray-200 bg-white'}`}><p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p><p className="mt-1 text-2xl font-bold text-gray-900">{value ?? '—'}</p><p className="mt-1 text-xs text-gray-500">Bấm để xem danh sách</p></button>)}</div>
+        ['', 'Tất cả đăng ký', summary?.total, 'registrations'],
+        ['PENDING_REVIEW', 'Chờ xác minh', summary?.pendingReview, 'registrations'],
+        ['VERIFIED', 'Đang liên kết', summary?.verified, 'employees'],
+        ['REJECTED', 'Từ chối', summary?.rejected, 'registrations'],
+        ['REVOKED', 'Đã thu hồi', summary?.revoked, 'employees'],
+      ].map(([cardStatus, label, value, cardView]) => <button type="button" key={label} onClick={() => selectStatus(cardStatus, cardView)} className={`rounded-xl border p-4 text-left shadow-sm transition hover:border-emerald-300 hover:shadow ${status === cardStatus && viewMode === cardView ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' : 'border-gray-200 bg-white'}`}><p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p><p className="mt-1 text-2xl font-bold text-gray-900">{value ?? '—'}</p><p className="mt-1 text-xs text-gray-500">Bấm để xem danh sách</p></button>)}</div>
 
       <section className="mt-5 rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-100 p-4"><div><h2 className="font-semibold text-gray-900">{viewMode === 'employees' ? 'Toàn bộ nhân viên' : 'Danh sách đăng ký'}</h2><p className="text-sm text-gray-500">{viewMode === 'employees' ? 'Theo dõi trạng thái Telegram của từng nhân viên đang làm việc.' : 'Chỉ hồ sơ đã được HR xác minh mới đủ điều kiện nhận phiếu lương.'}</p></div><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant={viewMode === 'employees' ? 'primary' : 'secondary'} onClick={() => selectView('employees')}>Toàn bộ nhân viên</Button><Button type="button" size="sm" variant={viewMode === 'registrations' ? 'primary' : 'secondary'} onClick={() => selectView('registrations')}>Lượt đăng ký</Button><input value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { setPage(0); setReloadKey((value) => value + 1); } }} placeholder="Tìm mã, tên, số điện thoại" className="h-10 rounded-lg border border-gray-300 px-3 text-sm" /><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(0); }} className="h-10 rounded-lg border border-gray-300 px-3 text-sm"><option value="">Tất cả trạng thái</option>{Object.entries(STATUS_LABELS).filter(([value]) => viewMode === 'employees' || value !== 'NOT_REGISTERED').map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><Button type="button" variant="secondary" onClick={() => hrTelegramApi.exportRegistrations(viewMode === 'employees' ? undefined : status || undefined)}><Download className="mr-1.5 h-4 w-4" />Xuất Excel đăng ký</Button></div></div>
-        <div className="overflow-x-auto"><table className="min-w-[1120px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-4 py-3">Mã NV</th><th className="px-4 py-3">Họ tên</th><th className="px-4 py-3">Số điện thoại</th><th className="px-4 py-3">Telegram</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Đăng ký / duyệt</th><th className="px-4 py-3">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{registrations.content.map((item) => <tr key={item.id || item.employeeId}><td className="px-4 py-3 font-semibold text-gray-900">{item.employeeCode || '—'}</td><td className="px-4 py-3">{item.employeeName || 'Chưa xác định'}</td><td className="px-4 py-3">{item.phoneNumber || '—'}</td><td className="px-4 py-3 text-xs text-gray-500">{item.telegramUsername ? `@${item.telegramUsername}` : item.telegramUserId || '—'}</td><td className="px-4 py-3"><HrStatusBadge status={item.status} label={statusLabel(item.status)} />{item.reviewNote && <p className="mt-1 max-w-xs truncate text-xs text-gray-500" title={item.reviewNote}>Ghi chú: {item.reviewNote}</p>}</td><td className="px-4 py-3 text-xs text-gray-500"><div>{formatHrDateTime(item.createdAt || item.registeredAt)}</div>{item.reviewedAt && <div className="mt-1 text-emerald-700">Duyệt: {formatHrDateTime(item.reviewedAt)}</div>}{item.reviewedByActor && <div className="truncate" title={item.reviewedByActor}>Bởi: {item.reviewedByActor}</div>}</td><td className="px-4 py-3"><div className="flex gap-2">{viewMode === 'registrations' && item.status === 'PENDING_REVIEW' && <><Button type="button" size="sm" disabled={busyId === item.id} onClick={() => review(item, 'verify')}><ShieldCheck className="mr-1 h-4 w-4" />Xác minh</Button><Button type="button" size="sm" variant="danger" disabled={busyId === item.id} onClick={() => review(item, 'reject')}><XCircle className="mr-1 h-4 w-4" />Từ chối</Button></>}{viewMode === 'registrations' && item.status === 'VERIFIED' && <Button type="button" size="sm" variant="danger" disabled={busyId === item.id} onClick={() => revoke(item)}>Thu hồi</Button>}</div></td></tr>)}</tbody></table></div>
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-100 p-4"><div><h2 className="font-semibold text-gray-900">{viewMode === 'employees' ? 'Trạng thái liên kết nhân viên' : 'Lịch sử lượt đăng ký'}</h2><p className="text-sm text-gray-500">{viewMode === 'employees' ? 'Nguồn chính để kiểm tra người đang nhận lương qua Telegram và các liên kết đã thu hồi.' : 'Lịch sử được giữ để đối soát; xác minh hoặc thu hồi không xóa lượt đăng ký cũ.'}</p></div><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant={viewMode === 'employees' ? 'primary' : 'secondary'} onClick={() => selectView('employees')}>Trạng thái nhân viên</Button><Button type="button" size="sm" variant={viewMode === 'registrations' ? 'primary' : 'secondary'} onClick={() => selectView('registrations')}>Lịch sử đăng ký</Button><input value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { setPage(0); setReloadKey((value) => value + 1); } }} placeholder="Tìm mã, tên, số điện thoại" className="h-10 rounded-lg border border-gray-300 px-3 text-sm" /><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(0); }} className="h-10 rounded-lg border border-gray-300 px-3 text-sm"><option value="">Tất cả trạng thái</option>{Object.entries(STATUS_LABELS).filter(([value]) => viewMode === 'employees' || !['NOT_REGISTERED', 'REVOKED'].includes(value)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><Button type="button" variant="secondary" onClick={() => hrTelegramApi.exportRegistrations(viewMode === 'employees' ? undefined : status || undefined)}><Download className="mr-1.5 h-4 w-4" />Xuất Excel đăng ký</Button></div></div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1120px] w-full text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500"><tr><th className="px-4 py-3">Mã NV</th><th className="px-4 py-3">Họ tên</th><th className="px-4 py-3">Số điện thoại</th><th className="px-4 py-3">Telegram</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Đăng ký / duyệt</th><th className="px-4 py-3">Thao tác</th></tr></thead>
+            <tbody className="divide-y divide-gray-100">{registrations.content.map((item) => <tr key={item.id || item.employeeId}>
+              <td className="px-4 py-3 font-semibold text-gray-900">{item.employeeCode || '—'}</td>
+              <td className="px-4 py-3">{item.employeeName || 'Chưa xác định'}</td>
+              <td className="px-4 py-3">{item.phoneNumber || '—'}</td>
+              <td className="px-4 py-3 text-xs text-gray-500">{item.telegramUsername ? `@${item.telegramUsername}` : item.telegramUserId || '—'}</td>
+              <td className="px-4 py-3"><HrStatusBadge status={item.status} label={statusLabel(item.status)} />{item.reviewNote && <p className="mt-1 max-w-xs truncate text-xs text-gray-500" title={item.reviewNote}>Ghi chú: {item.reviewNote}</p>}{item.revokedReason && <p className="mt-1 max-w-xs truncate text-xs text-red-600" title={item.revokedReason}>Thu hồi: {item.revokedReason}</p>}</td>
+              <td className="px-4 py-3 text-xs text-gray-500"><div>{formatHrDateTime(item.createdAt || item.registeredAt)}</div>{item.reviewedAt && <div className="mt-1 text-emerald-700">Duyệt: {formatHrDateTime(item.reviewedAt)}</div>}{item.revokedAt && <div className="mt-1 text-red-600">Thu hồi: {formatHrDateTime(item.revokedAt)}</div>}{item.reviewedByActor && <div className="truncate" title={item.reviewedByActor}>Bởi: {item.reviewedByActor}</div>}</td>
+              <td className="px-4 py-3"><div className="flex gap-2">{viewMode === 'registrations' && item.status === 'PENDING_REVIEW' && <><Button type="button" size="sm" disabled={busyId === item.id} onClick={() => review(item, 'verify')}><ShieldCheck className="mr-1 h-4 w-4" />Xác minh</Button><Button type="button" size="sm" variant="danger" disabled={busyId === item.id} onClick={() => review(item, 'reject')}><XCircle className="mr-1 h-4 w-4" />Từ chối</Button></>}{viewMode === 'employees' && item.status === 'VERIFIED' && <Button type="button" size="sm" variant="danger" disabled={busyId === (item.id || item.employeeId)} onClick={() => { setRevokeTarget(item); setRevokeReason(''); }}>Ngắt liên kết</Button>}{viewMode === 'employees' && item.status === 'REVOKED' && <span className="text-xs text-gray-500">Đăng ký lại qua Start</span>}</div></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
         {!loading && registrations.content.length === 0 && <div className="p-8"><HrEmpty title={status ? `Không có hồ sơ ${statusLabel(status).toLowerCase()}` : viewMode === 'employees' ? 'Chưa có nhân viên đang làm việc' : 'Chưa có lượt đăng ký'} description={status ? 'Hãy chọn “Tất cả trạng thái” để xem các hồ sơ khác.' : viewMode === 'employees' ? 'Danh sách sẽ hiển thị nhân viên có trạng thái Telegram.' : 'Khi nhân viên hoàn tất Start, chia sẻ số điện thoại và nhập mã, hồ sơ sẽ xuất hiện ở đây.'} /></div>}
         <HrPagination page={registrations.number} totalPages={registrations.totalPages} totalElements={registrations.totalElements} onPageChange={setPage} />
       </section>
+
+      {revokeTarget && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setRevokeTarget(null); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="telegram-revoke-title" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="flex items-start gap-3"><div className="rounded-full bg-red-100 p-2 text-red-700"><AlertTriangle className="h-5 w-5" /></div><div><h2 id="telegram-revoke-title" className="text-lg font-bold text-gray-900">Ngắt liên kết Telegram?</h2><p className="mt-1 text-sm text-gray-600">{revokeTarget.employeeCode} · {revokeTarget.employeeName}</p></div></div>
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p>Nhân viên sẽ không nhận các phiếu lương gửi sau thao tác này.</p><p className="mt-1">Tin nhắn đã gửi không bị xóa. Muốn liên kết lại, nhân viên phải bấm Start và được HR xác minh lại.</p></div>
+          <label className="mt-4 block"><span className="mb-1 block text-sm font-semibold text-gray-700">Lý do thu hồi <span className="text-red-600">*</span></span><textarea autoFocus value={revokeReason} onChange={(event) => setRevokeReason(event.target.value)} maxLength={500} rows={3} placeholder="Ví dụ: Nhân viên đổi tài khoản Telegram" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" /></label>
+          <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="secondary" disabled={Boolean(busyId)} onClick={() => setRevokeTarget(null)}>Hủy</Button><Button type="button" variant="danger" disabled={Boolean(busyId) || !revokeReason.trim()} onClick={revoke}>{busyId ? 'Đang thu hồi...' : 'Xác nhận ngắt liên kết'}</Button></div>
+        </section>
+      </div>}
     </HrPageShell>
   );
 }
