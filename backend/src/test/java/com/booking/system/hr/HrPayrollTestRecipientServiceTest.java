@@ -85,6 +85,9 @@ class HrPayrollTestRecipientServiceTest {
         assertThat(row.getStatus()).isEqualTo(HrPayrollRowStatus.SKIPPED);
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(bot).sendPayrollText(eq(999L), message.capture());
-        assertThat(message.getValue()).contains("BẢN GỬI THỬ", "D042", "13.727.000 đ");
+        assertThat(message.getValue())
+                .startsWith("⚠️ BẢN GỬI THỬ - KHÔNG PHẢI PHIẾU LƯƠNG CHÍNH THỨC")
+                .contains("Dữ liệu nguồn: D042 - Võ Nghĩa Hòa")
+                .contains("KHOẢN THU TRONG LƯƠNG", "13.727.000 đ");
     }
 }
