@@ -72,15 +72,18 @@ public class TelegramBotClient {
     }
 
     /**
-     * A payroll is sent as one Telegram document with the complete readable
-     * payroll snapshot above it. The PDF bytes are frozen before delivery.
+     * Sends the fixed-width text as its own Telegram message, then attaches
+     * the immutable PDF. A document caption is visibly narrower on phones and
+     * breaks the salary columns even when the same text fits in a message.
      */
-    public PayrollSendResult sendPayrollPdf(Long chatId, byte[] pdf, String fileName, String caption) {
+    public PayrollSendResult sendPayrollPdf(Long chatId, byte[] pdf, String fileName, String text) {
         if (!configured()) return new PayrollSendResult(false, "RETRYABLE: Chưa cấu hình token Telegram; chưa gửi yêu cầu.");
         if (pdf == null || pdf.length == 0) return new PayrollSendResult(false, "REJECTED: Chưa có PDF phiếu lương để gửi.");
         try {
+            PayrollSendResult textResult = sendPayrollText(chatId, text);
+            if (!textResult.sent()) return textResult;
             String boundary = "----CfcPayroll" + UUID.randomUUID().toString().replace("-", "");
-            byte[] body = documentMultipart(boundary, chatId, pdf, safeFileName(fileName), caption);
+            byte[] body = documentMultipart(boundary, chatId, pdf, safeFileName(fileName));
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.telegram.org/bot" + botToken + "/sendDocument"))
                     .timeout(Duration.ofSeconds(15))
@@ -161,11 +164,9 @@ public class TelegramBotClient {
         }
     }
 
-    private byte[] documentMultipart(String boundary, Long chatId, byte[] pdf, String fileName, String caption) throws Exception {
+    private byte[] documentMultipart(String boundary, Long chatId, byte[] pdf, String fileName) throws Exception {
         try (ByteArrayOutputStream body = new ByteArrayOutputStream()) {
             part(body, boundary, "chat_id", String.valueOf(chatId));
-            part(body, boundary, "caption", payrollHtml(caption));
-            part(body, boundary, "parse_mode", "HTML");
             body.write(("--" + boundary + "\r\n"
                     + "Content-Disposition: form-data; name=\"document\"; filename=\"" + fileName + "\"\r\n"
                     + "Content-Type: application/pdf\r\n\r\n").getBytes(StandardCharsets.UTF_8));
