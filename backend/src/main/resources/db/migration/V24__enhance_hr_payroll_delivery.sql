@@ -1,7 +1,10 @@
+-- MySQL may use the old unique index as the supporting index for the import_id
+-- foreign key. Create its non-unique replacement first so the unique index can
+-- be removed without dropping or rebuilding the foreign key.
+CREATE INDEX idx_hr_payroll_campaign_import_created ON hr_payroll_campaigns(import_id, created_at);
 ALTER TABLE hr_payroll_campaigns DROP INDEX uk_hr_payroll_campaign_import;
 ALTER TABLE hr_payroll_campaigns
     ADD COLUMN selection_mode VARCHAR(24) NOT NULL DEFAULT 'ALL_ELIGIBLE';
-CREATE INDEX idx_hr_payroll_campaign_import_created ON hr_payroll_campaigns(import_id, created_at);
 
 CREATE TABLE hr_payroll_test_recipients (
     id VARCHAR(36) NOT NULL,

@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class HrPhase1MigrationTest {
 
     private static final String MIGRATION = "db/migration/V1__create_hr_phase_1_schema.sql";
+    private static final String PAYROLL_ENHANCEMENT_MIGRATION = "db/migration/V24__enhance_hr_payroll_delivery.sql";
     private static final Pattern HR_TABLE_PATTERN = Pattern.compile(
             "(?i)CREATE\\s+TABLE\\s+(hr_[a-z0-9_]+)"
     );
@@ -90,6 +91,16 @@ class HrPhase1MigrationTest {
         assertThat(properties.getProperty("spring.flyway.clean-disabled")).isEqualTo("true");
         assertThat(properties.getProperty("spring.jpa.properties.hibernate.hbm2ddl.schema_filter_provider"))
                 .isEqualTo("com.booking.system.config.LegacySchemaFilterProvider");
+    }
+
+    @Test
+    void payrollEnhancementCreatesReplacementForeignKeyIndexBeforeDroppingUniqueIndex() throws IOException {
+        String sql = resourceSql(PAYROLL_ENHANCEMENT_MIGRATION);
+        int replacementIndex = sql.indexOf("CREATE INDEX idx_hr_payroll_campaign_import_created");
+        int uniqueIndexDrop = sql.indexOf("DROP INDEX uk_hr_payroll_campaign_import");
+
+        assertThat(replacementIndex).isGreaterThanOrEqualTo(0);
+        assertThat(uniqueIndexDrop).isGreaterThan(replacementIndex);
     }
 
     @Test
@@ -315,10 +326,14 @@ class HrPhase1MigrationTest {
     }
 
     private static String migrationSql() throws IOException {
+        return resourceSql(MIGRATION);
+    }
+
+    private static String resourceSql(String resource) throws IOException {
         ClassLoader classLoader = HrPhase1MigrationTest.class.getClassLoader();
-        try (InputStream input = classLoader.getResourceAsStream(MIGRATION)) {
+        try (InputStream input = classLoader.getResourceAsStream(resource)) {
             if (input == null) {
-                throw new IOException("Missing migration resource: " + MIGRATION);
+                throw new IOException("Missing migration resource: " + resource);
             }
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
