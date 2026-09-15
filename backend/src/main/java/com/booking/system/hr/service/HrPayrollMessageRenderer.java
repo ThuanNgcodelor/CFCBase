@@ -15,20 +15,17 @@ public final class HrPayrollMessageRenderer {
     private HrPayrollMessageRenderer() { }
 
     /**
-     * The Telegram caption is deliberately short. Detailed personal payroll data
-     * is carried by the attached PDF, not by a fragile fixed-width chat message.
+     * Telegram shows this snapshot above the attached PDF. The fixed-width
+     * layout is intentional: HR can scan the figures directly in the chat.
      */
     public static String officialCaption(HrPayrollImportRow row, String payrollMonth) {
-        return "PHIẾU LƯƠNG THÁNG " + displayMonth(payrollMonth)
-                + "\n\nKính gửi anh/chị " + safe(row.getEmployeeName()) + " (" + safe(row.getEmployeeCode()) + ")."
-                + "\nVui lòng mở file PDF đính kèm để xem chi tiết phiếu lương.";
+        return render(row, payrollMonth);
     }
 
     public static String testCaption(HrPayrollImportRow row, String payrollMonth) {
         return "⚠️ BẢN GỬI THỬ - KHÔNG PHẢI PHIẾU LƯƠNG CHÍNH THỨC"
                 + "\nDữ liệu nguồn: " + safe(row.getEmployeeCode()) + " - " + safe(row.getEmployeeName())
-                + "\n\nPhiếu lương tháng " + displayMonth(payrollMonth)
-                + "\nMở file PDF đính kèm để kiểm tra nội dung trước khi gửi chính thức.";
+                + "\n\n" + render(row, payrollMonth);
     }
 
     /** Kept for old callers and old snapshots. New delivery uses the PDF renderer. */
@@ -39,14 +36,14 @@ public final class HrPayrollMessageRenderer {
         } catch (Exception exception) {
             throw HrApiException.badRequest("PAYROLL_PAYLOAD_INVALID", "Không đọc được dữ liệu lương của " + row.getEmployeeCode());
         }
-        return "PHIẾU LƯƠNG THÁNG " + payrollMonth
+        return "PHIẾU LƯƠNG THÁNG " + displayMonth(payrollMonth)
                 + "\n────────────────────"
                 + "\n\nTHÔNG TIN NHÂN VIÊN"
                 + "\n" + line("Họ và tên", row.getEmployeeName())
                 + "\n" + line("Mã nhân viên", row.getEmployeeCode())
                 + "\n" + line("Số tài khoản", text(value, "stk"))
                 + "\n\nCHI TIẾT LƯƠNG"
-                + "\n" + line("Số công", text(value, "cong"))
+                + "\n" + quantityLine("Số công", text(value, "cong"))
                 + "\n" + moneyLine("Tiền lương", money(value, "tienLuong"))
                 + "\n\nKHOẢN THU TRONG LƯƠNG"
                 + "\n" + moneyLine("Tổng khoản thu", money(value, "tongThu"))
@@ -87,6 +84,11 @@ public final class HrPayrollMessageRenderer {
 
     private static String moneyLine(String label, String value) {
         return String.format(Locale.ROOT, "%-16s: %14s đ", label, value == null ? "0" : value);
+    }
+
+    /** Reserve the same two trailing columns as the money unit (" đ"). */
+    private static String quantityLine(String label, String value) {
+        return String.format(Locale.ROOT, "%-16s: %14s  ", label, value == null || value.isBlank() ? "0" : value);
     }
 
     private static String text(Map<String, Object> value, String key) {

@@ -90,6 +90,6 @@ class HrPayrollTestRecipientServiceTest {
         assertThat(message.getValue())
                 .startsWith("⚠️ BẢN GỬI THỬ - KHÔNG PHẢI PHIẾU LƯƠNG CHÍNH THỨC")
                 .contains("Dữ liệu nguồn: D042 - Võ Nghĩa Hòa")
-                .contains("Mở file PDF đính kèm");
+                .contains("KHOẢN THU TRONG LƯƠNG", "13.727.000 đ");
     }
 }

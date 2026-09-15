@@ -14,8 +14,8 @@ class TelegramPayrollResponseTest {
         assertThat(TelegramBotClient.classifyPayrollResponse(403, "{\"ok\":false,\"error_code\":403,\"description\":\"sensitive text\"}").error())
                 .startsWith("REJECTED:").doesNotContain("sensitive");
     }
-    @Test void payrollCaptionEscapesHtmlWithoutForcingTelegramCodeBlock() {
+    @Test void payrollCaptionEscapesHtmlAndKeepsPayrollColumnsMonospaced() {
         assertThat(TelegramBotClient.payrollHtml("A < B & C > D"))
-                .isEqualTo("A &lt; B &amp; C &gt; D");
+                .isEqualTo("<pre>A &lt; B &amp; C &gt; D</pre>");
     }
 }

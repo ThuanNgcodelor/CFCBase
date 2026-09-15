@@ -33,13 +33,14 @@ class HrPayrollCampaignSnapshotTest {
         var captor=ArgumentCaptor.forClass(HrPayrollDelivery.class); verify(deliveries).save(captor.capture());
         var delivery=captor.getValue();
         assertThat(delivery.getMessageSnapshot())
-                .contains("Test User", "07/2026", "file PDF đính kèm")
+                .contains("Test User", "07/2026", "KHOẢN THU TRONG LƯƠNG")
+                .contains("Số công         :             26")
                 .doesNotContain("BẢN GỬI THỬ", "Dữ liệu nguồn:");
         assertThat(delivery.getDocumentSnapshot()).startsWith((byte) '%', (byte) 'P', (byte) 'D', (byte) 'F');
         assertThat(delivery.getDocumentFileName()).isEqualTo("Phieu_luong_2026_07_TEST.pdf");
         row.setPayloadJson("{}");
         when(deliveries.findById("d1")).thenReturn(Optional.of(delivery));
-        assertThat(service.previewMessage("campaign-1","d1")).contains("file PDF đính kèm");
+        assertThat(service.previewMessage("campaign-1","d1")).contains("THỰC NHẬN (CHUYỂN KHOẢN)");
         assertThat(service.previewDocument("campaign-1", "d1").bytes()).startsWith((byte) '%', (byte) 'P', (byte) 'D', (byte) 'F');
         assertThatThrownBy(() -> service.previewMessage("other","d1")).hasMessageContaining("Không tìm thấy");
         verifyNoInteractions(bot);

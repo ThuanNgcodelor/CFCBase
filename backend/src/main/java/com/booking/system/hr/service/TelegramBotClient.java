@@ -72,8 +72,8 @@ public class TelegramBotClient {
     }
 
     /**
-     * A payroll is sent as one Telegram document with a short caption. The PDF
-     * bytes are already frozen by the payroll service before a request is made.
+     * A payroll is sent as one Telegram document with the complete readable
+     * payroll snapshot above it. The PDF bytes are frozen before delivery.
      */
     public PayrollSendResult sendPayrollPdf(Long chatId, byte[] pdf, String fileName, String caption) {
         if (!configured()) return new PayrollSendResult(false, "RETRYABLE: Chưa cấu hình token Telegram; chưa gửi yêu cầu.");
@@ -118,7 +118,7 @@ public class TelegramBotClient {
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
-        return escaped.replace("\n", "<br>");
+        return "<pre>" + escaped + "</pre>";
     }
 
     public boolean testConnection() {
