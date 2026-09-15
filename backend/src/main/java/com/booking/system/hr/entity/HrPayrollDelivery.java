@@ -16,8 +16,8 @@ public class HrPayrollDelivery extends HrBaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "campaign_id", nullable = false, foreignKey = @ForeignKey(name = "fk_hr_payroll_delivery_campaign"))
     private HrPayrollCampaign campaign;
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "import_row_id", nullable = false, unique = true, foreignKey = @ForeignKey(name = "fk_hr_payroll_delivery_row"))
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "import_row_id", nullable = false, foreignKey = @ForeignKey(name = "fk_hr_payroll_delivery_row"))
     private HrPayrollImportRow importRow;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id")
@@ -35,6 +35,8 @@ public class HrPayrollDelivery extends HrBaseEntity {
     private int attemptCount;
     @Column(name = "last_error", length = 1000)
     private String lastError;
+    @Column(name = "last_resend_reason", length = 500)
+    private String lastResendReason;
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
 }

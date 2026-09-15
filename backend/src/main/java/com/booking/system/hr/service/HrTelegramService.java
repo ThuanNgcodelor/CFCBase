@@ -56,6 +56,7 @@ public class HrTelegramService {
     private final HrAuditEventRepository auditRepository;
     private final HrImportJsonCodec jsonCodec;
     private final TelegramBotClient botClient;
+    private final HrPayrollTestRecipientService payrollTestRecipientService;
 
     @Value("${cfc.telegram.bot-token:}")
     private String botToken;
@@ -184,6 +185,13 @@ public class HrTelegramService {
             return;
         }
         String text = message.get("text") == null ? "" : String.valueOf(message.get("text")).trim();
+        String normalizedText = text.toLowerCase(Locale.ROOT);
+        if (normalizedText.startsWith("/start paytest_")) {
+            String token = text.substring(text.toLowerCase(Locale.ROOT).indexOf("paytest_") + "paytest_".length()).trim();
+            payrollTestRecipientService.handleStartToken(token, userId, chatId,
+                    from == null ? null : textValue(from.get("username")));
+            return;
+        }
         if (text.equalsIgnoreCase("/start") || text.toLowerCase(Locale.ROOT).startsWith("/start ")) {
             startRegistration(userId, chatId, from);
             return;

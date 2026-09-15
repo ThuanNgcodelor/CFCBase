@@ -23,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -75,10 +77,59 @@ public class HrPayrollService {
     }
 
     @Transactional(readOnly = true)
-    public HrPayrollDtos.PreviewResponse preview(String importId, int page, int size) {
+    public HrPayrollDtos.PreviewResponse preview(String importId, int page, int size,
+                                                  HrPayrollRowStatus status, String keyword) {
         HrPayrollImport payrollImport = requireImport(importId);
-        var rows = rowRepository.findByPayrollImportIdOrderBySourceRowNumber(importId, PageRequest.of(Math.max(0, page), Math.min(Math.max(size, 1), 100)));
+        String normalizedKeyword = keyword == null || keyword.isBlank()
+                ? null : "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%";
+        var rows = rowRepository.search(importId, status, normalizedKeyword,
+                PageRequest.of(Math.max(0, page), Math.min(Math.max(size, 1), 100)));
         return new HrPayrollDtos.PreviewResponse(toImportResponse(payrollImport), HrPageResponse.from(rows, this::toRowResponse));
+    }
+
+    @Transactional
+    public HrPayrollDtos.ImportResponse refreshEligibility(String importId, HrImportActor actor) {
+        HrPayrollImport payrollImport = requireImport(importId);
+        List<HrPayrollImportRow> rows = rowRepository.findByPayrollImportIdOrderBySourceRowNumber(importId);
+        Map<String, HrEmployee> employees = new HashMap<>();
+        employeeRepository.findAllByEmployeeCodeIn(rows.stream().map(HrPayrollImportRow::getEmployeeCode).toList())
+                .forEach(employee -> employees.put(employee.getEmployeeCode().toUpperCase(), employee));
+        Map<String, HrEmployeeTelegramBinding> bindings = new HashMap<>();
+        if (!employees.isEmpty()) {
+            bindingRepository.findAllByEmployeeIdIn(employees.values().stream().map(HrEmployee::getId).toList())
+                    .forEach(binding -> bindings.put(binding.getEmployee().getId(), binding));
+        }
+        int ready = 0;
+        int skipped = 0;
+        for (HrPayrollImportRow row : rows) {
+            HrEmployee employee = employees.get(row.getEmployeeCode().toUpperCase());
+            HrEmployeeTelegramBinding binding = employee == null ? null : bindings.get(employee.getId());
+            row.setEmployee(employee);
+            row.setTelegramChatId(null);
+            row.setTelegramUserId(null);
+            if (employee == null) {
+                row.setStatus(HrPayrollRowStatus.SKIPPED);
+                row.setErrorMessage("Không tìm thấy Mã nhân viên trong CFCBase.");
+                skipped++;
+            } else if (binding == null || binding.getStatus() != com.booking.system.hr.enums.HrTelegramBindingStatus.ACTIVE
+                    || binding.getTelegramChatId() == null || binding.getTelegramUserId() == null) {
+                row.setStatus(HrPayrollRowStatus.SKIPPED);
+                row.setErrorMessage("Chưa xác minh Telegram.");
+                skipped++;
+            } else {
+                row.setStatus(HrPayrollRowStatus.READY);
+                row.setTelegramChatId(binding.getTelegramChatId());
+                row.setTelegramUserId(binding.getTelegramUserId());
+                row.setErrorMessage(null);
+                ready++;
+            }
+            row.setUpdatedByActor(actor.subject());
+            rowRepository.save(row);
+        }
+        payrollImport.setReadyRows(ready);
+        payrollImport.setSkippedRows(skipped);
+        payrollImport.setUpdatedByActor(actor.subject());
+        return toImportResponse(importRepository.save(payrollImport));
     }
 
     @Transactional(readOnly = true)

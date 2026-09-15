@@ -49,13 +49,15 @@ class HrTelegramServiceTest {
     @Mock private HrSystemSettingRepository settingRepository;
     @Mock private HrAuditEventRepository auditRepository;
     @Mock private TelegramBotClient botClient;
+    @Mock private com.booking.system.hr.service.HrPayrollTestRecipientService payrollTestRecipientService;
 
     private HrTelegramService service;
 
     @BeforeEach
     void setUp() {
         service = new HrTelegramService(registrationRepository, bindingRepository, employeeRepository,
-                settingRepository, auditRepository, new HrImportJsonCodec(), botClient);
+                settingRepository, auditRepository, new HrImportJsonCodec(), botClient,
+                payrollTestRecipientService);
         ReflectionTestUtils.setField(service, "webhookSecret", "webhook-secret");
     }
 
@@ -114,6 +116,20 @@ class HrTelegramServiceTest {
         verify(registrationRepository).save(registration);
         verify(botClient).sendText(eq(2043568560L), org.mockito.ArgumentMatchers.contains("nhập Mã nhân viên"));
         verify(botClient, never()).sendContactRequest(any());
+    }
+
+    @Test
+    void payTestStartTokenIsHandledWithoutCreatingEmployeeRegistration() {
+        Map<String, Object> update = Map.of("message", Map.of(
+                "from", Map.of("id", 2043568560L, "username", "admin_test"),
+                "chat", Map.of("id", 2043568560L, "type", "private"),
+                "text", "/start paytest_one-time-token"));
+
+        service.handleWebhook("webhook-secret", update);
+
+        verify(payrollTestRecipientService).handleStartToken(
+                "one-time-token", 2043568560L, 2043568560L, "admin_test");
+        verify(registrationRepository, never()).save(any());
     }
 
     @Test

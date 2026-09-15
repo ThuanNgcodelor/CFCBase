@@ -16,18 +16,18 @@ import com.booking.system.hr.repository.HrPayrollCampaignRepository;
 import com.booking.system.hr.repository.HrPayrollDeliveryRepository;
 import com.booking.system.hr.repository.HrPayrollImportRepository;
 import com.booking.system.hr.repository.HrPayrollImportRowRepository;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +38,6 @@ public class HrPayrollCampaignService {
     private final HrPayrollImportRowRepository rowRepository;
     private final TelegramBotClient botClient;
     private final com.booking.system.hr.repository.HrEmployeeTelegramBindingRepository bindingRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final TransactionTemplate transactionTemplate;
 
     @Transactional
@@ -46,19 +45,34 @@ public class HrPayrollCampaignService {
         if (request != null && request.deliveryMode() != null && !"TEXT".equals(request.deliveryMode()))
             throw HrApiException.badRequest("PAYROLL_MODE_UNSUPPORTED", "Bản này chỉ hỗ trợ gửi phiếu lương dạng tin nhắn TEXT.");
         HrPayrollImport payrollImport = importRepository.findByIdForUpdate(importId).orElseThrow(() -> HrApiException.notFound("PAYROLL_IMPORT_NOT_FOUND", "Không tìm thấy lần nhập lương."));
-        if (campaignRepository.findByPayrollImportId(importId).isPresent()) throw HrApiException.conflict("PAYROLL_CAMPAIGN_EXISTS", "File lương này đã tạo đợt gửi.");
         if (campaignRepository.existsByStatusIn(List.of(HrPayrollCampaignStatus.QUEUED, HrPayrollCampaignStatus.SENDING))) throw HrApiException.conflict("PAYROLL_CAMPAIGN_ACTIVE", "Đang có một đợt gửi lương khác đang chạy.");
-        List<HrPayrollImportRow> rows = rowRepository.findByPayrollImportIdOrderBySourceRowNumber(importId);
-        HrPayrollCampaign campaign = new HrPayrollCampaign(); campaign.setPayrollImport(payrollImport); campaign.setStatus(HrPayrollCampaignStatus.QUEUED); campaign.setDeliveryMode("TEXT"); campaign.setBatchSize(50); campaign.setTotalCount(rows.size()); campaign.setCreatedByActor(actor.subject()); campaign.setUpdatedByActor(actor.subject());
+        List<HrPayrollImportRow> allRows = rowRepository.findByPayrollImportIdOrderBySourceRowNumber(importId);
+        String selectionMode = request == null || request.selectionMode() == null || request.selectionMode().isBlank()
+                ? "ALL_ELIGIBLE" : request.selectionMode().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("ALL_ELIGIBLE", "SELECTED", "SINGLE").contains(selectionMode)) {
+            throw HrApiException.badRequest("PAYROLL_SELECTION_MODE_INVALID", "Kiểu chọn người nhận không hợp lệ.");
+        }
+        Set<String> selectedIds = request == null || request.rowIds() == null ? Set.of() : new HashSet<>(request.rowIds());
+        List<HrPayrollImportRow> rows = "ALL_ELIGIBLE".equals(selectionMode)
+                ? allRows.stream().filter(row -> row.getStatus() == HrPayrollRowStatus.READY).toList()
+                : allRows.stream().filter(row -> selectedIds.contains(row.getId())).toList();
+        if (("SINGLE".equals(selectionMode) && rows.size() != 1) || ("SELECTED".equals(selectionMode) && rows.isEmpty())) {
+            throw HrApiException.badRequest("PAYROLL_SELECTION_EMPTY", "Hãy chọn đúng người nhận trước khi tạo hàng đợi.");
+        }
+        if (rows.isEmpty()) throw HrApiException.badRequest("PAYROLL_NO_ELIGIBLE_ROWS", "Không có nhân viên đủ điều kiện để gửi.");
+        HrPayrollCampaign campaign = new HrPayrollCampaign(); campaign.setPayrollImport(payrollImport); campaign.setStatus(HrPayrollCampaignStatus.QUEUED); campaign.setDeliveryMode("TEXT"); campaign.setSelectionMode(selectionMode); campaign.setBatchSize(50); campaign.setTotalCount(rows.size()); campaign.setCreatedByActor(actor.subject()); campaign.setUpdatedByActor(actor.subject());
         int pending = 0, skipped = 0;
         campaign = campaignRepository.save(campaign);
         for (HrPayrollImportRow row : rows) {
             HrPayrollDelivery delivery = new HrPayrollDelivery(); delivery.setCampaign(campaign); delivery.setImportRow(row); delivery.setEmployee(row.getEmployee()); delivery.setEmployeeCode(row.getEmployeeCode()); delivery.setEmployeeName(row.getEmployeeName()); delivery.setTelegramChatId(row.getTelegramChatId()); delivery.setCreatedByActor(actor.subject()); delivery.setUpdatedByActor(actor.subject());
-            if (row.getStatus() == HrPayrollRowStatus.READY && row.getTelegramChatId() != null) {
+            boolean alreadyQueuedOrSent = deliveryRepository.existsByImportRowIdAndStatusIn(row.getId(), List.of(
+                    HrPayrollDeliveryStatus.PENDING, HrPayrollDeliveryStatus.SENDING,
+                    HrPayrollDeliveryStatus.RETRY, HrPayrollDeliveryStatus.SENT));
+            if (row.getStatus() == HrPayrollRowStatus.READY && row.getTelegramChatId() != null && !alreadyQueuedOrSent) {
                 delivery.setMessageSnapshot(message(delivery));
                 delivery.setStatus(HrPayrollDeliveryStatus.PENDING); pending++;
             }
-            else { delivery.setStatus(HrPayrollDeliveryStatus.SKIPPED); skipped++; delivery.setLastError(row.getErrorMessage()); }
+            else { delivery.setStatus(HrPayrollDeliveryStatus.SKIPPED); skipped++; delivery.setLastError(alreadyQueuedOrSent ? "Phiếu lương này đã được xếp hàng hoặc gửi chính thức trước đó." : row.getErrorMessage()); }
             deliveryRepository.save(delivery);
         }
         campaign.setPendingCount(pending); campaign.setSkippedCount(skipped); campaign.setUpdatedByActor(actor.subject());
@@ -103,6 +117,38 @@ public class HrPayrollCampaignService {
         return toResponse(campaignRepository.save(campaign));
     }
 
+    @Transactional
+    public HrPayrollDtos.CampaignResponse resendSent(String campaignId, String deliveryId,
+                                                       HrPayrollDtos.ResendRequest request, HrImportActor actor) {
+        String reason = request == null || request.reason() == null ? "" : request.reason().trim();
+        if (reason.isBlank()) throw HrApiException.badRequest("PAYROLL_RESEND_REASON_REQUIRED", "Lý do gửi lại là bắt buộc.");
+        HrPayrollCampaign campaign = campaignRepository.findByIdForUpdate(campaignId)
+                .orElseThrow(() -> HrApiException.notFound("PAYROLL_CAMPAIGN_NOT_FOUND", "Không tìm thấy đợt gửi lương."));
+        if (campaign.getStatus() == HrPayrollCampaignStatus.QUEUED
+                || campaign.getStatus() == HrPayrollCampaignStatus.SENDING) {
+            throw HrApiException.conflict("PAYROLL_CAMPAIGN_ACTIVE", "Đợt gửi này đang chạy, chưa thể gửi lại riêng lẻ.");
+        }
+        if (campaignRepository.existsByStatusIn(List.of(HrPayrollCampaignStatus.QUEUED, HrPayrollCampaignStatus.SENDING))) {
+            throw HrApiException.conflict("PAYROLL_CAMPAIGN_ACTIVE", "Đang có một đợt gửi lương khác chạy.");
+        }
+        HrPayrollDelivery delivery = deliveryRepository.findById(deliveryId)
+                .filter(value -> value.getCampaign().getId().equals(campaignId))
+                .orElseThrow(() -> HrApiException.notFound("PAYROLL_DELIVERY_NOT_FOUND", "Không tìm thấy phiếu lương trong đợt này."));
+        if (delivery.getStatus() != HrPayrollDeliveryStatus.SENT) {
+            throw HrApiException.conflict("PAYROLL_DELIVERY_NOT_SENT", "Chỉ dùng gửi lại bản sao cho phiếu đã gửi thành công.");
+        }
+        delivery.setStatus(HrPayrollDeliveryStatus.RETRY);
+        delivery.setLastResendReason(reason);
+        delivery.setLastError(null);
+        delivery.setUpdatedByActor(actor.subject());
+        deliveryRepository.save(delivery);
+        campaign.setStatus(HrPayrollCampaignStatus.QUEUED);
+        campaign.setFinishedAt(null);
+        campaign.setUpdatedByActor(actor.subject());
+        refreshCounts(campaign);
+        return toResponse(campaignRepository.save(campaign));
+    }
+
     public void process(String campaignId) {
         HrPayrollCampaign campaign = transactionTemplate.execute(status -> {
             HrPayrollCampaign current = campaignRepository.findByIdForUpdate(campaignId).orElseThrow();
@@ -136,7 +182,7 @@ public class HrPayrollCampaignService {
                     continue;
                 }
                 TelegramBotClient.PayrollSendResult result;
-                try { result = botClient.sendPayrollText(delivery.getTelegramChatId(), message(delivery)); }
+                try { result = botClient.sendPayrollText(delivery.getTelegramChatId(), outboundMessage(delivery)); }
                 catch (RuntimeException exception) { result = new TelegramBotClient.PayrollSendResult(false, "UNCERTAIN: Lỗi xử lý; cần đối soát trước khi gửi lại."); }
                 var outcome = result;
                 transactionTemplate.execute(status -> {
@@ -171,14 +217,14 @@ public class HrPayrollCampaignService {
     @Transactional(readOnly = true)
     public HrPayrollDtos.CampaignResponse campaignForImport(String importId) {
         if (!importRepository.existsById(importId)) throw HrApiException.notFound("PAYROLL_IMPORT_NOT_FOUND", "Không tìm thấy lần nhập lương.");
-        return campaignRepository.findByPayrollImportId(importId).map(this::toResponse).orElse(null);
+        return campaignRepository.findTopByPayrollImportIdOrderByCreatedAtDesc(importId).map(this::toResponse).orElse(null);
     }
 
     @Transactional
     public void deletePreviewImport(String importId) {
         HrPayrollImport payrollImport = importRepository.findByIdForUpdate(importId)
                 .orElseThrow(() -> HrApiException.notFound("PAYROLL_IMPORT_NOT_FOUND", "Không tìm thấy lần nhập lương."));
-        if (campaignRepository.findByPayrollImportId(importId).isPresent()) {
+        if (campaignRepository.existsByPayrollImportId(importId)) {
             throw HrApiException.conflict("PAYROLL_IMPORT_HAS_CAMPAIGN", "File lương đã tạo đợt gửi nên không thể xoá.");
         }
         if (payrollImport.getStatus() != HrPayrollImportStatus.PREVIEWED) {
@@ -195,12 +241,14 @@ public class HrPayrollCampaignService {
     private void refreshCounts(HrPayrollCampaign campaign) { campaign.setPendingCount((int) deliveryRepository.countByCampaignIdAndStatus(campaign.getId(), HrPayrollDeliveryStatus.PENDING)); campaign.setSendingCount((int) deliveryRepository.countByCampaignIdAndStatus(campaign.getId(), HrPayrollDeliveryStatus.SENDING)); campaign.setSentCount((int) deliveryRepository.countByCampaignIdAndStatus(campaign.getId(), HrPayrollDeliveryStatus.SENT)); campaign.setRetryCount((int) deliveryRepository.countByCampaignIdAndStatus(campaign.getId(), HrPayrollDeliveryStatus.RETRY)); campaign.setFailedCount((int) deliveryRepository.countByCampaignIdAndStatus(campaign.getId(), HrPayrollDeliveryStatus.FAILED)); campaign.setSkippedCount((int) deliveryRepository.countByCampaignIdAndStatus(campaign.getId(), HrPayrollDeliveryStatus.SKIPPED)); }
     private String message(HrPayrollDelivery delivery) {
         if (delivery.getMessageSnapshot() != null) return delivery.getMessageSnapshot();
-        Map<String, Object> value; try { value = objectMapper.readValue(delivery.getImportRow().getPayloadJson(), new TypeReference<>() {}); } catch (Exception exception) { throw HrApiException.badRequest("PAYROLL_PAYLOAD_INVALID", "Không đọc được dữ liệu lương của " + delivery.getEmployeeCode()); }
-        return "PHIẾU LƯƠNG THÁNG " + campaignMonth(delivery) + "\n\nKính gửi anh/chị: " + delivery.getEmployeeName() + "\nMã NV: " + delivery.getEmployeeCode() + "\nSố tài khoản: " + text(value, "stk") + "\n\nCHI TIẾT LƯƠNG\nSố công: " + text(value, "cong") + "\nTiền lương: " + money(value, "tienLuong") + " đ\n\nKHẤU TRỪ / ĐÓNG GÓP\nTổng khấu trừ: " + money(value, "tongThu") + " đ\nBHXH 10,5%: " + money(value, "bhxh") + " đ\nB giặt: " + money(value, "baoGiat") + " đ\nHTKK: " + money(value, "htkk") + " đ\nĐảng phí: " + money(value, "thuDangPhi") + " đ\nĐoàn phí: " + money(value, "doanPhi") + " đ\nThuế TNCN: " + money(value, "ttn") + " đ\nASXH: " + money(value, "asxh") + " đ\nXHHC: " + money(value, "xhhc") + " đ\n\nTHỰC NHẬN (CHUYỂN KHOẢN)\n" + money(value, "nganHangChuyen") + " đ\n\nNếu có thắc mắc về phiếu lương, vui lòng liên hệ phòng Kế toán.";
+        return HrPayrollMessageRenderer.render(delivery.getImportRow(), campaignMonth(delivery));
+    }
+    private String outboundMessage(HrPayrollDelivery delivery) {
+        String content = message(delivery);
+        if (delivery.getLastResendReason() == null || delivery.getLastResendReason().isBlank()) return content;
+        return "BẢN GỬI LẠI THEO YÊU CẦU\n\n" + content;
     }
     private String campaignMonth(HrPayrollDelivery delivery) { return delivery.getCampaign().getPayrollImport().getPayrollMonth(); }
-    private static String text(Map<String, Object> value, String key) { return value.getOrDefault(key, "").toString(); }
-    private static String money(Map<String, Object> value, String key) { try { return new BigDecimal(value.getOrDefault(key, 0).toString()).setScale(0, java.math.RoundingMode.HALF_UP).toPlainString().replaceAll("\\B(?=(\\d{3})+(?!\\d))", "."); } catch (Exception ignored) { return "0"; } }
     private HrPayrollDtos.CampaignResponse toResponse(HrPayrollCampaign c) { return new HrPayrollDtos.CampaignResponse(c.getId(), c.getPayrollImport().getId(), c.getPayrollImport().getSourceFileName(), c.getPayrollImport().getPayrollMonth(), c.getStatus(), c.getTotalCount(), c.getPendingCount(), c.getSendingCount(), c.getSentCount(), c.getRetryCount(), c.getFailedCount(), c.getSkippedCount(), c.getBatchSize(), c.getStartedAt(), c.getFinishedAt(), c.getLastError()); }
     private HrPayrollDtos.PayrollDeliveryResponse toDeliveryResponse(HrPayrollDelivery d) { return new HrPayrollDtos.PayrollDeliveryResponse(d.getId(), d.getEmployeeCode(), d.getEmployeeName(), d.getStatus(), d.getAttemptCount(), d.getLastError(), d.getSentAt()); }
     private static LocalDateTime now() { return LocalDateTime.now(ZoneOffset.UTC); }

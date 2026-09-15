@@ -11,14 +11,16 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "hr_payroll_campaigns", indexes = @Index(name = "idx_hr_payroll_campaign_status", columnList = "status, created_at"))
 public class HrPayrollCampaign extends HrBaseEntity {
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "import_id", nullable = false, unique = true, foreignKey = @ForeignKey(name = "fk_hr_payroll_campaign_import"))
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "import_id", nullable = false, foreignKey = @ForeignKey(name = "fk_hr_payroll_campaign_import"))
     private HrPayrollImport payrollImport;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     private HrPayrollCampaignStatus status;
     @Column(name = "delivery_mode", nullable = false, length = 16)
     private String deliveryMode = "TEXT";
+    @Column(name = "selection_mode", nullable = false, length = 24)
+    private String selectionMode = "ALL_ELIGIBLE";
     @Column(name = "batch_size", nullable = false)
     private int batchSize = 50;
     @Column(name = "total_count", nullable = false)

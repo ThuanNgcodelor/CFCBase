@@ -7,6 +7,7 @@ import com.booking.system.hr.enums.HrPayrollRowStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 public final class HrPayrollDtos {
@@ -22,9 +23,20 @@ public final class HrPayrollDtos {
                                    HrPayrollCampaignStatus status, int total, int pending, int sending, int sent,
                                    int retry, int failed, int skipped, int batchSize, LocalDateTime startedAt,
                                    LocalDateTime finishedAt, String lastError) {}
-    public record CreateCampaignRequest(@Size(max = 16) String deliveryMode) {}
+    public record CreateCampaignRequest(@Size(max = 16) String deliveryMode,
+                                        @Size(max = 24) String selectionMode,
+                                        @Size(max = 500) List<String> rowIds) {
+        public CreateCampaignRequest(String deliveryMode) {
+            this(deliveryMode, "ALL_ELIGIBLE", List.of());
+        }
+    }
     public record PayrollDeliveryResponse(String id, String employeeCode, String employeeName,
                                           HrPayrollDeliveryStatus status, int attemptCount,
                                           String lastError, LocalDateTime sentAt) {}
     public record SendTextRequest(@NotBlank String text) {}
+    public record ResendRequest(@NotBlank @Size(max = 500) String reason) {}
+    public record TestRecipientResponse(String id, String status, String telegramUsername, Long telegramUserId,
+                                        LocalDateTime linkedAt, String linkUrl, LocalDateTime linkExpiresAt) {}
+    public record TestDeliveryResponse(String id, String employeeCode, String employeeName,
+                                       HrPayrollDeliveryStatus status, String lastError, LocalDateTime sentAt) {}
 }

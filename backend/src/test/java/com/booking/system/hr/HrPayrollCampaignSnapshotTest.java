@@ -55,13 +55,13 @@ class HrPayrollCampaignSnapshotTest {
     @Test void onlyPreviewImportWithoutCampaignCanBeDeleted() {
         var preview = new HrPayrollImport(); preview.setStatus(HrPayrollImportStatus.PREVIEWED);
         when(imports.findByIdForUpdate("preview")).thenReturn(Optional.of(preview));
-        when(campaigns.findByPayrollImportId("preview")).thenReturn(Optional.empty());
+        when(campaigns.existsByPayrollImportId("preview")).thenReturn(false);
         service.deletePreviewImport("preview");
         verify(imports).deleteById("preview");
 
         var protectedImport = new HrPayrollImport(); protectedImport.setStatus(HrPayrollImportStatus.PREVIEWED);
         when(imports.findByIdForUpdate("protected")).thenReturn(Optional.of(protectedImport));
-        when(campaigns.findByPayrollImportId("protected")).thenReturn(Optional.of(new HrPayrollCampaign()));
+        when(campaigns.existsByPayrollImportId("protected")).thenReturn(true);
         assertThatThrownBy(() -> service.deletePreviewImport("protected"))
                 .hasMessageContaining("đã tạo đợt gửi");
         verify(imports, never()).deleteById("protected");

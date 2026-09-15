@@ -12,7 +12,8 @@ import java.util.Optional;
 
 public interface HrPayrollCampaignRepository extends HrRepository<HrPayrollCampaign, String> {
     @EntityGraph(attributePaths = {"payrollImport"})
-    Optional<HrPayrollCampaign> findByPayrollImportId(String importId);
+    Optional<HrPayrollCampaign> findTopByPayrollImportIdOrderByCreatedAtDesc(String importId);
+    boolean existsByPayrollImportId(String importId);
     @EntityGraph(attributePaths = {"payrollImport"})
     Optional<HrPayrollCampaign> findById(String id);
     @Lock(LockModeType.PESSIMISTIC_WRITE)

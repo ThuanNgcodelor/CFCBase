@@ -17,4 +17,5 @@ public interface HrPayrollDeliveryRepository extends HrRepository<HrPayrollDeliv
     List<HrPayrollDelivery> findTop50ByCampaignIdAndStatusInOrderByCreatedAt(String campaignId, Collection<HrPayrollDeliveryStatus> statuses);
     List<HrPayrollDelivery> findByCampaignIdAndStatus(String campaignId, HrPayrollDeliveryStatus status);
     long countByCampaignIdAndStatus(String campaignId, HrPayrollDeliveryStatus status);
+    boolean existsByImportRowIdAndStatusIn(String importRowId, Collection<HrPayrollDeliveryStatus> statuses);
 }

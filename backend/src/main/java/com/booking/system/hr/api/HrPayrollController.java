@@ -5,8 +5,10 @@ import com.booking.system.entity.User;
 import com.booking.system.hr.api.dto.HrPageResponse;
 import com.booking.system.hr.api.dto.HrPayrollDtos;
 import com.booking.system.hr.importer.HrImportActor;
+import com.booking.system.hr.enums.HrPayrollRowStatus;
 import com.booking.system.hr.service.HrPayrollCampaignService;
 import com.booking.system.hr.service.HrPayrollService;
+import com.booking.system.hr.service.HrPayrollTestRecipientService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -21,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class HrPayrollController {
     private final HrPayrollService payrollService;
     private final HrPayrollCampaignService campaignService;
+    private final HrPayrollTestRecipientService testRecipientService;
     private final HrActorResolver actorResolver;
 
     @GetMapping("/imports")
@@ -47,14 +50,25 @@ public class HrPayrollController {
     public ResponseEntity<ApiResponse<HrPayrollDtos.PreviewResponse>> preview(
             @PathVariable String importId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(ApiResponse.success(payrollService.preview(importId, page, size), "Lấy bản xem trước file lương thành công"));
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) HrPayrollRowStatus status,
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(ApiResponse.success(payrollService.preview(importId, page, size, status, keyword), "Lấy bản xem trước file lương thành công"));
     }
 
     @DeleteMapping("/imports/{importId}")
     public ResponseEntity<ApiResponse<Void>> deletePreviewImport(@PathVariable String importId) {
         campaignService.deletePreviewImport(importId);
         return ResponseEntity.ok(ApiResponse.success(null, "Đã xoá bản xem trước file lương"));
+    }
+
+    @PostMapping("/imports/{importId}/refresh-eligibility")
+    public ResponseEntity<ApiResponse<HrPayrollDtos.ImportResponse>> refreshEligibility(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String importId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                payrollService.refreshEligibility(importId, actorResolver.fromPrincipal(principal)),
+                "Đã cập nhật điều kiện nhận Telegram"));
     }
 
     @PostMapping("/imports/{importId}/campaigns")
@@ -107,5 +121,47 @@ public class HrPayrollController {
         HrPayrollDtos.CampaignResponse response = campaignService.retryFailed(campaignId, actorResolver.fromPrincipal(principal));
         campaignService.processAsync(campaignId);
         return ResponseEntity.accepted().body(ApiResponse.success(response, "Đã xếp lại các dòng lỗi để gửi lại"));
+    }
+
+    @PostMapping("/campaigns/{campaignId}/deliveries/{deliveryId}/resend")
+    public ResponseEntity<ApiResponse<HrPayrollDtos.CampaignResponse>> resend(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String campaignId,
+            @PathVariable String deliveryId,
+            @Valid @RequestBody HrPayrollDtos.ResendRequest request) {
+        HrPayrollDtos.CampaignResponse response = campaignService.resendSent(
+                campaignId, deliveryId, request, actorResolver.fromPrincipal(principal));
+        campaignService.processAsync(campaignId);
+        return ResponseEntity.accepted().body(ApiResponse.success(response, "Đã gửi lại bản sao phiếu lương"));
+    }
+
+    @GetMapping("/test-recipient")
+    public ResponseEntity<ApiResponse<HrPayrollDtos.TestRecipientResponse>> testRecipient(
+            @AuthenticationPrincipal User principal) {
+        return ResponseEntity.ok(ApiResponse.success(testRecipientService.current(principal), "Tài khoản nhận thử"));
+    }
+
+    @PostMapping("/test-recipient/link")
+    public ResponseEntity<ApiResponse<HrPayrollDtos.TestRecipientResponse>> createTestRecipientLink(
+            @AuthenticationPrincipal User principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                testRecipientService.createLink(principal, actorResolver.fromPrincipal(principal)),
+                "Đã tạo liên kết Telegram dùng một lần"));
+    }
+
+    @DeleteMapping("/test-recipient")
+    public ResponseEntity<ApiResponse<Void>> revokeTestRecipient(@AuthenticationPrincipal User principal) {
+        testRecipientService.revoke(principal, actorResolver.fromPrincipal(principal));
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã ngắt tài khoản nhận thử"));
+    }
+
+    @PostMapping("/imports/{importId}/rows/{rowId}/test-send")
+    public ResponseEntity<ApiResponse<HrPayrollDtos.TestDeliveryResponse>> sendTest(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String importId,
+            @PathVariable String rowId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                testRecipientService.sendTest(importId, rowId, principal, actorResolver.fromPrincipal(principal)),
+                "Đã gửi bản thử qua Telegram"));
     }
 }
