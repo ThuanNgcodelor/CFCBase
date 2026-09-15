@@ -29,23 +29,27 @@ public final class HrPayrollMessageRenderer {
                 + "\n" + line("Số tài khoản", text(value, "stk"))
                 + "\n\nCHI TIẾT LƯƠNG"
                 + "\n" + line("Số công", text(value, "cong"))
-                + "\n" + line("Tiền lương", money(value, "tienLuong") + " đ")
+                + "\n" + moneyLine("Tiền lương", money(value, "tienLuong"))
                 + "\n\nKHOẢN THU TRONG LƯƠNG"
-                + "\n" + line("Tổng khoản thu", money(value, "tongThu") + " đ")
-                + "\n" + line("BHXH 10,5%", money(value, "bhxh") + " đ")
-                + "\n" + line("B giặt", money(value, "baoGiat") + " đ")
-                + "\n" + line("HTKK", money(value, "htkk") + " đ")
-                + "\n" + line("Đảng phí", money(value, "thuDangPhi") + " đ")
-                + "\n" + line("Đoàn phí", money(value, "doanPhi") + " đ")
-                + "\n" + line("Thuế TNCN", money(value, "ttn") + " đ")
-                + "\n" + line("ASXH", money(value, "asxh") + " đ")
-                + "\n" + line("XHHC", money(value, "xhhc") + " đ")
+                + "\n" + moneyLine("Tổng khoản thu", money(value, "tongThu"))
+                + "\n" + moneyLine("BHXH 10,5%", money(value, "bhxh"))
+                + "\n" + moneyLine("B giặt", money(value, "baoGiat"))
+                + "\n" + moneyLine("HTKK", money(value, "htkk"))
+                + "\n" + moneyLine("Đảng phí", money(value, "thuDangPhi"))
+                + "\n" + moneyLine("Đoàn phí", money(value, "doanPhi"))
+                + "\n" + moneyLine("Thuế TNCN", money(value, "ttn"))
+                + "\n" + moneyLine("ASXH", money(value, "asxh"))
+                + "\n" + moneyLine("XHHC", money(value, "xhhc"))
                 + "\n\nTHỰC NHẬN (CHUYỂN KHOẢN)\n" + money(value, "nganHangChuyen") + " đ"
                 + "\n\nNếu có thắc mắc về phiếu lương, vui lòng liên hệ phòng Kế toán.";
     }
 
     private static String line(String label, String value) {
         return String.format(Locale.ROOT, "%-16s: %s", label, value == null ? "" : value);
+    }
+
+    private static String moneyLine(String label, String value) {
+        return String.format(Locale.ROOT, "%-16s: %14s đ", label, value == null ? "0" : value);
     }
 
     private static String text(Map<String, Object> value, String key) {

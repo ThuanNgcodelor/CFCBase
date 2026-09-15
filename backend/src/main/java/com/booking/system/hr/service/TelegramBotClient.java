@@ -52,7 +52,11 @@ public class TelegramBotClient {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.telegram.org/bot" + botToken + "/sendMessage"))
                     .timeout(Duration.ofSeconds(8)).header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(Map.of("chat_id", chatId, "text", text))))
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(Map.of(
+                            "chat_id", chatId,
+                            "text", payrollHtml(text),
+                            "parse_mode", "HTML"
+                    ))))
                     .build();
             var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             return classifyPayrollResponse(response.statusCode(), response.body());
@@ -78,6 +82,14 @@ public class TelegramBotClient {
             }
         } catch (Exception ignored) { /* Never retain raw Telegram response or credentials. */ }
         return new PayrollSendResult(false, "UNCERTAIN: Phản hồi Telegram không xác định; cần đối soát, không gửi lại tự động.");
+    }
+
+    public static String payrollHtml(String text) {
+        String escaped = text == null ? "" : text
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
+        return "<pre>" + escaped + "</pre>";
     }
 
     public boolean testConnection() {

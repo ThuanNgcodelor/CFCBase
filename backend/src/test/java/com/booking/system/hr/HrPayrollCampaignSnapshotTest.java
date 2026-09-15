@@ -34,9 +34,9 @@ class HrPayrollCampaignSnapshotTest {
         var delivery=captor.getValue();
         assertThat(delivery.getMessageSnapshot())
                 .contains("Test User", "2026-07")
-                .contains("Tiền lương      : 14.797.000 đ")
+                .contains("Tiền lương      :     14.797.000 đ")
                 .contains("KHOẢN THU TRONG LƯƠNG")
-                .contains("Tổng khoản thu  : 1.070.000 đ")
+                .contains("Tổng khoản thu  :      1.070.000 đ")
                 .contains("THỰC NHẬN (CHUYỂN KHOẢN)\n13.727.000 đ")
                 .doesNotContain("BẢN GỬI THỬ", "Dữ liệu nguồn:", "KHẤU TRỪ / ĐÓNG GÓP", "THỰC LĨNH CHUYỂN KHOẢN");
         row.setPayloadJson("{}");
