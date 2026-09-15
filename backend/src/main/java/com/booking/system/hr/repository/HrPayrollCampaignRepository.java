@@ -4,16 +4,22 @@ import com.booking.system.hr.entity.HrPayrollCampaign;
 import com.booking.system.hr.enums.HrPayrollCampaignStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface HrPayrollCampaignRepository extends HrRepository<HrPayrollCampaign, String> {
     @EntityGraph(attributePaths = {"payrollImport"})
     Optional<HrPayrollCampaign> findTopByPayrollImportIdOrderByCreatedAtDesc(String importId);
+    List<HrPayrollCampaign> findAllByPayrollImportIdOrderByCreatedAtDesc(String importId);
     boolean existsByPayrollImportId(String importId);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from HrPayrollCampaign campaign where campaign.payrollImport.id = :importId")
+    int deleteAllByPayrollImportId(@Param("importId") String importId);
     @EntityGraph(attributePaths = {"payrollImport"})
     Optional<HrPayrollCampaign> findById(String id);
     @Lock(LockModeType.PESSIMISTIC_WRITE)

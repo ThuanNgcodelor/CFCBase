@@ -224,12 +224,24 @@ public class HrPayrollCampaignService {
     public void deletePreviewImport(String importId) {
         HrPayrollImport payrollImport = importRepository.findByIdForUpdate(importId)
                 .orElseThrow(() -> HrApiException.notFound("PAYROLL_IMPORT_NOT_FOUND", "Không tìm thấy lần nhập lương."));
-        if (campaignRepository.existsByPayrollImportId(importId)) {
-            throw HrApiException.conflict("PAYROLL_IMPORT_HAS_CAMPAIGN", "File lương đã tạo đợt gửi nên không thể xoá.");
+        List<HrPayrollCampaign> campaigns = campaignRepository.findAllByPayrollImportIdOrderByCreatedAtDesc(importId);
+        boolean hasStartedCampaign = campaigns.stream().anyMatch(campaign ->
+                campaign.getStartedAt() != null
+                        || campaign.getStatus() != HrPayrollCampaignStatus.QUEUED
+                        || campaign.getSentCount() > 0
+                        || campaign.getSendingCount() > 0
+                        || campaign.getRetryCount() > 0
+                        || campaign.getFailedCount() > 0);
+        if (hasStartedCampaign) {
+            throw HrApiException.conflict("PAYROLL_IMPORT_ALREADY_STARTED",
+                    "File đã bắt đầu gửi hoặc có lịch sử xử lý nên không thể xoá.");
         }
-        if (payrollImport.getStatus() != HrPayrollImportStatus.PREVIEWED) {
-            throw HrApiException.conflict("PAYROLL_IMPORT_NOT_PREVIEW", "Chỉ có thể xoá file lương đang ở bước xem trước.");
+        if (payrollImport.getStatus() != HrPayrollImportStatus.PREVIEWED
+                && payrollImport.getStatus() != HrPayrollImportStatus.QUEUED) {
+            throw HrApiException.conflict("PAYROLL_IMPORT_NOT_DELETABLE",
+                    "Chỉ có thể xoá file xem trước hoặc hàng đợi chưa bắt đầu gửi.");
         }
+        if (!campaigns.isEmpty()) campaignRepository.deleteAllByPayrollImportId(importId);
         importRepository.deleteById(importId);
     }
 

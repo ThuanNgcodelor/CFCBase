@@ -52,18 +52,28 @@ class HrPayrollCampaignSnapshotTest {
         assertThatThrownBy(() -> service.retryFailed("c",new HrImportActor("hr","HR","ADMIN"))).hasMessageContaining("đối soát");
         verify(deliveries,never()).save(any()); verifyNoInteractions(bot);
     }
-    @Test void onlyPreviewImportWithoutCampaignCanBeDeleted() {
+    @Test void previewAndNeverStartedQueueCanBeDeletedButStartedCampaignIsProtected() {
         var preview = new HrPayrollImport(); preview.setStatus(HrPayrollImportStatus.PREVIEWED);
         when(imports.findByIdForUpdate("preview")).thenReturn(Optional.of(preview));
-        when(campaigns.existsByPayrollImportId("preview")).thenReturn(false);
+        when(campaigns.findAllByPayrollImportIdOrderByCreatedAtDesc("preview")).thenReturn(List.of());
         service.deletePreviewImport("preview");
         verify(imports).deleteById("preview");
 
-        var protectedImport = new HrPayrollImport(); protectedImport.setStatus(HrPayrollImportStatus.PREVIEWED);
+        var queuedImport = new HrPayrollImport(); queuedImport.setStatus(HrPayrollImportStatus.QUEUED);
+        var queuedCampaign = new HrPayrollCampaign(); queuedCampaign.setStatus(HrPayrollCampaignStatus.QUEUED);
+        when(imports.findByIdForUpdate("queued")).thenReturn(Optional.of(queuedImport));
+        when(campaigns.findAllByPayrollImportIdOrderByCreatedAtDesc("queued")).thenReturn(List.of(queuedCampaign));
+        service.deletePreviewImport("queued");
+        verify(campaigns).deleteAllByPayrollImportId("queued");
+        verify(imports).deleteById("queued");
+
+        var protectedImport = new HrPayrollImport(); protectedImport.setStatus(HrPayrollImportStatus.QUEUED);
+        var startedCampaign = new HrPayrollCampaign(); startedCampaign.setStatus(HrPayrollCampaignStatus.SENDING);
+        startedCampaign.setStartedAt(java.time.LocalDateTime.of(2026, 9, 15, 9, 0));
         when(imports.findByIdForUpdate("protected")).thenReturn(Optional.of(protectedImport));
-        when(campaigns.existsByPayrollImportId("protected")).thenReturn(true);
+        when(campaigns.findAllByPayrollImportIdOrderByCreatedAtDesc("protected")).thenReturn(List.of(startedCampaign));
         assertThatThrownBy(() -> service.deletePreviewImport("protected"))
-                .hasMessageContaining("đã tạo đợt gửi");
+                .hasMessageContaining("đã bắt đầu gửi");
         verify(imports, never()).deleteById("protected");
     }
 }
