@@ -2,11 +2,15 @@ package com.booking.system.hr;
 
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrEmployeeRepository;
+import com.booking.system.hr.enums.HrEmploymentStatus;
+import com.booking.system.hr.enums.HrRosterInclusionReason;
 import com.booking.system.hr.service.HrExcelExportService;
 import com.booking.system.hr.service.HrRosterProjectionService;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
@@ -66,6 +70,48 @@ class HrExcelExportServiceTest {
                 "T7-26", "T8-26", "T9-26", "T10-26", "T11-26", "T12-26"
         );
         assertThat(zipEntry(file.content(), "xl/worksheets/sheet14.xml")).isNotBlank();
+    }
+
+    @Test
+    void exportLaborBookKeepsLongFieldsReadable() throws Exception {
+        LocalDate period = LocalDate.of(2026, 8, 1);
+        HrRosterProjectionService.ProjectedRosterItem item = new HrRosterProjectionService.ProjectedRosterItem(
+                "item-1",
+                null,
+                1,
+                1,
+                "A268",
+                "Nguyễn Công Huân",
+                "HC",
+                "Hành chính",
+                "NV",
+                "Nhân viên",
+                "BT",
+                "Bình thường",
+                HrEmploymentStatus.ACTIVE,
+                LocalDate.of(2013, 4, 15),
+                null,
+                BigDecimal.valueOf(12),
+                HrRosterInclusionReason.BASELINE,
+                null,
+                null,
+                null
+        );
+        when(rosterProjectionService.projectedItems(period)).thenReturn(List.of(item));
+
+        HrExcelExportService.ExportFile file = service.exportLaborBookMonth(2026, 8);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file.content()))) {
+            var sheet = workbook.getSheet("SO_QUAN_LY_LAO_DONG");
+            assertThat(sheet).isNotNull();
+            assertThat(sheet.getColumnWidth(6)).isGreaterThanOrEqualTo(40 * 256);  // G: Nơi cư trú
+            assertThat(sheet.getColumnWidth(14)).isGreaterThanOrEqualTo(12 * 256); // O: BHYT
+            assertThat(sheet.getColumnWidth(15)).isGreaterThanOrEqualTo(12 * 256); // P: BHTN
+            assertThat(sheet.getColumnWidth(25)).isGreaterThanOrEqualTo(30 * 256); // Z: Chấm dứt HĐLĐ
+            assertThat(sheet.getRow(6).getHeightInPoints()).isGreaterThanOrEqualTo(50f);
+            assertThat(sheet.getRow(6).getCell(6).getCellStyle().getWrapText()).isTrue();
+            assertThat(sheet.getRow(6).getCell(25).getCellStyle().getWrapText()).isTrue();
+        }
     }
 
     private static List<String> sheetNames(byte[] workbook) throws Exception {

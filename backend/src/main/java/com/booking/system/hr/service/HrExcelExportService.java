@@ -56,8 +56,10 @@ public class HrExcelExportService {
             HrMovementType.INCREASE,
             HrMovementType.DECREASE
     );
-    private static final Pattern ROW_PATTERN = Pattern.compile("<row\\b[^>]*\\br=\\\"(\\d+)\\\"[^>]*>.*?</row>", Pattern.DOTALL);
-    private static final Pattern CELL_PATTERN = Pattern.compile("<c\\b([^>]*)>");
+    private static final String OPTIONAL_XML_PREFIX = "(?:[A-Za-z_][\\w.-]*:)?";
+    private static final Pattern SHEET_DATA_PATTERN = Pattern.compile("<((?:[A-Za-z_][\\w.-]*:)?)sheetData\\b[^>]*>");
+    private static final Pattern ROW_PATTERN = Pattern.compile("<" + OPTIONAL_XML_PREFIX + "row\\b[^>]*\\br=\\\"(\\d+)\\\"[^>]*>.*?</" + OPTIONAL_XML_PREFIX + "row>", Pattern.DOTALL);
+    private static final Pattern CELL_PATTERN = Pattern.compile("<" + OPTIONAL_XML_PREFIX + "c\\b([^>]*)>");
     private static final Pattern CELL_REF_PATTERN = Pattern.compile("\\br=\\\"([A-Z]+)\\d+\\\"");
     private static final Pattern CELL_STYLE_PATTERN = Pattern.compile("\\bs=\\\"([^\\\"]+)\\\"");
     private static final LocalDate EXCEL_EPOCH = LocalDate.of(1899, 12, 30);
@@ -404,10 +406,14 @@ public class HrExcelExportService {
     }
 
     private String rewriteSheetData(String template, int dataStartRow, int columnCount, List<List<CellValue>> rows, String lastColumn, boolean keepBlankTemplateRows) {
-        int sheetDataStart = template.indexOf("<sheetData>");
-        int sheetDataOpenEnd = template.indexOf('>', sheetDataStart) + 1;
-        int sheetDataClose = template.indexOf("</sheetData>");
-        if (sheetDataStart < 0 || sheetDataClose < 0) {
+        Matcher sheetDataMatcher = SHEET_DATA_PATTERN.matcher(template);
+        if (!sheetDataMatcher.find()) {
+            throw new IllegalStateException("File template Excel không có sheetData hợp lệ.");
+        }
+        String elementPrefix = sheetDataMatcher.group(1);
+        int sheetDataOpenEnd = sheetDataMatcher.end();
+        int sheetDataClose = template.indexOf("</" + elementPrefix + "sheetData>", sheetDataOpenEnd);
+        if (sheetDataClose < 0) {
             throw new IllegalStateException("File template Excel không có sheetData hợp lệ.");
         }
         String beforeRows = template.substring(0, sheetDataOpenEnd);
@@ -422,7 +428,7 @@ public class HrExcelExportService {
             }
         }
 
-        RowTemplate rowTemplate = rowTemplate(sheetData, dataStartRow, columnCount);
+        RowTemplate rowTemplate = rowTemplate(sheetData, dataStartRow, columnCount, elementPrefix);
         int rowCount = keepBlankTemplateRows ? Math.max(rows.size(), rowTemplate.originalDataRows()) : rows.size();
         for (int index = 0; index < rowCount; index++) {
             List<CellValue> values = index < rows.size() ? rows.get(index) : List.of();
@@ -435,9 +441,9 @@ public class HrExcelExportService {
                 .replaceFirst("<autoFilter ref=\\\"[^\\\"]+\\\"", "<autoFilter ref=\"A" + (dataStartRow - 1) + ":" + lastColumn + lastRow + "\"");
     }
 
-    private RowTemplate rowTemplate(String sheetData, int dataStartRow, int columnCount) {
-        String rowXml = findRow(sheetData, dataStartRow);
-        String rowAttributes = firstMatch(rowXml, Pattern.compile("<row\\b([^>]*)>"));
+    private RowTemplate rowTemplate(String sheetData, int dataStartRow, int columnCount, String elementPrefix) {
+        String rowXml = findRow(sheetData, dataStartRow, elementPrefix);
+        String rowAttributes = firstMatch(rowXml, Pattern.compile("<" + Pattern.quote(elementPrefix) + "row\\b([^>]*)>"));
         rowAttributes = rowAttributes.replaceFirst("\\s*r=\\\"[^\\\"]+\\\"", "");
         Map<String, String> styles = new LinkedHashMap<>();
         Matcher cellMatcher = CELL_PATTERN.matcher(rowXml);
@@ -456,11 +462,12 @@ public class HrExcelExportService {
                 originalRows++;
             }
         }
-        return new RowTemplate(rowAttributes, styles, columnCount, originalRows);
+        return new RowTemplate(elementPrefix, rowAttributes, styles, columnCount, originalRows);
     }
 
-    private static String findRow(String sheetData, int rowNumber) {
-        Matcher matcher = Pattern.compile("<row\\b[^>]*\\br=\\\"" + rowNumber + "\\\"[^>]*>.*?</row>", Pattern.DOTALL).matcher(sheetData);
+    private static String findRow(String sheetData, int rowNumber, String elementPrefix) {
+        String quotedPrefix = Pattern.quote(elementPrefix);
+        Matcher matcher = Pattern.compile("<" + quotedPrefix + "row\\b[^>]*\\br=\\\"" + rowNumber + "\\\"[^>]*>.*?</" + quotedPrefix + "row>", Pattern.DOTALL).matcher(sheetData);
         if (!matcher.find()) {
             throw new IllegalStateException("File template Excel thiếu dòng mẫu " + rowNumber + ".");
         }
@@ -477,26 +484,26 @@ public class HrExcelExportService {
 
     private String rowXml(RowTemplate template, int rowNumber, List<CellValue> values) {
         StringBuilder xml = new StringBuilder();
-        xml.append("<row r=\"").append(rowNumber).append("\"").append(template.rowAttributes()).append(">");
+        xml.append("<").append(template.elementPrefix()).append("row r=\"").append(rowNumber).append("\"").append(template.rowAttributes()).append(">");
         for (int columnIndex = 1; columnIndex <= template.columnCount(); columnIndex++) {
             CellValue value = columnIndex <= values.size() ? values.get(columnIndex - 1) : CellValue.blank();
-            xml.append(cellXml(columnName(columnIndex), rowNumber, template.styles().get(columnName(columnIndex)), value));
+            xml.append(cellXml(template.elementPrefix(), columnName(columnIndex), rowNumber, template.styles().get(columnName(columnIndex)), value));
         }
-        xml.append("</row>");
+        xml.append("</").append(template.elementPrefix()).append("row>");
         return xml.toString();
     }
 
-    private static String cellXml(String column, int rowNumber, String style, CellValue value) {
+    private static String cellXml(String elementPrefix, String column, int rowNumber, String style, CellValue value) {
         String ref = column + rowNumber;
         String styleAttr = style == null ? "" : " s=\"" + style + "\"";
         if (value == null || value.isBlank()) {
-            return "<c r=\"" + ref + "\"" + styleAttr + "/>";
+            return "<" + elementPrefix + "c r=\"" + ref + "\"" + styleAttr + "/>";
         }
         if (value.type() == CellType.NUMBER || value.type() == CellType.DATE) {
-            return "<c r=\"" + ref + "\"" + styleAttr + " t=\"n\"><v>" + value.value() + "</v></c>";
+            return "<" + elementPrefix + "c r=\"" + ref + "\"" + styleAttr + " t=\"n\"><" + elementPrefix + "v>" + value.value() + "</" + elementPrefix + "v></" + elementPrefix + "c>";
         }
-        return "<c r=\"" + ref + "\"" + styleAttr + " t=\"inlineStr\"><is><t" + xmlSpace(value.value()) + ">"
-                + escape(value.value()) + "</t></is></c>";
+        return "<" + elementPrefix + "c r=\"" + ref + "\"" + styleAttr + " t=\"inlineStr\"><" + elementPrefix + "is><" + elementPrefix + "t" + xmlSpace(value.value()) + ">"
+                + escape(value.value()) + "</" + elementPrefix + "t></" + elementPrefix + "is></" + elementPrefix + "c>";
     }
 
     private static String xmlSpace(String value) {
@@ -788,7 +795,7 @@ public class HrExcelExportService {
     private record SheetPlan(String name, String path) {
     }
 
-    private record RowTemplate(String rowAttributes, Map<String, String> styles, int columnCount, int originalDataRows) {
+    private record RowTemplate(String elementPrefix, String rowAttributes, Map<String, String> styles, int columnCount, int originalDataRows) {
     }
 
     private enum CellType {
