@@ -77,17 +77,19 @@ class HrPayrollTestRecipientServiceTest {
         when(testDeliveries.save(any())).thenAnswer(invocation -> {
             HrPayrollTestDelivery value = invocation.getArgument(0); value.setId("test-1"); return value;
         });
-        when(bot.sendPayrollText(eq(999L), any())).thenReturn(new TelegramBotClient.PayrollSendResult(true, null));
+        when(bot.sendPayrollPdf(eq(999L), any(), any(), any())).thenReturn(new TelegramBotClient.PayrollSendResult(true, null));
 
         var result = service.sendTest("import-1", "row-1", user, ACTOR);
 
         assertThat(result.status()).isEqualTo(HrPayrollDeliveryStatus.SENT);
         assertThat(row.getStatus()).isEqualTo(HrPayrollRowStatus.SKIPPED);
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
-        verify(bot).sendPayrollText(eq(999L), message.capture());
+        ArgumentCaptor<byte[]> document = ArgumentCaptor.forClass(byte[].class);
+        verify(bot).sendPayrollPdf(eq(999L), document.capture(), any(), message.capture());
+        assertThat(document.getValue()).startsWith((byte) '%', (byte) 'P', (byte) 'D', (byte) 'F');
         assertThat(message.getValue())
                 .startsWith("⚠️ BẢN GỬI THỬ - KHÔNG PHẢI PHIẾU LƯƠNG CHÍNH THỨC")
                 .contains("Dữ liệu nguồn: D042 - Võ Nghĩa Hòa")
-                .contains("KHOẢN THU TRONG LƯƠNG", "13.727.000 đ");
+                .contains("Mở file PDF đính kèm");
     }
 }

@@ -10,8 +10,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 @Slf4j
@@ -68,6 +71,32 @@ public class TelegramBotClient {
         }
     }
 
+    /**
+     * A payroll is sent as one Telegram document with a short caption. The PDF
+     * bytes are already frozen by the payroll service before a request is made.
+     */
+    public PayrollSendResult sendPayrollPdf(Long chatId, byte[] pdf, String fileName, String caption) {
+        if (!configured()) return new PayrollSendResult(false, "RETRYABLE: Chưa cấu hình token Telegram; chưa gửi yêu cầu.");
+        if (pdf == null || pdf.length == 0) return new PayrollSendResult(false, "REJECTED: Chưa có PDF phiếu lương để gửi.");
+        try {
+            String boundary = "----CfcPayroll" + UUID.randomUUID().toString().replace("-", "");
+            byte[] body = documentMultipart(boundary, chatId, pdf, safeFileName(fileName), caption);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.telegram.org/bot" + botToken + "/sendDocument"))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                    .build();
+            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            return classifyPayrollResponse(response.statusCode(), response.body());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new PayrollSendResult(false, "UNCERTAIN: Bị ngắt khi gửi; cần đối soát, không gửi lại tự động.");
+        } catch (Exception e) {
+            return new PayrollSendResult(false, "UNCERTAIN: Không nhận được xác nhận; tin có thể đã gửi. Cần đối soát, không gửi lại tự động.");
+        }
+    }
+
     public static PayrollSendResult classifyPayrollResponse(int status, String body) {
         try {
             var json = new ObjectMapper().readTree(body);
@@ -89,7 +118,7 @@ public class TelegramBotClient {
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
-        return "<pre>" + escaped + "</pre>";
+        return escaped.replace("\n", "<br>");
     }
 
     public boolean testConnection() {
@@ -130,6 +159,32 @@ public class TelegramBotClient {
             log.warn("Telegram API {} request failed: {}", method, exception.getClass().getSimpleName());
             return false;
         }
+    }
+
+    private byte[] documentMultipart(String boundary, Long chatId, byte[] pdf, String fileName, String caption) throws Exception {
+        try (ByteArrayOutputStream body = new ByteArrayOutputStream()) {
+            part(body, boundary, "chat_id", String.valueOf(chatId));
+            part(body, boundary, "caption", payrollHtml(caption));
+            part(body, boundary, "parse_mode", "HTML");
+            body.write(("--" + boundary + "\r\n"
+                    + "Content-Disposition: form-data; name=\"document\"; filename=\"" + fileName + "\"\r\n"
+                    + "Content-Type: application/pdf\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            body.write(pdf);
+            body.write("\r\n".getBytes(StandardCharsets.UTF_8));
+            body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+            return body.toByteArray();
+        }
+    }
+
+    private static void part(ByteArrayOutputStream body, String boundary, String name, String value) throws Exception {
+        body.write(("--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"" + name + "\"\r\n\r\n"
+                + (value == null ? "" : value) + "\r\n").getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String safeFileName(String value) {
+        String candidate = value == null ? "phieu_luong.pdf" : value.replaceAll("[^A-Za-z0-9._-]", "_");
+        return candidate.isBlank() ? "phieu_luong.pdf" : candidate;
     }
 
     private boolean configured() {

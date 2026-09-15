@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckSquare, ExternalLink, FileSpreadsheet, Play, RefreshCw, Search, Send, Settings2, TestTube2, Trash2, Unlink, UploadCloud, Users } from 'lucide-react';
+import { Check, CheckSquare, ExternalLink, FileSpreadsheet, FileText, Play, RefreshCw, Search, Send, Settings2, TestTube2, Trash2, Unlink, UploadCloud, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SEOHead from '../../components/SEOHead';
@@ -278,6 +278,7 @@ function DeliveryResults({ campaign, onCampaignChange }) {
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [message, setMessage] = useState('');
+  const [documentPreview, setDocumentPreview] = useState(null);
   const [busyId, setBusyId] = useState('');
   const openMessage = async id => {
     setBusyId(id); setMessage('');
@@ -294,6 +295,22 @@ function DeliveryResults({ campaign, onCampaignChange }) {
     catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể gửi lại bản sao.')); }
     finally { setBusyId(''); }
   };
+  const openDocument = async row => {
+    setBusyId(row.id);
+    try {
+      const blob = await hrPayrollApi.document(campaign.id, row.id);
+      setDocumentPreview(current => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url: URL.createObjectURL(blob), title: `PDF phiếu lương - ${row.employeeCode}` };
+      });
+    } catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không có PDF đã lưu cho dòng này.')); }
+    finally { setBusyId(''); }
+  };
+  const closeDocument = () => setDocumentPreview(current => {
+    if (current?.url) URL.revokeObjectURL(current.url);
+    return null;
+  });
+  useEffect(() => () => { if (documentPreview?.url) URL.revokeObjectURL(documentPreview.url); }, [documentPreview?.url]);
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError('');
     hrPayrollApi.deliveries(campaign.id, { page, size: 50 }, { signal: controller.signal })
@@ -304,9 +321,10 @@ function DeliveryResults({ campaign, onCampaignChange }) {
   }, [campaign.id, campaign.status, campaign.sent, campaign.failed, page, refresh]);
   return <section className="mt-5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
     <div className="flex flex-col gap-3 border-b border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><h2 className="font-semibold text-gray-900">Kết quả gửi Telegram</h2><HrStatusBadge status={campaign.status} label={statusLabel(campaign.status)} /></div><p className="mt-1 text-sm text-gray-500">Theo dõi trạng thái từng phiếu. Gửi lại bản sao luôn yêu cầu ghi lý do để đối soát.</p></div><Button variant="secondary" onClick={() => setRefresh(value => value + 1)}><RefreshCw className="h-4 w-4" />Cập nhật kết quả</Button></div>
-    {loading ? <div className="p-5"><HrLoading /></div> : error ? <div className="p-5"><HrError message={error} /></div> : <div className="max-h-[560px] overflow-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="sticky top-0 z-10 bg-gray-50 text-xs uppercase tracking-wide text-gray-500 shadow-[0_1px_0_0_#e5e7eb]"><tr><th className="px-5 py-3">Nhân viên</th><th>Trạng thái</th><th>Số lần gửi</th><th>Gửi lúc</th><th>Ghi chú hệ thống</th><th className="px-5 text-right">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{rows.content.map(row => <tr key={row.id} className="hover:bg-gray-50"><td className="px-5 py-3"><b className="block text-gray-900">{row.employeeCode}</b><span className="text-xs text-gray-500">{row.employeeName}</span></td><td><HrStatusBadge status={row.status} label={statusLabel(row.status)} /></td><td>{row.attemptCount}</td><td className="text-xs text-gray-500">{formatHrDateTime(row.sentAt)}</td><td className="max-w-md text-gray-500">{row.lastError || 'Không có lỗi'}</td><td className="px-5 text-right"><div className="inline-flex gap-2"><Button size="sm" variant="ghost" disabled={busyId === row.id} onClick={() => openMessage(row.id)}>Xem nội dung</Button>{row.status === 'SENT' && <Button size="sm" variant="secondary" disabled={busyId === row.id || isRunning(campaign)} onClick={() => resend(row)}>Gửi lại</Button>}</div></td></tr>)}</tbody></table></div>}
+    {loading ? <div className="p-5"><HrLoading /></div> : error ? <div className="p-5"><HrError message={error} /></div> : <div className="max-h-[560px] overflow-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="sticky top-0 z-10 bg-gray-50 text-xs uppercase tracking-wide text-gray-500 shadow-[0_1px_0_0_#e5e7eb]"><tr><th className="px-5 py-3">Nhân viên</th><th>Trạng thái</th><th>Số lần gửi</th><th>Gửi lúc</th><th>Ghi chú hệ thống</th><th className="px-5 text-right">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{rows.content.map(row => <tr key={row.id} className="hover:bg-gray-50"><td className="px-5 py-3"><b className="block text-gray-900">{row.employeeCode}</b><span className="text-xs text-gray-500">{row.employeeName}</span></td><td><HrStatusBadge status={row.status} label={statusLabel(row.status)} /></td><td>{row.attemptCount}</td><td className="text-xs text-gray-500">{formatHrDateTime(row.sentAt)}</td><td className="max-w-md text-gray-500">{row.lastError || 'Không có lỗi'}</td><td className="px-5 text-right"><div className="inline-flex gap-2"><Button size="sm" variant="ghost" disabled={busyId === row.id} onClick={() => openMessage(row.id)}>Lời nhắn</Button>{row.documentAvailable && <Button size="sm" variant="ghost" disabled={busyId === row.id} onClick={() => openDocument(row)}><FileText className="h-4 w-4" />Xem PDF</Button>}{row.status === 'SENT' && <Button size="sm" variant="secondary" disabled={busyId === row.id || isRunning(campaign)} onClick={() => resend(row)}>Gửi lại</Button>}</div></td></tr>)}</tbody></table></div>}
     {!loading && !error && !rows.content.length && <div className="p-6"><HrEmpty title="Chưa có kết quả gửi" description="Bắt đầu đợt gửi để theo dõi trạng thái từng nhân viên tại đây." /></div>}
     <HrPagination page={rows.number} totalPages={rows.totalPages} totalElements={rows.totalElements} onPageChange={setPage} />
-    <HrDrawer isOpen={Boolean(message)} onClose={() => setMessage('')} title="Nội dung phiếu đã gửi" description="Nội dung đã được đóng băng theo đúng thời điểm tạo đợt gửi."><div className="p-5 sm:p-7"><pre className="whitespace-pre-wrap break-words rounded-xl border border-gray-200 bg-gray-50 p-5 font-sans text-sm leading-6 text-gray-800">{message}</pre></div></HrDrawer>
+    <HrDrawer isOpen={Boolean(message)} onClose={() => setMessage('')} title="Lời nhắn kèm PDF" description="Lời nhắn và PDF đều được đóng băng theo đúng thời điểm tạo đợt gửi."><div className="p-5 sm:p-7"><div className="whitespace-pre-wrap break-words rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm leading-6 text-gray-800">{message}</div></div></HrDrawer>
+    <HrDrawer isOpen={Boolean(documentPreview)} onClose={closeDocument} title={documentPreview?.title || 'PDF phiếu lương'} description="Bản PDF đã đóng băng; đúng với file được gửi qua Telegram."><div className="h-[72vh] bg-gray-100 p-3"><iframe className="h-full w-full rounded-lg border border-gray-200 bg-white" title={documentPreview?.title || 'PDF phiếu lương'} src={documentPreview?.url} /></div></HrDrawer>
   </section>;
 }

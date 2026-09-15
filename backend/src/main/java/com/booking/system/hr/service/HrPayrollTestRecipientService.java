@@ -120,20 +120,21 @@ public class HrPayrollTestRecipientService {
                 .orElseThrow(() -> HrApiException.conflict("PAYROLL_TEST_RECIPIENT_NOT_LINKED", "Hãy liên kết tài khoản Telegram nhận thử trước."));
         HrPayrollImportRow row = rowRepository.findByIdAndPayrollImportId(rowId, importId)
                 .orElseThrow(() -> HrApiException.notFound("PAYROLL_ROW_NOT_FOUND", "Không tìm thấy dòng lương trong file này."));
-        String message = "⚠️ BẢN GỬI THỬ - KHÔNG PHẢI PHIẾU LƯƠNG CHÍNH THỨC\n"
-                + "Dữ liệu nguồn: " + row.getEmployeeCode() + " - " + row.getEmployeeName() + "\n\n"
-                + HrPayrollMessageRenderer.render(row, row.getPayrollImport().getPayrollMonth());
+        String message = HrPayrollMessageRenderer.testCaption(row, row.getPayrollImport().getPayrollMonth());
+        HrPayrollPdfRenderer.PayrollPdf pdf = HrPayrollPdfRenderer.render(row, row.getPayrollImport().getPayrollMonth(), true);
         HrPayrollTestDelivery delivery = new HrPayrollTestDelivery();
         delivery.setImportRow(row);
         delivery.setTestRecipient(recipient);
         delivery.setEmployeeCode(row.getEmployeeCode());
         delivery.setEmployeeName(row.getEmployeeName());
         delivery.setMessageSnapshot(message);
+        delivery.setDocumentSnapshot(pdf.bytes());
+        delivery.setDocumentFileName(pdf.fileName());
         delivery.setStatus(HrPayrollDeliveryStatus.SENDING);
         delivery.setCreatedByActor(actor.subject());
         delivery.setUpdatedByActor(actor.subject());
         delivery = testDeliveryRepository.save(delivery);
-        TelegramBotClient.PayrollSendResult result = botClient.sendPayrollText(recipient.getTelegramChatId(), message);
+        TelegramBotClient.PayrollSendResult result = botClient.sendPayrollPdf(recipient.getTelegramChatId(), pdf.bytes(), pdf.fileName(), message);
         delivery.setStatus(result.sent() ? HrPayrollDeliveryStatus.SENT : HrPayrollDeliveryStatus.FAILED);
         delivery.setLastError(result.error());
         if (result.sent()) delivery.setSentAt(now());

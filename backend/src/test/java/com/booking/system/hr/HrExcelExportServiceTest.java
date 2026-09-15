@@ -104,12 +104,17 @@ class HrExcelExportServiceTest {
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file.content()))) {
             var sheet = workbook.getSheet("SO_QUAN_LY_LAO_DONG");
             assertThat(sheet).isNotNull();
-            assertThat(sheet.getColumnWidth(6)).isGreaterThanOrEqualTo(40 * 256);  // G: Nơi cư trú
+            assertThat(sheet.getColumnWidth(0)).isBetween(4 * 256, 6 * 256);   // A: STT
+            assertThat(sheet.getColumnWidth(2)).isGreaterThanOrEqualTo(20 * 256); // C: Họ và tên
+            assertThat(sheet.getColumnWidth(6)).isGreaterThanOrEqualTo(32 * 256);  // G: Nơi cư trú
             assertThat(sheet.getColumnWidth(14)).isGreaterThanOrEqualTo(12 * 256); // O: BHYT
             assertThat(sheet.getColumnWidth(15)).isGreaterThanOrEqualTo(12 * 256); // P: BHTN
             assertThat(sheet.getColumnWidth(25)).isGreaterThanOrEqualTo(30 * 256); // Z: Chấm dứt HĐLĐ
             assertThat(sheet.getRow(6).getHeightInPoints()).isGreaterThanOrEqualTo(50f);
+            assertThat(sheet.getRow(4).getHeightInPoints()).isGreaterThanOrEqualTo(30f);
+            assertThat(sheet.getRow(5).getHeightInPoints()).isGreaterThanOrEqualTo(80f);
             assertThat(sheet.getRow(6).getCell(6).getCellStyle().getWrapText()).isTrue();
+            assertThat(sheet.getRow(6).getCell(21).getCellStyle().getWrapText()).isTrue();
             assertThat(sheet.getRow(6).getCell(25).getCellStyle().getWrapText()).isTrue();
         }
     }

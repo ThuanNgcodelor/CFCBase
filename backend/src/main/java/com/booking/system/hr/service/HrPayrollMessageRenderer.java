@@ -14,6 +14,24 @@ public final class HrPayrollMessageRenderer {
 
     private HrPayrollMessageRenderer() { }
 
+    /**
+     * The Telegram caption is deliberately short. Detailed personal payroll data
+     * is carried by the attached PDF, not by a fragile fixed-width chat message.
+     */
+    public static String officialCaption(HrPayrollImportRow row, String payrollMonth) {
+        return "PHIẾU LƯƠNG THÁNG " + displayMonth(payrollMonth)
+                + "\n\nKính gửi anh/chị " + safe(row.getEmployeeName()) + " (" + safe(row.getEmployeeCode()) + ")."
+                + "\nVui lòng mở file PDF đính kèm để xem chi tiết phiếu lương.";
+    }
+
+    public static String testCaption(HrPayrollImportRow row, String payrollMonth) {
+        return "⚠️ BẢN GỬI THỬ - KHÔNG PHẢI PHIẾU LƯƠNG CHÍNH THỨC"
+                + "\nDữ liệu nguồn: " + safe(row.getEmployeeCode()) + " - " + safe(row.getEmployeeName())
+                + "\n\nPhiếu lương tháng " + displayMonth(payrollMonth)
+                + "\nMở file PDF đính kèm để kiểm tra nội dung trước khi gửi chính thức.";
+    }
+
+    /** Kept for old callers and old snapshots. New delivery uses the PDF renderer. */
     public static String render(HrPayrollImportRow row, String payrollMonth) {
         Map<String, Object> value;
         try {
@@ -43,6 +61,25 @@ public final class HrPayrollMessageRenderer {
                 + "\n\nTHỰC NHẬN (CHUYỂN KHOẢN)\n" + money(value, "nganHangChuyen") + " đ"
                 + "\n\nNếu có thắc mắc về phiếu lương, vui lòng liên hệ phòng Kế toán.";
     }
+
+    static String displayMonth(String payrollMonth) {
+        if (payrollMonth != null && payrollMonth.matches("\\d{4}-\\d{2}")) {
+            return payrollMonth.substring(5) + "/" + payrollMonth.substring(0, 4);
+        }
+        return safe(payrollMonth);
+    }
+
+    static Map<String, Object> payload(HrPayrollImportRow row) {
+        try {
+            return MAPPER.readValue(row.getPayloadJson(), new TypeReference<>() { });
+        } catch (Exception exception) {
+            throw HrApiException.badRequest("PAYROLL_PAYLOAD_INVALID", "Không đọc được dữ liệu lương của " + row.getEmployeeCode());
+        }
+    }
+
+    static String value(Map<String, Object> value, String key) { return text(value, key); }
+    static String formattedMoney(Map<String, Object> value, String key) { return money(value, key); }
+    static String safe(String value) { return value == null ? "" : value.trim(); }
 
     private static String line(String label, String value) {
         return String.format(Locale.ROOT, "%-16s: %s", label, value == null ? "" : value);

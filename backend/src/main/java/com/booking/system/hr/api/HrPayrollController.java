@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -112,6 +113,15 @@ public class HrPayrollController {
     public ResponseEntity<ApiResponse<String>> previewMessage(@PathVariable String campaignId, @PathVariable String deliveryId) {
         return ResponseEntity.ok().header("Cache-Control", "no-store")
                 .body(ApiResponse.success(campaignService.previewMessage(campaignId, deliveryId), "Nội dung phiếu lương đã lưu"));
+    }
+
+    @GetMapping(value = "/campaigns/{campaignId}/deliveries/{deliveryId}/document", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> previewDocument(@PathVariable String campaignId, @PathVariable String deliveryId) {
+        HrPayrollCampaignService.PayrollDocument document = campaignService.previewDocument(campaignId, deliveryId);
+        String safeName = document.fileName() == null ? "phieu_luong.pdf" : document.fileName().replaceAll("[^A-Za-z0-9._-]", "_");
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + safeName + "\"")
+                .contentType(MediaType.APPLICATION_PDF).body(document.bytes());
     }
 
     @PostMapping("/campaigns/{campaignId}/retry")

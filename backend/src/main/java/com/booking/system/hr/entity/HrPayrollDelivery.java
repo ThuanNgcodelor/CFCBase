@@ -13,6 +13,12 @@ import java.time.LocalDateTime;
 public class HrPayrollDelivery extends HrBaseEntity {
     @Column(name = "message_snapshot", columnDefinition = "TEXT")
     private String messageSnapshot;
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "document_snapshot", columnDefinition = "LONGBLOB")
+    private byte[] documentSnapshot;
+    @Column(name = "document_file_name", length = 255)
+    private String documentFileName;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "campaign_id", nullable = false, foreignKey = @ForeignKey(name = "fk_hr_payroll_delivery_campaign"))
     private HrPayrollCampaign campaign;

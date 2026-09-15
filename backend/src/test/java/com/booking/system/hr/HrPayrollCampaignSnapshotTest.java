@@ -29,19 +29,18 @@ class HrPayrollCampaignSnapshotTest {
         row.setPayloadJson("{\"tienLuong\":14797000,\"tongThu\":1070000,\"nganHangChuyen\":13727000,\"cong\":26}");
         when(rows.findByPayrollImportIdOrderBySourceRowNumber("import-1")).thenReturn(List.of(row));
         when(campaigns.save(any())).thenAnswer(i -> { HrPayrollCampaign c=i.getArgument(0); c.setId("campaign-1"); return c; });
-        service.create("import-1",new HrPayrollDtos.CreateCampaignRequest("TEXT"),new HrImportActor("hr", "HR", "ADMIN"));
+        service.create("import-1",new HrPayrollDtos.CreateCampaignRequest("PDF"),new HrImportActor("hr", "HR", "ADMIN"));
         var captor=ArgumentCaptor.forClass(HrPayrollDelivery.class); verify(deliveries).save(captor.capture());
         var delivery=captor.getValue();
         assertThat(delivery.getMessageSnapshot())
-                .contains("Test User", "2026-07")
-                .contains("Tiền lương      :     14.797.000 đ")
-                .contains("KHOẢN THU TRONG LƯƠNG")
-                .contains("Tổng khoản thu  :      1.070.000 đ")
-                .contains("THỰC NHẬN (CHUYỂN KHOẢN)\n13.727.000 đ")
-                .doesNotContain("BẢN GỬI THỬ", "Dữ liệu nguồn:", "KHẤU TRỪ / ĐÓNG GÓP", "THỰC LĨNH CHUYỂN KHOẢN");
+                .contains("Test User", "07/2026", "file PDF đính kèm")
+                .doesNotContain("BẢN GỬI THỬ", "Dữ liệu nguồn:");
+        assertThat(delivery.getDocumentSnapshot()).startsWith((byte) '%', (byte) 'P', (byte) 'D', (byte) 'F');
+        assertThat(delivery.getDocumentFileName()).isEqualTo("Phieu_luong_2026_07_TEST.pdf");
         row.setPayloadJson("{}");
         when(deliveries.findById("d1")).thenReturn(Optional.of(delivery));
-        assertThat(service.previewMessage("campaign-1","d1")).contains("13.727.000 đ");
+        assertThat(service.previewMessage("campaign-1","d1")).contains("file PDF đính kèm");
+        assertThat(service.previewDocument("campaign-1", "d1").bytes()).startsWith((byte) '%', (byte) 'P', (byte) 'D', (byte) 'F');
         assertThatThrownBy(() -> service.previewMessage("other","d1")).hasMessageContaining("Không tìm thấy");
         verifyNoInteractions(bot);
     }

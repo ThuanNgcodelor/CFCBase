@@ -32,7 +32,7 @@ public final class HrPayrollDtos {
     }
     public record PayrollDeliveryResponse(String id, String employeeCode, String employeeName,
                                           HrPayrollDeliveryStatus status, int attemptCount,
-                                          String lastError, LocalDateTime sentAt) {}
+                                          String lastError, LocalDateTime sentAt, boolean documentAvailable) {}
     public record SendTextRequest(@NotBlank String text) {}
     public record ResendRequest(@NotBlank @Size(max = 500) String reason) {}
     public record TestRecipientResponse(String id, String status, String telegramUsername, Long telegramUserId,

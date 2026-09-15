@@ -24,6 +24,12 @@ public class HrPayrollTestDelivery extends HrBaseEntity {
     private String employeeName;
     @Column(name = "message_snapshot", nullable = false, columnDefinition = "TEXT")
     private String messageSnapshot;
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "document_snapshot", columnDefinition = "LONGBLOB")
+    private byte[] documentSnapshot;
+    @Column(name = "document_file_name", length = 255)
+    private String documentFileName;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     private HrPayrollDeliveryStatus status;

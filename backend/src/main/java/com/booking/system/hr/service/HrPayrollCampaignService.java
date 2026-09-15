@@ -21,6 +21,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -42,8 +43,10 @@ public class HrPayrollCampaignService {
 
     @Transactional
     public HrPayrollDtos.CampaignResponse create(String importId, HrPayrollDtos.CreateCampaignRequest request, HrImportActor actor) {
-        if (request != null && request.deliveryMode() != null && !"TEXT".equals(request.deliveryMode()))
-            throw HrApiException.badRequest("PAYROLL_MODE_UNSUPPORTED", "Bản này chỉ hỗ trợ gửi phiếu lương dạng tin nhắn TEXT.");
+        String deliveryMode = request == null || request.deliveryMode() == null || request.deliveryMode().isBlank()
+                ? "PDF" : request.deliveryMode().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("PDF", "TEXT").contains(deliveryMode))
+            throw HrApiException.badRequest("PAYROLL_MODE_UNSUPPORTED", "Kiểu gửi phiếu lương không hợp lệ.");
         HrPayrollImport payrollImport = importRepository.findByIdForUpdate(importId).orElseThrow(() -> HrApiException.notFound("PAYROLL_IMPORT_NOT_FOUND", "Không tìm thấy lần nhập lương."));
         if (campaignRepository.existsByStatusIn(List.of(HrPayrollCampaignStatus.QUEUED, HrPayrollCampaignStatus.SENDING))) throw HrApiException.conflict("PAYROLL_CAMPAIGN_ACTIVE", "Đang có một đợt gửi lương khác đang chạy.");
         List<HrPayrollImportRow> allRows = rowRepository.findByPayrollImportIdOrderBySourceRowNumber(importId);
@@ -60,7 +63,7 @@ public class HrPayrollCampaignService {
             throw HrApiException.badRequest("PAYROLL_SELECTION_EMPTY", "Hãy chọn đúng người nhận trước khi tạo hàng đợi.");
         }
         if (rows.isEmpty()) throw HrApiException.badRequest("PAYROLL_NO_ELIGIBLE_ROWS", "Không có nhân viên đủ điều kiện để gửi.");
-        HrPayrollCampaign campaign = new HrPayrollCampaign(); campaign.setPayrollImport(payrollImport); campaign.setStatus(HrPayrollCampaignStatus.QUEUED); campaign.setDeliveryMode("TEXT"); campaign.setSelectionMode(selectionMode); campaign.setBatchSize(50); campaign.setTotalCount(rows.size()); campaign.setCreatedByActor(actor.subject()); campaign.setUpdatedByActor(actor.subject());
+        HrPayrollCampaign campaign = new HrPayrollCampaign(); campaign.setPayrollImport(payrollImport); campaign.setStatus(HrPayrollCampaignStatus.QUEUED); campaign.setDeliveryMode(deliveryMode); campaign.setSelectionMode(selectionMode); campaign.setBatchSize(50); campaign.setTotalCount(rows.size()); campaign.setCreatedByActor(actor.subject()); campaign.setUpdatedByActor(actor.subject());
         int pending = 0, skipped = 0;
         campaign = campaignRepository.save(campaign);
         for (HrPayrollImportRow row : rows) {
@@ -69,7 +72,12 @@ public class HrPayrollCampaignService {
                     HrPayrollDeliveryStatus.PENDING, HrPayrollDeliveryStatus.SENDING,
                     HrPayrollDeliveryStatus.RETRY, HrPayrollDeliveryStatus.SENT));
             if (row.getStatus() == HrPayrollRowStatus.READY && row.getTelegramChatId() != null && !alreadyQueuedOrSent) {
-                delivery.setMessageSnapshot(message(delivery));
+                delivery.setMessageSnapshot(HrPayrollMessageRenderer.officialCaption(row, payrollImport.getPayrollMonth()));
+                if ("PDF".equals(deliveryMode)) {
+                    HrPayrollPdfRenderer.PayrollPdf pdf = HrPayrollPdfRenderer.render(row, payrollImport.getPayrollMonth(), false);
+                    delivery.setDocumentSnapshot(pdf.bytes());
+                    delivery.setDocumentFileName(pdf.fileName());
+                }
                 delivery.setStatus(HrPayrollDeliveryStatus.PENDING); pending++;
             }
             else { delivery.setStatus(HrPayrollDeliveryStatus.SKIPPED); skipped++; delivery.setLastError(alreadyQueuedOrSent ? "Phiếu lương này đã được xếp hàng hoặc gửi chính thức trước đó." : row.getErrorMessage()); }
@@ -182,7 +190,12 @@ public class HrPayrollCampaignService {
                     continue;
                 }
                 TelegramBotClient.PayrollSendResult result;
-                try { result = botClient.sendPayrollText(delivery.getTelegramChatId(), outboundMessage(delivery)); }
+                try {
+                    result = hasPdf(delivery)
+                            ? botClient.sendPayrollPdf(delivery.getTelegramChatId(), delivery.getDocumentSnapshot(),
+                                    delivery.getDocumentFileName(), outboundMessage(delivery))
+                            : botClient.sendPayrollText(delivery.getTelegramChatId(), outboundMessage(delivery));
+                }
                 catch (RuntimeException exception) { result = new TelegramBotClient.PayrollSendResult(false, "UNCERTAIN: Lỗi xử lý; cần đối soát trước khi gửi lại."); }
                 var outcome = result;
                 transactionTemplate.execute(status -> {
@@ -212,6 +225,17 @@ public class HrPayrollCampaignService {
         if (!delivery.getCampaign().getId().equals(campaignId)) throw HrApiException.notFound("PAYROLL_DELIVERY_NOT_FOUND", "Không tìm thấy dòng gửi trong đợt này.");
         if (delivery.getMessageSnapshot() == null) throw HrApiException.conflict("PAYROLL_MESSAGE_NOT_SAVED", "Đợt cũ hoặc dòng bỏ qua chưa lưu nội dung tin nhắn; không có bản đối chiếu chính xác.");
         return delivery.getMessageSnapshot();
+    }
+
+    @Transactional(readOnly = true)
+    public PayrollDocument previewDocument(String campaignId, String deliveryId) {
+        HrPayrollDelivery delivery = deliveryRepository.findById(deliveryId)
+                .filter(value -> value.getCampaign().getId().equals(campaignId))
+                .orElseThrow(() -> HrApiException.notFound("PAYROLL_DELIVERY_NOT_FOUND", "Không tìm thấy phiếu lương trong đợt này."));
+        if (!hasPdf(delivery)) {
+            throw HrApiException.conflict("PAYROLL_DOCUMENT_NOT_SAVED", "Đợt cũ này chỉ lưu tin nhắn TEXT; chưa có PDF để xem lại.");
+        }
+        return new PayrollDocument(delivery.getDocumentSnapshot(), delivery.getDocumentFileName());
     }
 
     @Transactional(readOnly = true)
@@ -258,10 +282,12 @@ public class HrPayrollCampaignService {
     private String outboundMessage(HrPayrollDelivery delivery) {
         String content = message(delivery);
         if (delivery.getLastResendReason() == null || delivery.getLastResendReason().isBlank()) return content;
-        return "BẢN GỬI LẠI THEO YÊU CẦU\n\n" + content;
+        return "PHIẾU LƯƠNG GỬI LẠI\n\n" + content;
     }
     private String campaignMonth(HrPayrollDelivery delivery) { return delivery.getCampaign().getPayrollImport().getPayrollMonth(); }
     private HrPayrollDtos.CampaignResponse toResponse(HrPayrollCampaign c) { return new HrPayrollDtos.CampaignResponse(c.getId(), c.getPayrollImport().getId(), c.getPayrollImport().getSourceFileName(), c.getPayrollImport().getPayrollMonth(), c.getStatus(), c.getTotalCount(), c.getPendingCount(), c.getSendingCount(), c.getSentCount(), c.getRetryCount(), c.getFailedCount(), c.getSkippedCount(), c.getBatchSize(), c.getStartedAt(), c.getFinishedAt(), c.getLastError()); }
-    private HrPayrollDtos.PayrollDeliveryResponse toDeliveryResponse(HrPayrollDelivery d) { return new HrPayrollDtos.PayrollDeliveryResponse(d.getId(), d.getEmployeeCode(), d.getEmployeeName(), d.getStatus(), d.getAttemptCount(), d.getLastError(), d.getSentAt()); }
+    private HrPayrollDtos.PayrollDeliveryResponse toDeliveryResponse(HrPayrollDelivery d) { return new HrPayrollDtos.PayrollDeliveryResponse(d.getId(), d.getEmployeeCode(), d.getEmployeeName(), d.getStatus(), d.getAttemptCount(), d.getLastError(), d.getSentAt(), hasPdf(d)); }
+    private static boolean hasPdf(HrPayrollDelivery delivery) { return delivery.getDocumentSnapshot() != null && delivery.getDocumentSnapshot().length > 0 && StringUtils.hasText(delivery.getDocumentFileName()); }
+    public record PayrollDocument(byte[] bytes, String fileName) { }
     private static LocalDateTime now() { return LocalDateTime.now(ZoneOffset.UTC); }
 }

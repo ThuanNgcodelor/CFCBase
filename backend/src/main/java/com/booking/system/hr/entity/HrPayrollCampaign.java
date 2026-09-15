@@ -18,7 +18,7 @@ public class HrPayrollCampaign extends HrBaseEntity {
     @Column(name = "status", nullable = false, length = 32)
     private HrPayrollCampaignStatus status;
     @Column(name = "delivery_mode", nullable = false, length = 16)
-    private String deliveryMode = "TEXT";
+    private String deliveryMode = "PDF";
     @Column(name = "selection_mode", nullable = false, length = 24)
     private String selectionMode = "ALL_ELIGIBLE";
     @Column(name = "batch_size", nullable = false)
