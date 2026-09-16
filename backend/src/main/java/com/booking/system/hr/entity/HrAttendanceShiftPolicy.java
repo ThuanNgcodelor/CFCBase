@@ -38,6 +38,8 @@ public class HrAttendanceShiftPolicy extends HrBaseEntity {
     private boolean crossesMidnight;
     @Column(name = "night_allowance_amount", nullable = false, precision = 15, scale = 2) 
     private BigDecimal nightAllowanceAmount = BigDecimal.ZERO;
+    @Column(name = "counts_toward_night_reward", nullable = false)
+    private boolean countsTowardNightReward;
     @Column(nullable = false) 
     private int priority;
     @Column(nullable = false) 

@@ -11,6 +11,7 @@ import {
   Send,
   UserPlus,
   Users,
+  Trophy,
 } from 'lucide-react';
 
 export function buildNavigation({ isAdmin, isHrUser = false, pendingRegistrationCount = 0 }) {
@@ -35,6 +36,7 @@ export function buildNavigation({ isAdmin, isHrUser = false, pendingRegistration
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
     { name: 'Gửi phiếu lương', path: '/manager/hr/payroll', icon: Send },
     { name: 'Chấm công', path: '/manager/hr/attendance', icon: Clock3 },
+    { name: 'Thưởng ca đêm', path: '/manager/hr/attendance/night-rewards', icon: Trophy },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
     { name: 'Mẫu Word', path: '/manager/hr/document-templates', icon: FileCheck2 },
   ];
@@ -89,6 +91,7 @@ export function getPageTitle(pathname, items) {
     ['/manager/hr/rosters/', 'Danh sách tháng'],
     ['/manager/hr/telegram', 'Telegram nhân viên'],
     ['/manager/hr/payroll', 'Gửi phiếu lương'],
+    ['/manager/hr/attendance/night-rewards', 'Thưởng ca đêm'],
     ['/manager/hr/attendance', 'Chấm công'],
     ['/admin/profile-approvals/', 'Chi tiết hồ sơ'],
     ['/profile', 'Hồ sơ cá nhân'],

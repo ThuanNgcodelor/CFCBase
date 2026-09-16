@@ -15,14 +15,14 @@ public final class HrProductionAttendanceDtos {
     public record ShiftPolicyResponse(String id, String code, String name, HrAttendancePolicyGroup policyGroup,
                                       LocalTime standardStart, LocalTime standardEnd, LocalTime checkInFrom,
                                       LocalTime checkInUntil, LocalTime checkOutFrom, LocalTime checkOutUntil,
-                                      boolean crossesMidnight, BigDecimal nightAllowanceAmount, int priority,
+                                      boolean crossesMidnight, BigDecimal nightAllowanceAmount, boolean countsTowardNightReward, int priority,
                                       boolean active, LocalDate validFrom, LocalDate validTo, long rowVersion) { }
 
     public record UpdateShiftPolicyRequest(@NotBlank String name, @NotNull LocalTime standardStart,
                                            @NotNull LocalTime standardEnd, @NotNull LocalTime checkInFrom,
                                            @NotNull LocalTime checkInUntil, @NotNull LocalTime checkOutFrom,
                                            @NotNull LocalTime checkOutUntil, @NotNull BigDecimal nightAllowanceAmount,
-                                           int priority, boolean active, @NotNull LocalDate validFrom,
+                                           boolean countsTowardNightReward, int priority, boolean active, @NotNull LocalDate validFrom,
                                            LocalDate validTo, long rowVersion) { }
 
     public record WorkCreditRuleResponse(String id, String shiftPolicyId, String name,

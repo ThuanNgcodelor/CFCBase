@@ -20,6 +20,7 @@ import com.booking.system.hr.enums.HrProductionAttendanceShiftStatus;
 import com.booking.system.hr.enums.HrWorkforceGroup;
 import com.booking.system.hr.service.HrProductionAttendanceService;
 import com.booking.system.hr.service.HrProductionAttendanceReportService;
+import com.booking.system.hr.service.HrNightRewardService;
 import com.booking.system.hr.service.HrProductionShiftMatcher;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes = HrProductionAttendanceServiceTest.TestApplication.class)
 @Import({HrProductionAttendanceWorkbookParser.class, HrProductionShiftMatcher.class,
-        HrProductionAttendanceService.class, HrProductionAttendanceReportService.class})
+        HrProductionAttendanceService.class, HrProductionAttendanceReportService.class, HrNightRewardService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class HrProductionAttendanceServiceTest {
     private static final HrImportActor ACTOR = new HrImportActor("manager@example.test", "Manager", "MANAGER");
@@ -108,6 +109,10 @@ class HrProductionAttendanceServiceTest {
         assertThat(policyRepository.findAllByOrderByPolicyGroupAscPriorityDescCodeAsc())
                 .extracting(value -> value.getCode() + ":" + value.getPolicyGroup() + ":" + value.isActive())
                 .contains("CN_DAY:PRODUCTION_WORKER:true", "CN_18_5:PRODUCTION_WORKER:true");
+        assertThat(policyRepository.findAllByOrderByPolicyGroupAscPriorityDescCodeAsc())
+                .filteredOn(value -> "CN_18_5".equals(value.getCode()))
+                .singleElement()
+                .satisfies(value -> assertThat(value.isCountsTowardNightReward()).isTrue());
         assertThat(policyRepository.findAllByOrderByPolicyGroupAscPriorityDescCodeAsc())
                 .filteredOn(value -> value.getPolicyGroup().name().equals("PRODUCTION_WORKER"))
                 .extracting(value -> value.getCode() + ":" + value.getCheckInFrom() + "-" + value.getCheckInUntil()

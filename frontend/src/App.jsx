@@ -37,6 +37,7 @@ const HrDocumentTemplates = lazy(() => import('./pages/hr/HrDocumentTemplates'))
 const HrWordEditor = lazy(() => import('./pages/hr/HrWordEditor'));
 const HrAttendance = lazy(() => import('./pages/hr/HrAttendance'));
 const HrProductionAttendance = lazy(() => import('./pages/hr/HrProductionAttendance'));
+const HrNightRewards = lazy(() => import('./pages/hr/HrNightRewards'));
 
 const SessionCheckScreen = ({ unavailable = false }) => (
   <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', justifyContent: 'center' }}>
@@ -190,6 +191,7 @@ function App() {
         <Route path="manager/hr/word-editor/:id" element={<HrRoute><HrWordEditor /></HrRoute>} />
         <Route path="manager/hr/attendance" element={<HrRoute><HrAttendance /></HrRoute>} />
         <Route path="manager/hr/attendance/production" element={<HrRoute><HrProductionAttendance /></HrRoute>} />
+        <Route path="manager/hr/attendance/night-rewards" element={<HrRoute><HrNightRewards /></HrRoute>} />
 
         {/* Quản trị tài khoản */}
         <Route path="admin">

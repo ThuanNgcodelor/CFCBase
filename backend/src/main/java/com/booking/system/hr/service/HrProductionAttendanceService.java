@@ -46,6 +46,7 @@ public class HrProductionAttendanceService {
     private final HrAttendanceExemptionRepository exemptionRepository;
     private final HrEmployeeRepository employeeRepository;
     private final HrAuditEventRepository auditRepository;
+    private final HrNightRewardService nightRewardService;
     private final EntityManager entityManager;
     /** Spring Boot 4 in this project does not expose a Jackson 2 ObjectMapper bean. */
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -77,6 +78,7 @@ public class HrProductionAttendanceService {
         policy.setCheckOutFrom(request.checkOutFrom());
         policy.setCheckOutUntil(request.checkOutUntil());
         policy.setNightAllowanceAmount(request.nightAllowanceAmount());
+        policy.setCountsTowardNightReward(request.countsTowardNightReward());
         policy.setPriority(request.priority());
         policy.setActive(request.active());
         policy.setValidFrom(request.validFrom());
@@ -85,7 +87,7 @@ public class HrProductionAttendanceService {
         shiftPolicyRepository.save(policy);
         entityManager.flush();
         audit(actor, "UPDATE_SHIFT_POLICY", "HR_ATTENDANCE_SHIFT_POLICY", id,
-                List.of("schedule", "recognitionWindow", "allowance", "validity"), Map.of("code", policy.getCode()));
+                List.of("schedule", "recognitionWindow", "allowance", "nightRewardEligibility", "validity"), Map.of("code", policy.getCode()));
         return toPolicyResponse(policy);
     }
 
@@ -529,6 +531,8 @@ public class HrProductionAttendanceService {
         if (batch.getRowVersion() != request.rowVersion()) {
             throw HrApiException.conflict("PRODUCTION_ATTENDANCE_IMPORT_VERSION_CONFLICT", "Đợt chấm công vừa được người khác cập nhật.");
         }
+        nightRewardService.markStaleForAttendanceImport(importId, actor,
+                "Đợt chấm công được ADMIN mở khóa: " + request.reason().trim());
         batch.setStatus(HrAttendanceImportStatus.PREVIEWED);
         batch.setConfirmedAt(null);
         batch.setConfirmedByActor(null);
@@ -1013,7 +1017,7 @@ public class HrProductionAttendanceService {
         return new HrProductionAttendanceDtos.ShiftPolicyResponse(value.getId(), value.getCode(), value.getName(), value.getPolicyGroup(),
                 value.getStandardStart(), value.getStandardEnd(), value.getCheckInFrom(), value.getCheckInUntil(),
                 value.getCheckOutFrom(), value.getCheckOutUntil(), value.isCrossesMidnight(), value.getNightAllowanceAmount(),
-                value.getPriority(), value.isActive(), value.getValidFrom(), value.getValidTo(), value.getRowVersion());
+                value.isCountsTowardNightReward(), value.getPriority(), value.isActive(), value.getValidFrom(), value.getValidTo(), value.getRowVersion());
     }
 
     private HrProductionAttendanceDtos.WorkCreditRuleResponse toCreditRuleResponse(HrAttendanceWorkCreditRule value) {
