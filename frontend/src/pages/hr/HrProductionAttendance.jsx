@@ -154,8 +154,20 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
         nightAllowanceAmount: Number(form.nightAllowanceAmount),
         rowVersion: shift.rowVersion,
       });
+      // Do not treat a 2xx alone as a completed attendance decision. The
+      // backend must have persisted the audit trail before the drawer closes;
+      // otherwise HR would be left with a misleading success state.
+      const persistedAdjustments = await api.adjustments(shift.id);
+      if (!persistedAdjustments?.length) {
+        throw new Error('ATTENDANCE_DECISION_NOT_PERSISTED');
+      }
+      setAdjustments(persistedAdjustments);
       await onSaved(saved, form.action);
-    } catch (error) { toast.error(apiErrorMessage(error, 'Không thể lưu quyết định ca.')); }
+    } catch (error) {
+      toast.error(error?.message === 'ATTENDANCE_DECISION_NOT_PERSISTED'
+        ? 'Máy chủ chưa xác nhận lịch sử điều chỉnh. Ca vẫn đang mở; không coi là đã lưu.'
+        : apiErrorMessage(error, 'Không thể lưu quyết định ca.'));
+    }
     finally { setSaving(false); }
   };
 
