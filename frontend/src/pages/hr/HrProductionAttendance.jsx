@@ -145,7 +145,7 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
     if (!form.reason.trim()) return toast.error('Phải nhập lý do quyết định.');
     setSaving(true);
     try {
-      await api.decideShift(shift.id, {
+      const saved = await api.decideShift(shift.id, {
         ...form,
         shiftCode: form.shiftCode || null,
         checkInPunchId: form.checkInPunchId || null,
@@ -154,8 +154,7 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
         nightAllowanceAmount: Number(form.nightAllowanceAmount),
         rowVersion: shift.rowVersion,
       });
-      toast.success(form.action === 'REJECT' ? 'Đã từ chối ca và tính lại các ngày liên quan.' : 'Đã lưu và tính lại chuỗi ngày liên quan.');
-      onSaved();
+      await onSaved(saved, form.action);
     } catch (error) { toast.error(apiErrorMessage(error, 'Không thể lưu quyết định ca.')); }
     finally { setSaving(false); }
   };
@@ -307,6 +306,7 @@ export default function HrProductionAttendance({ onSelectMode }) {
       const nextImports = importPage?.content || [];
       setImports(nextImports); setSummary(nextSummary); setPolicies(nextPolicies || []); setCreditRules(nextCreditRules || []); setIncidents(incidentPage?.content || []);
       setActiveImportId((current) => nextImports.some((item) => item.id === current) ? current : nextImports[0]?.id || '');
+      return nextImports;
     } catch (requestError) { setError(apiErrorMessage(requestError, 'Không thể tải chấm công ca sản xuất.')); }
     finally { setLoading(false); }
   }, [month]);
@@ -341,7 +341,7 @@ export default function HrProductionAttendance({ onSelectMode }) {
     if (!activeImport) return;
     setView(activeImport.status === 'CONFIRMED' ? 'CONFIRMED' : activeImport.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'AUTO_MATCHED');
     setEmployeeCode(''); setPage(0); setEmployeeSummaryPage(0); setSelected(new Set());
-  }, [activeImport, activeImportId]);
+  }, [activeImportId, activeImport?.status]);
 
   const mutate = async (action, success, fallback) => {
     setWorking(true);
@@ -413,7 +413,19 @@ export default function HrProductionAttendance({ onSelectMode }) {
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"><div className="hidden overflow-x-auto md:block"><table className="min-w-[1180px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && <th className="w-12 px-3 py-3">Chọn</th>}<th className="px-3 py-3">Nhân viên</th><th className="px-3 py-3">Ngày</th><th className="px-3 py-3">Nhóm / ca</th><th className="px-3 py-3">Vào</th><th className="px-3 py-3">Ra</th><th className="px-3 py-3">Công</th><th className="px-3 py-3">Phụ cấp</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3">Thao tác</th></tr></thead><tbody className="divide-y divide-gray-100">{shifts.content.map((item) => <tr key={item.id} className={item.status === 'NEEDS_REVIEW' ? 'bg-amber-50/60' : ''}>{view === 'AUTO_MATCHED' && activeImport.status === 'PREVIEWED' && <td className="px-3 py-3"><input type="checkbox" checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} /></td>}<td className="px-3 py-3"><b>{item.employeeCode}</b><p className="text-xs text-gray-500">{item.employeeName}</p></td><td className="px-3 py-3">{formatHrDate(item.workDate)}</td><td className="px-3 py-3">{policyLabel(item.policyGroup)}<p className="text-xs text-gray-500">{item.shiftCode || '—'}</p></td><td className="px-3 py-3">{time(item.checkInAt)}</td><td className="px-3 py-3">{time(item.checkOutAt)}</td><td className="px-3 py-3 font-semibold">{work(item.workValue)}</td><td className="px-3 py-3">{money(item.nightAllowanceAmount)}</td><td className="px-3 py-3">{item.status === 'NO_PUNCH' ? <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">Không có dấu chấm – 0 công</span> : <HrStatusBadge status={item.status} />}</td><td className="px-3 py-3"><Button type="button" size="sm" variant="secondary" onClick={() => setDecisionShift(item)}><Eye className="h-4 w-4" />{activeImport.status === 'PREVIEWED' && item.status === 'NEEDS_REVIEW' ? 'Kiểm tra' : 'Chi tiết'}</Button></td></tr>)}</tbody></table></div><div className="divide-y divide-gray-100 md:hidden">{shifts.content.map((item) => <article key={item.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><b>{item.employeeCode} · {item.employeeName}</b><p className="text-sm text-gray-500">{formatHrDate(item.workDate)} · {item.shiftCode || 'Chưa rõ ca'}</p></div>{item.status === 'NO_PUNCH' ? <span className="rounded-full bg-gray-100 px-2 py-1 text-xs">Không chấm</span> : <HrStatusBadge status={item.status} />}</div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p>Vào: {time(item.checkInAt)}</p><p>Ra: {time(item.checkOutAt)}</p><p>Công: <b>{work(item.workValue)}</b></p><p>Phụ cấp: {money(item.nightAllowanceAmount)}</p></div><Button type="button" size="sm" variant="secondary" className="mt-3 w-full" onClick={() => setDecisionShift(item)}>{activeImport.status === 'PREVIEWED' && item.status === 'NEEDS_REVIEW' ? 'Kiểm tra ca này' : 'Xem chi tiết'}</Button></article>)}</div>{!shifts.content.length && <div className="p-6"><HrEmpty title={view === 'NEEDS_REVIEW' ? 'Đã xử lý hết ca cần kiểm tra' : 'Không có dữ liệu phù hợp'} description={view === 'NEEDS_REVIEW' ? 'Chuyển sang “Sẵn sàng” hoặc chốt file nếu không còn bất thường.' : 'Thử bỏ lọc nhân viên hoặc chọn nhóm khác.'} /></div>}</div><HrPagination page={shifts.page || 0} totalPages={shifts.totalPages || 0} totalElements={shifts.totalElements || 0} onPageChange={setPage} />
     </section>}
 
-    <ShiftDecisionDrawer shift={decisionShift} policies={policies} readOnly={activeImport?.status !== 'PREVIEWED'} onClose={() => setDecisionShift(null)} onSaved={async () => { setDecisionShift(null); await Promise.all([loadBase(true), loadShifts(), loadEmployeeSummaries()]); }} />
+    <ShiftDecisionDrawer shift={decisionShift} policies={policies} readOnly={activeImport?.status !== 'PREVIEWED'} onClose={() => setDecisionShift(null)} onSaved={async (saved, action) => {
+      const reviewBefore = activeImport?.reviewShifts;
+      setDecisionShift(null);
+      const nextImports = await loadBase(true);
+      await Promise.all([loadShifts(), loadEmployeeSummaries()]);
+      const nextImport = nextImports?.find((item) => item.id === saved.importId);
+      const actionLabel = action === 'REJECT' ? 'Đã từ chối ca' : 'Đã xác nhận ca';
+      if (Number.isInteger(reviewBefore) && Number.isInteger(nextImport?.reviewShifts)) {
+        toast.success(`${actionLabel} ${saved.employeeCode} · ${formatHrDate(saved.workDate)}. Cần xử lý: ${reviewBefore} → ${nextImport.reviewShifts}.`);
+      } else {
+        toast.success(`${actionLabel} ${saved.employeeCode} · ${formatHrDate(saved.workDate)}. Dữ liệu liên quan đã được tính lại.`);
+      }
+    }} />
     <ConfigurationDrawer open={settingsOpen} policies={policies} creditRules={creditRules} onClose={() => setSettingsOpen(false)} onRefresh={loadBase} />
     <IncidentDrawer open={incidentOpen} activeImport={activeImport} incidents={incidents} onClose={() => setIncidentOpen(false)} onRefresh={() => { loadBase(); loadShifts(); }} />
   </HrPageShell>;
