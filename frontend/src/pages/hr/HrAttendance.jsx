@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { vi } from 'date-fns/locale/vi';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -9,7 +10,6 @@ import { hrCatalogApi } from '../../api/hrCatalogApi';
 import { HrError, HrPageHeader, HrPageShell, HrStatusBadge, HrLoading } from '../../components/hr/HrUi';
 import { Button } from '../../components/ui/Button';
 import SEOHead from '../../components/SEOHead';
-import HrProductionAttendance from './HrProductionAttendance';
 
 const productionAttendanceEnabled = import.meta.env.VITE_HR_PRODUCTION_ATTENDANCE_ENABLED !== 'false';
 
@@ -31,7 +31,7 @@ function monthToDate(value) { if (!value) return null; const [year, month] = val
 function dateToMonth(date) { if (!date) return ''; return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
 function MonthPicker({ value, onChange, placeholder }) { return <DatePicker selected={monthToDate(value)} onChange={(date) => onChange(dateToMonth(date))} showMonthYearPicker showFullMonthYearPicker dateFormat="MM/yyyy" locale="vi" isClearable portalId="attendance-month-picker" popperClassName="cfc-month-picker-popper" popperPlacement="bottom-start" placeholderText={placeholder} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />; }
 
-function HrAdministrativeAttendance({ onSelectMode, showProductionTab }) {
+function HrAdministrativeAttendance({ onSelectProduction, showProductionTab }) {
   const [form, setForm] = useState(initial); const [imports, setImports] = useState({ content: [] }); const [selected, setSelected] = useState(null); const [preview, setPreview] = useState(null); const [files, setFiles] = useState([]); const [monthFilter, setMonthFilter] = useState(''); const [uploadMonth, setUploadMonth] = useState(''); const [summaryMonth, setSummaryMonth] = useState(dateToMonth(new Date())); const [summary, setSummary] = useState(null); const [summaryLoading, setSummaryLoading] = useState(false); const [departmentFilter, setDepartmentFilter] = useState(''); const [employeeFilter, setEmployeeFilter] = useState(''); const [departments, setDepartments] = useState([]); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [uploading, setUploading] = useState(false); const [error, setError] = useState('');
   const reload = (filter = monthFilter) => { setLoading(true); setError(''); Promise.all([hrAttendanceApi.getSettings(), hrAttendanceApi.listImports({ page: 0, size: 20, month: monthToApi(filter) }), hrCatalogApi.getAllCatalogItems('departments', { status: 'ACTIVE', sort: 'name,asc' })]).then(([settings, result, departmentItems]) => { setForm(configToForm(settings)); setImports(result || { content: [] }); setDepartments(departmentItems || []); }).catch(() => setError('Không thể tải cấu hình hoặc lịch sử import chấm công.')).finally(() => setLoading(false)); };
   useEffect(() => { reload(); }, []);
@@ -50,7 +50,7 @@ function HrAdministrativeAttendance({ onSelectMode, showProductionTab }) {
   return <HrPageShell>
     <SEOHead title="CFC Base | Chấm công" url="https://cfcbooking.io.vn/manager/hr/attendance" />
     <HrPageHeader title="Chấm công" description="Cấu hình định dạng file một lần, sau đó mỗi tháng chỉ cần tải file Excel lên để xem trước và lưu dữ liệu." actions={<Button type="button" variant="secondary" onClick={reload}>Tải lại</Button>} />
-    <div className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm"><button type="button" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Hành chính</button>{showProductionTab && <button type="button" onClick={() => onSelectMode('production')} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Ca sản xuất</button>}</div>
+    <div className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm"><button type="button" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Hành chính</button>{showProductionTab && <button type="button" onClick={onSelectProduction} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Ca sản xuất</button>}</div>
     <section className="mb-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><BarChart3 className="h-5 w-5" /></div><div><h2 className="font-semibold text-gray-900">Tổng hợp tháng đã xác nhận</h2><p className="mt-1 text-sm text-gray-500">KPI chỉ tính các file đã bấm Xác nhận; dữ liệu xem trước không đi vào báo cáo.</p></div></div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[260px_1fr_280px_auto]">
@@ -86,8 +86,9 @@ function HrAdministrativeAttendance({ onSelectMode, showProductionTab }) {
 }
 
 export default function HrAttendance() {
-  const [mode, setMode] = useState('administrative');
-  return productionAttendanceEnabled && mode === 'production'
-    ? <HrProductionAttendance onSelectMode={setMode} />
-    : <HrAdministrativeAttendance onSelectMode={setMode} showProductionTab={productionAttendanceEnabled} />;
+  const navigate = useNavigate();
+  return <HrAdministrativeAttendance
+    showProductionTab={productionAttendanceEnabled}
+    onSelectProduction={() => navigate('/manager/hr/attendance/production')}
+  />;
 }

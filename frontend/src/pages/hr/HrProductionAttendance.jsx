@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, Download, Eye, FileSpreadsheet,
   Lock, RefreshCw, Settings2, Trash2, Unlock, UploadCloud,
@@ -51,9 +52,10 @@ function downloadBlob(response, fallbackName) {
   URL.revokeObjectURL(url);
 }
 
-function AttendanceTabs({ onSelectMode }) {
+function AttendanceTabs() {
+  const navigate = useNavigate();
   return <div className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-    <button type="button" onClick={() => onSelectMode('administrative')} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Hành chính</button>
+    <button type="button" onClick={() => navigate('/manager/hr/attendance')} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Hành chính</button>
     <button type="button" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Ca sản xuất</button>
   </div>;
 }
@@ -283,7 +285,7 @@ function IncidentDrawer({ open, activeImport, incidents, onClose, onRefresh }) {
   return <HrDrawer isOpen={open} onClose={onClose} title="Sự cố máy chấm công" description="Chỉ đề xuất ca có một dấu thật; không tạo giờ chấm giả." size="wide"><div className="space-y-5 p-5 sm:p-7"><form onSubmit={create} className="grid gap-3 sm:grid-cols-2"><input type="datetime-local" required value={form.startedAt} onChange={(event) => setForm({ ...form, startedAt: event.target.value })} className="h-11 rounded-lg border border-gray-300 px-3" /><input type="datetime-local" required value={form.endedAt} onChange={(event) => setForm({ ...form, endedAt: event.target.value })} className="h-11 rounded-lg border border-gray-300 px-3" /><select value={form.scopeType} onChange={(event) => setForm({ ...form, scopeType: event.target.value })} className="h-11 rounded-lg border border-gray-300 bg-white px-3"><option value="ALL">Toàn bộ</option><option value="EMPLOYEE_CODES">Mã nhân viên</option><option value="POLICY_GROUP">Nhóm chính sách</option><option value="DEPARTMENT">Phòng ban</option></select><input disabled={form.scopeType === 'ALL'} value={form.scopeValues} onChange={(event) => setForm({ ...form, scopeValues: event.target.value })} placeholder="Giá trị, cách nhau dấu phẩy" className="h-11 rounded-lg border border-gray-300 px-3" /><textarea required rows={2} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Mô tả sự cố" className="rounded-lg border border-gray-300 p-3 sm:col-span-2" /><Button type="submit" className="sm:col-span-2">Tạo bản nháp sự cố</Button></form><section><h3 className="font-semibold">Lịch sử sự cố</h3><div className="mt-2 space-y-2">{incidents.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 p-3 text-sm"><div><HrStatusBadge status={item.status} /><p className="mt-1">{time(item.startedAt)} → {time(item.endedAt)}</p><p className="text-gray-500">{item.description}</p></div>{item.status === 'DRAFT' && <div className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => analyze(item)}>Phân tích</Button><Button type="button" size="sm" variant="danger" onClick={async () => { if (!window.confirm('Hủy bản nháp sự cố này?')) return; try { await api.cancelIncident(item.id); toast.success('Đã hủy sự cố.'); onRefresh(); } catch (error) { toast.error(apiErrorMessage(error, 'Không thể hủy sự cố.')); } }}>Hủy</Button></div>}</div>)}</div></section>{activeIncident && <section className="border-t border-gray-200 pt-4"><h3 className="font-semibold">Ca đề xuất ({candidates.length})</h3><div className="mt-2 space-y-2">{candidates.map((item) => <label key={item.shiftId} className="flex gap-3 rounded-lg border border-gray-200 p-3 text-sm"><input type="checkbox" checked={selected.has(item.shiftId)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.shiftId); else next.delete(item.shiftId); return next; })} /><span><b>{item.employeeCode}</b> · {formatHrDate(item.workDate)} · {item.shiftCode || 'Chưa rõ ca'}<span className="block text-gray-500">Thiếu dấu dự kiến {time(item.missingExpectedAt)} · đề xuất {work(item.proposedWorkValue)} công</span></span></label>)}{!candidates.length && <p className="text-sm text-gray-500">Không có ca phù hợp trong phạm vi sự cố.</p>}</div>{candidates.length > 0 && <Button type="button" className="mt-3" onClick={confirm}>Xác nhận {selected.size} ca đã chọn</Button>}</section>}</div></HrDrawer>;
 }
 
-export default function HrProductionAttendance({ onSelectMode }) {
+export default function HrProductionAttendance() {
   const [month, setMonth] = useState(storedMonth);
   const [imports, setImports] = useState([]);
   const [activeImportId, setActiveImportId] = useState('');
@@ -306,6 +308,7 @@ export default function HrProductionAttendance({ onSelectMode }) {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const initializedImportContext = useRef('');
   const activeImport = imports.find((item) => item.id === activeImportId) || null;
   const isAdmin = authApi.getRole() === 'ADMIN';
 
@@ -351,9 +354,12 @@ export default function HrProductionAttendance({ onSelectMode }) {
   }, [loadBase, loadShifts, loadEmployeeSummaries]);
   useEffect(() => {
     if (!activeImport) return;
+    const context = `${activeImportId}:${activeImport.status}`;
+    if (initializedImportContext.current === context) return;
+    initializedImportContext.current = context;
     setView(activeImport.status === 'CONFIRMED' ? 'CONFIRMED' : activeImport.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'AUTO_MATCHED');
     setEmployeeCode(''); setPage(0); setEmployeeSummaryPage(0); setSelected(new Set());
-  }, [activeImportId, activeImport?.status]);
+  }, [activeImportId, activeImport, activeImport?.reviewShifts, activeImport?.status]);
 
   const mutate = async (action, success, fallback) => {
     setWorking(true);
@@ -404,9 +410,9 @@ export default function HrProductionAttendance({ onSelectMode }) {
   if (error) return <HrPageShell><HrError message={error} onRetry={loadBase} /></HrPageShell>;
 
   return <HrPageShell>
-    <SEOHead title="CFC Base | Chấm công ca sản xuất" url="https://cfcbooking.io.vn/manager/hr/attendance" />
-    <HrPageHeader title="Chấm công" description="Import dấu chấm Time Attendance, ghép ca Công nhân/KCS, review và xuất bảng công từ dữ liệu đã chốt." actions={<Button type="button" variant="secondary" onClick={loadBase}><RefreshCw className="h-4 w-4" />Tải lại</Button>} />
-    <AttendanceTabs onSelectMode={onSelectMode} />
+    <SEOHead title="CFC Base | Chấm công ca sản xuất" url="https://cfcbooking.io.vn/manager/hr/attendance/production" />
+    <HrPageHeader title="Chấm công ca sản xuất" description="Import dấu chấm Time Attendance, ghép ca Công nhân/KCS, review và xuất bảng công từ dữ liệu đã chốt." actions={<Button type="button" variant="secondary" onClick={loadBase}><RefreshCw className="h-4 w-4" />Tải lại</Button>} />
+    <AttendanceTabs />
     {shadowMode && <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"><b>Đang chạy thử (SHADOW).</b> Kết quả dùng để đối chiếu với HR, chưa dùng trả lương. File Excel xuất ra được đóng dấu SHADOW.</div>}
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-end gap-3"><label className="min-w-44 flex-1 text-sm font-medium text-gray-700">Tháng<input type="month" value={month} onChange={(event) => { setMonth(event.target.value); setPage(0); }} className="mt-1 h-11 w-full rounded-lg border border-gray-300 px-3" /></label><Button type="button" variant="secondary" onClick={() => setSettingsOpen(true)}><Settings2 className="h-4 w-4" />Cấu hình</Button><Button type="button" variant="secondary" onClick={() => setIncidentOpen(true)}><AlertTriangle className="h-4 w-4" />Sự cố máy</Button>{summary?.confirmedImports > 0 && <Button type="button" onClick={async () => { try { downloadBlob(await api.exportSummary(month), `${shadowMode ? 'SHADOW_' : ''}BANG_CONG_CA_SAN_XUAT_${month}.xlsx`); } catch (requestError) { toast.error(apiErrorMessage(requestError, 'Không thể xuất Excel.')); } }}><Download className="h-4 w-4" />Xuất Excel</Button>}</div>
