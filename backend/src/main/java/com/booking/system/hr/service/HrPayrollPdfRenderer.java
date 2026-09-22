@@ -62,18 +62,15 @@ public final class HrPayrollPdfRenderer {
                 section(canvas, semibold, "CHI TIẾT LƯƠNG", 58, y);
                 y -= 18;
                 y = amountRow(canvas, regular, semibold, "Số công", HrPayrollMessageRenderer.value(payload, "cong"), y, false);
+                if (HrPayrollMessageRenderer.hasValue(payload, "soCaDem")) {
+                    y = amountRow(canvas, regular, semibold, "Số ca đêm", HrPayrollMessageRenderer.value(payload, "soCaDem"), y, false);
+                }
                 y = amountRow(canvas, regular, semibold, "Tiền lương", HrPayrollMessageRenderer.formattedMoney(payload, "tienLuong"), y, true);
 
                 y -= 12;
                 section(canvas, semibold, "KHOẢN THU TRONG LƯƠNG", 58, y);
                 y -= 18;
                 y = amountRow(canvas, regular, semibold, "Tổng khoản thu", HrPayrollMessageRenderer.formattedMoney(payload, "tongThu"), y, true);
-                for (var field : List.of(
-                        new Field("BHXH 10,5%", "bhxh"), new Field("B giặt", "baoGiat"), new Field("HTKK", "htkk"),
-                        new Field("Đảng phí", "thuDangPhi"), new Field("Đoàn phí", "doanPhi"), new Field("Thuế TNCN", "ttn"),
-                        new Field("ASXH", "asxh"), new Field("XHHC", "xhhc"))) {
-                    y = amountRow(canvas, regular, regular, field.label(), HrPayrollMessageRenderer.formattedMoney(payload, field.key()), y, true);
-                }
 
                 y -= 10;
                 canvas.setNonStrokingColor(PALE_GREEN);
@@ -93,8 +90,6 @@ public final class HrPayrollPdfRenderer {
             throw HrApiException.badRequest("PAYROLL_PDF_FAILED", "Không thể tạo PDF phiếu lương cho " + row.getEmployeeCode());
         }
     }
-
-    private record Field(String label, String key) { }
 
     private static PDFont loadFont(PDDocument document, String path) throws Exception {
         InputStream stream = HrPayrollPdfRenderer.class.getResourceAsStream(path);

@@ -25,6 +25,22 @@ class HrPayrollPdfRendererTest {
             assertThat(document.getNumberOfPages()).isEqualTo(1);
             String content = new PDFTextStripper().getText(document);
             assertThat(content).contains("PHIẾU LƯƠNG", "Võ Nghĩa Hòa", "KHOẢN THU TRONG LƯƠNG", "13.727.000 đ");
+            assertThat(content).doesNotContain("B giặt", "BHXH 10,5%", "HTKK");
+            assertThat(content).doesNotContain("Số ca đêm");
+        }
+    }
+
+    @Test
+    void rendersNightShiftWhenPresentInPayload() throws Exception {
+        HrPayrollImportRow row = new HrPayrollImportRow();
+        row.setEmployeeCode("D104"); row.setEmployeeName("Nguyễn Chi Thanh");
+        row.setPayloadJson("{\"stk\":\"105003628440\",\"cong\":26,\"soCaDem\":10,\"tienLuong\":15185000,\"tongThu\":844000,\"nganHangChuyen\":14341000}");
+
+        HrPayrollPdfRenderer.PayrollPdf pdf = HrPayrollPdfRenderer.render(row, "2027-08", false);
+
+        try (var document = Loader.loadPDF(new ByteArrayInputStream(pdf.bytes()).readAllBytes())) {
+            String content = new PDFTextStripper().getText(document);
+            assertThat(content).contains("Số ca đêm", "10", "15.185.000 đ", "844.000 đ");
         }
     }
 }

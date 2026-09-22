@@ -286,8 +286,9 @@ systemd-run --user --unit "${BACKEND_UNIT%.service}" --collect \
   --property=Restart=on-failure --property=RestartSec=5s \
   "$BACKEND_LAUNCHER" >/dev/null
 
+BACKEND_STARTUP_TIMEOUT="${BACKEND_STARTUP_TIMEOUT:-120}"
 backend_ready=false
-for _ in {1..60}; do
+for ((i=1; i<=BACKEND_STARTUP_TIMEOUT; i++)); do
   if ! systemctl --user is-active --quiet "$BACKEND_UNIT"; then
     tail -n 80 "$BACKEND_LOG" >&2 || true
     systemctl --user stop "$BACKEND_UNIT" 2>/dev/null || true
@@ -303,7 +304,7 @@ done
 if [[ "$backend_ready" != true ]]; then
   tail -n 80 "$BACKEND_LOG" >&2 || true
   systemctl --user stop "$BACKEND_UNIT" 2>/dev/null || true
-  fail "Backend khong san sang sau 60 giay. Log: $BACKEND_LOG"
+  fail "Backend khong san sang sau ${BACKEND_STARTUP_TIMEOUT} giay. Log: $BACKEND_LOG"
 fi
 
 if [[ "$FLYWAY_BASELINE_MODE" == true ]]; then

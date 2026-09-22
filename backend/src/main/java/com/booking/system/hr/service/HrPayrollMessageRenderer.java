@@ -36,6 +36,7 @@ public final class HrPayrollMessageRenderer {
         } catch (Exception exception) {
             throw HrApiException.badRequest("PAYROLL_PAYLOAD_INVALID", "Không đọc được dữ liệu lương của " + row.getEmployeeCode());
         }
+        String caDemLine = hasValue(value, "soCaDem") ? "\n" + quantityLine("Số ca đêm", text(value, "soCaDem")) : "";
         return "PHIẾU LƯƠNG THÁNG " + displayMonth(payrollMonth)
                 + "\n────────────────────"
                 + "\n\nTHÔNG TIN NHÂN VIÊN"
@@ -44,19 +45,20 @@ public final class HrPayrollMessageRenderer {
                 + "\n" + line("Số tài khoản", text(value, "stk"))
                 + "\n\nCHI TIẾT LƯƠNG"
                 + "\n" + quantityLine("Số công", text(value, "cong"))
+                + caDemLine
                 + "\n" + moneyLine("Tiền lương", money(value, "tienLuong"))
                 + "\n\nKHOẢN THU TRONG LƯƠNG"
                 + "\n" + moneyLine("Tổng khoản thu", money(value, "tongThu"))
-                + "\n" + moneyLine("BHXH 10,5%", money(value, "bhxh"))
-                + "\n" + moneyLine("B giặt", money(value, "baoGiat"))
-                + "\n" + moneyLine("HTKK", money(value, "htkk"))
-                + "\n" + moneyLine("Đảng phí", money(value, "thuDangPhi"))
-                + "\n" + moneyLine("Đoàn phí", money(value, "doanPhi"))
-                + "\n" + moneyLine("Thuế TNCN", money(value, "ttn"))
-                + "\n" + moneyLine("ASXH", money(value, "asxh"))
-                + "\n" + moneyLine("XHHC", money(value, "xhhc"))
                 + "\n\nTHỰC NHẬN (CHUYỂN KHOẢN)\n" + money(value, "nganHangChuyen") + " đ"
                 + "\n\nNếu có thắc mắc về phiếu lương, vui lòng liên hệ phòng Kế toán.";
+    }
+
+    static boolean hasValue(Map<String, Object> value, String key) {
+        if (value == null || !value.containsKey(key)) return false;
+        Object val = value.get(key);
+        if (val == null) return false;
+        String str = val.toString().trim();
+        return !str.isBlank() && !"0".equals(str) && !"0.0".equals(str);
     }
 
     static String displayMonth(String payrollMonth) {

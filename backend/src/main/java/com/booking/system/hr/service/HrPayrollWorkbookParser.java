@@ -49,6 +49,7 @@ public class HrPayrollWorkbookParser {
             Map.entry("stk", List.of("số tài khoản", "stk")),
             Map.entry("plh", List.of("p+l+h", "p l h", "f+l", "f l")),
             Map.entry("cong", List.of("công")),
+            Map.entry("soCaDem", List.of("số ca đêm", "ca đêm", "so ca dem", "ca dem")),
             Map.entry("tienLuong", List.of("tiền lương")),
             Map.entry("tongThu", List.of("tổng thu")),
             Map.entry("bhxh", List.of("bhxh 10,5%", "bhxh 10.5%", "bhxh")),
