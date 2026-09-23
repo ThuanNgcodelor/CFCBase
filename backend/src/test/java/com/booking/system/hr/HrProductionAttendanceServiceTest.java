@@ -84,6 +84,52 @@ class HrProductionAttendanceServiceTest {
     @jakarta.annotation.Resource private HrEmployeeRepository employeeRepository;
 
     @Test
+    void manualNightShiftDecisionAcceptsCheckoutOutsideAutomaticWindowOnExpectedDate() throws Exception {
+        employeeRepository.findByEmployeeCode("B900").orElseGet(() -> {
+            HrEmployee employee = new HrEmployee();
+            employee.setEmployeeCode("B900");
+            employee.setFullName("Nguyễn Văn Ca Đêm");
+            employee.setWorkforceGroup(HrWorkforceGroup.GENERAL_LABOR);
+            employee.setCreatedByActor(ACTOR.subject());
+            employee.setUpdatedByActor(ACTOR.subject());
+            return employeeRepository.save(employee);
+        });
+
+        var batch = service.upload("B900-night-manual.xlsx", nightManualOverrideWorkbook(), "2026-08", ACTOR);
+        try {
+            var shift = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
+                    .filter(value -> value.getEmployeeCode().equals("B900"))
+                    .filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 10)))
+                    .findFirst().orElseThrow();
+            assertThat(shift.getShiftCodeSnapshot()).isEqualTo("CN_18_5");
+            assertThat(shift.getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.NEEDS_REVIEW);
+            assertThat(shift.getCheckInAt()).isEqualTo(LocalDateTime.of(2026, 8, 10, 18, 26));
+            assertThat(shift.getCheckOutAt()).isNull();
+
+            var punches = service.shiftPunches(shift.getId());
+            var checkIn = punches.stream()
+                    .filter(value -> value.punchedAt().equals(LocalDateTime.of(2026, 8, 10, 18, 26)))
+                    .findFirst().orElseThrow();
+            var checkOut = punches.stream()
+                    .filter(value -> value.punchedAt().equals(LocalDateTime.of(2026, 8, 11, 6, 6)))
+                    .findFirst().orElseThrow();
+
+            var saved = service.decideShift(shift.getId(), new HrProductionAttendanceDtos.ShiftDecisionRequest(
+                    HrProductionAttendanceDtos.DecisionAction.CONFIRM, "CN_18_5",
+                    checkIn.id(), checkOut.id(), new BigDecimal("1.5"),
+                    new BigDecimal("50000"), "Xác nhận ca đêm ra sau cửa tự động", shift.getRowVersion()), ACTOR);
+
+            assertThat(saved.checkInAt()).isEqualTo(LocalDateTime.of(2026, 8, 10, 18, 26));
+            assertThat(saved.checkOutAt()).isEqualTo(LocalDateTime.of(2026, 8, 11, 6, 6));
+            assertThat(saved.workValue()).isEqualByComparingTo("1.5");
+            assertThat(saved.nightAllowanceAmount()).isEqualByComparingTo("50000");
+            assertThat(saved.resolutionType()).isEqualTo(HrAttendanceResolutionType.MANUAL_OVERRIDE);
+        } finally {
+            service.deleteImport(batch.id(), ACTOR);
+        }
+    }
+
+    @Test
     void importsRealWorkbookPersistsRawRowsAndCalculatesB124WithoutDroppingDays() throws Exception {
         HrEmployee employee = new HrEmployee();
         employee.setEmployeeCode("B124");
@@ -142,6 +188,7 @@ class HrProductionAttendanceServiceTest {
                     assertThat(value.getExplanation()).contains("mức ca ngày cố định 1.5 công");
                 });
         assertThat(b124).hasSize(31);
+        List<String> untouchedB128ShiftIds = b128.stream().map(value -> value.getId()).sorted().toList();
         var august18 = b124.stream().filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 18)))
                 .findFirst().orElseThrow();
         assertThat(august18.getShiftCodeSnapshot()).isEqualTo("CN_18_5");
@@ -156,6 +203,10 @@ class HrProductionAttendanceServiceTest {
                 HrProductionAttendanceDtos.DecisionAction.CONFIRM, "CN_DAY", null, august18Checkout.getId(),
                 new BigDecimal("1.5"), BigDecimal.ZERO,
                 "Ca ngày thiếu lượt vào do máy chấm công mất điện", august18.getRowVersion()), ACTOR);
+
+        assertThat(shiftRepository.findByImportIdAndActiveTrueAndEmployeeCodeOrderByWorkDateAsc(batch.id(), "B128"))
+                .extracting(value -> value.getId())
+                .containsExactlyInAnyOrderElementsOf(untouchedB128ShiftIds);
 
         b124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
                 .filter(value -> value.getEmployeeCode().equals("B124")).toList();
@@ -200,10 +251,10 @@ class HrProductionAttendanceServiceTest {
         assertThat(september.totalPunches()).isEqualTo(4);
         assertThat(sourceDayRepository.count()).isEqualTo(282);
         assertThat(punchRepository.count()).isEqualTo(495);
-        assertThat(shiftRepository.count()).isEqualTo(838);
+        assertThat(shiftRepository.count()).isEqualTo(590);
         var allShiftRevisions = shiftRepository.findAll(PageRequest.of(0, 1000)).getContent();
         assertThat(allShiftRevisions).filteredOn(value -> value.isActive()).hasSize(282);
-        assertThat(allShiftRevisions).filteredOn(value -> !value.isActive()).hasSize(556);
+        assertThat(allShiftRevisions).filteredOn(value -> !value.isActive()).hasSize(308);
 
         var activeB124 = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id()).stream()
                 .filter(value -> value.getEmployeeCode().equals("B124")).toList();
@@ -390,6 +441,33 @@ class HrProductionAttendanceServiceTest {
             row.createCell(2).setCellValue("Đỗ Đình Cường");
             row.createCell(4).setCellValue("31-Aug-26");
             row.createCell(6).setCellValue("17:40");
+
+            workbook.write(output);
+            return output.toByteArray();
+        }
+    }
+
+    private byte[] nightManualOverrideWorkbook() throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("Thang 08 ca dem");
+            var header = sheet.createRow(0);
+            header.createCell(1).setCellValue("Mã nhân viên");
+            header.createCell(2).setCellValue("Tên nhân viên");
+            header.createCell(4).setCellValue("Ngày");
+            header.createCell(6).setCellValue("Chấm lần 1");
+            header.createCell(7).setCellValue("Chấm lần 2");
+
+            var nightStart = sheet.createRow(1);
+            nightStart.createCell(1).setCellValue("B900");
+            nightStart.createCell(2).setCellValue("Nguyễn Văn Ca Đêm");
+            nightStart.createCell(4).setCellValue("10-Aug-26");
+            nightStart.createCell(7).setCellValue("18:26");
+
+            var nightEnd = sheet.createRow(2);
+            nightEnd.createCell(1).setCellValue("B900");
+            nightEnd.createCell(2).setCellValue("Nguyễn Văn Ca Đêm");
+            nightEnd.createCell(4).setCellValue("11-Aug-26");
+            nightEnd.createCell(6).setCellValue("06:06");
 
             workbook.write(output);
             return output.toByteArray();

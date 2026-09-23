@@ -15,6 +15,8 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
     Page<HrProductionAttendanceShift> findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(String importId, Pageable pageable);
     Page<HrProductionAttendanceShift> findByImportIdAndActiveTrueAndStatusOrderByEmployeeCodeAscWorkDateAsc(String importId, HrProductionAttendanceShiftStatus status, Pageable pageable);
     List<HrProductionAttendanceShift> findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(String importId);
+    List<HrProductionAttendanceShift> findByImportIdAndActiveTrueAndEmployeeCodeOrderByWorkDateAsc(
+            String importId, String employeeCode);
 
     @Query(value = """
             select distinct shift.employeeCode from HrProductionAttendanceShift shift
@@ -79,6 +81,18 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
     List<HrProductionAttendanceShift> findOtherActiveCompleteShiftsUsingPunches(
             @Param("importId") String importId, @Param("punchIds") List<String> punchIds);
 
+    @Query("""
+            select shift from HrProductionAttendanceShift shift
+            where shift.importId = :importId and shift.active = true and shift.id <> :shiftId
+              and shift.resolutionType = :manualResolution
+              and (shift.checkInPunchId in :punchIds or shift.checkOutPunchId in :punchIds)
+            """)
+    List<HrProductionAttendanceShift> findOtherActiveManualShiftsUsingPunches(
+            @Param("importId") String importId,
+            @Param("shiftId") String shiftId,
+            @Param("manualResolution") HrAttendanceResolutionType manualResolution,
+            @Param("punchIds") List<String> punchIds);
+
     @Modifying(flushAutomatically = true)
     @Query("""
             update HrProductionAttendanceShift shift set shift.active = false
@@ -87,6 +101,17 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
             """)
     void deactivateDerivedByImportId(@Param("importId") String importId,
                                      @Param("manualResolution") HrAttendanceResolutionType manualResolution);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            update HrProductionAttendanceShift shift set shift.active = false
+            where shift.importId = :importId and shift.employeeCode = :employeeCode and shift.active = true
+              and shift.resolutionType <> :manualResolution
+            """)
+    void deactivateDerivedByImportIdAndEmployeeCode(
+            @Param("importId") String importId,
+            @Param("employeeCode") String employeeCode,
+            @Param("manualResolution") HrAttendanceResolutionType manualResolution);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from HrProductionAttendanceShift shift where shift.importId = :importId")

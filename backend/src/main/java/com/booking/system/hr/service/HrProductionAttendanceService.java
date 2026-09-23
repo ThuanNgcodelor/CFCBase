@@ -439,19 +439,21 @@ public class HrProductionAttendanceService {
         touch(shift, actor);
         shiftRepository.save(shift);
         adjustment(shift, before, request.reason(), actor);
-        rematchDerivedShifts(batch, actor);
+        rematchDerivedShifts(batch, shift.getEmployeeCode(), actor);
         audit(actor, "DECIDE_PRODUCTION_ATTENDANCE_SHIFT", "HR_ATTENDANCE_SHIFT", shift.getId(),
                 List.of("status", "policy", "punches", "workValue", "allowance", "dependentShifts"),
                 Map.of("action", request.action().name(), "processingVersion", batch.getProcessingVersion()));
         return toShiftResponse(shift);
     }
 
-    private void rematchDerivedShifts(HrProductionAttendanceImport batch, HrImportActor actor) {
-        shiftRepository.deactivateDerivedByImportId(batch.getId(), HrAttendanceResolutionType.MANUAL_OVERRIDE);
+    private void rematchDerivedShifts(HrProductionAttendanceImport batch, String employeeCode,
+                                      HrImportActor actor) {
+        shiftRepository.deactivateDerivedByImportIdAndEmployeeCode(
+                batch.getId(), employeeCode, HrAttendanceResolutionType.MANUAL_OVERRIDE);
         batch.setProcessingVersion(batch.getProcessingVersion() + 1);
         batch.setConfigurationJson(configurationSnapshot());
         touch(batch, actor);
-        calculate(batch, actor, true);
+        calculate(batch, actor, true, employeeCode);
     }
 
     @Transactional(readOnly = true)
@@ -684,10 +686,22 @@ public class HrProductionAttendanceService {
     }
 
     private void calculate(HrProductionAttendanceImport batch, HrImportActor actor, boolean recalculation) {
-        List<HrAttendanceSourceDay> sourceDays = sourceDayRepository.findByImportIdOrderByEmployeeCodeAscWorkDateAsc(batch.getId());
-        List<HrAttendancePunch> punches = punchRepository.findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(batch.getId());
-        List<HrProductionAttendanceShift> manualAnchors = shiftRepository
-                .findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.getId()).stream()
+        calculate(batch, actor, recalculation, null);
+    }
+
+    private void calculate(HrProductionAttendanceImport batch, HrImportActor actor, boolean recalculation,
+                           String employeeCode) {
+        List<HrAttendanceSourceDay> sourceDays = employeeCode == null
+                ? sourceDayRepository.findByImportIdOrderByEmployeeCodeAscWorkDateAsc(batch.getId())
+                : sourceDayRepository.findByImportIdAndEmployeeCodeOrderByWorkDateAsc(batch.getId(), employeeCode);
+        List<HrAttendancePunch> punches = employeeCode == null
+                ? punchRepository.findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(batch.getId())
+                : punchRepository.findByImportIdAndEmployeeCodeOrderByPunchedAtAsc(batch.getId(), employeeCode);
+        List<HrProductionAttendanceShift> activeShifts = employeeCode == null
+                ? shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.getId())
+                : shiftRepository.findByImportIdAndActiveTrueAndEmployeeCodeOrderByWorkDateAsc(
+                        batch.getId(), employeeCode);
+        List<HrProductionAttendanceShift> manualAnchors = activeShifts.stream()
                 .filter(value -> value.getResolutionType() == HrAttendanceResolutionType.MANUAL_OVERRIDE)
                 .toList();
         Set<String> anchoredDays = manualAnchors.stream()
@@ -864,12 +878,9 @@ public class HrProductionAttendanceService {
         }
         LocalDate expectedDate = checkIn || !policy.isCrossesMidnight()
                 ? shift.getWorkDate() : shift.getWorkDate().plusDays(1);
-        LocalTime from = checkIn ? policy.getCheckInFrom() : policy.getCheckOutFrom();
-        LocalTime until = checkIn ? policy.getCheckInUntil() : policy.getCheckOutUntil();
-        if (!punch.getPunchedAt().toLocalDate().equals(expectedDate)
-                || !withinWindow(punch.getPunchedAt().toLocalTime(), from, until)) {
+        if (!punch.getPunchedAt().toLocalDate().equals(expectedDate)) {
             throw HrApiException.badRequest("ATTENDANCE_PUNCH_WINDOW_INVALID",
-                    "Dấu chấm không thuộc ngày/cửa thời gian của " + label + " đã chọn.");
+                    "Dấu chấm không thuộc ngày của " + label + " đã chọn.");
         }
         if (!punch.getImportId().equals(shift.getImportId())
                 && (checkIn || !policy.isCrossesMidnight()
@@ -881,28 +892,18 @@ public class HrProductionAttendanceService {
     }
 
     private void ensurePunchesNotReused(HrProductionAttendanceShift selected) {
-        for (HrProductionAttendanceShift other : shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(selected.getImportId())) {
-            if (other.getId().equals(selected.getId())) continue;
-            Set<String> otherIds = new HashSet<>(Arrays.asList(other.getCheckInPunchId(), other.getCheckOutPunchId()));
-            otherIds.remove(null);
-            if ((otherIds.contains(selected.getCheckInPunchId()) || otherIds.contains(selected.getCheckOutPunchId()))
-                    && other.getResolutionType() == HrAttendanceResolutionType.MANUAL_OVERRIDE) {
-                throw HrApiException.conflict("ATTENDANCE_PUNCH_ALREADY_USED",
-                        "Dấu chấm đang thuộc một ngày đã điều chỉnh thủ công; hãy kiểm tra mốc đã xác nhận trước.");
-            }
-        }
         List<String> selectedIds = java.util.stream.Stream.of(selected.getCheckInPunchId(), selected.getCheckOutPunchId())
                 .filter(Objects::nonNull).distinct().toList();
-        if (!selectedIds.isEmpty()
-                && !shiftRepository.findOtherActiveCompleteShiftsUsingPunches(selected.getImportId(), selectedIds).isEmpty()) {
+        if (selectedIds.isEmpty()) return;
+        if (!shiftRepository.findOtherActiveManualShiftsUsingPunches(
+                selected.getImportId(), selected.getId(), HrAttendanceResolutionType.MANUAL_OVERRIDE, selectedIds).isEmpty()) {
+            throw HrApiException.conflict("ATTENDANCE_PUNCH_ALREADY_USED",
+                    "Dấu chấm đang thuộc một ngày đã điều chỉnh thủ công; hãy kiểm tra mốc đã xác nhận trước.");
+        }
+        if (!shiftRepository.findOtherActiveCompleteShiftsUsingPunches(selected.getImportId(), selectedIds).isEmpty()) {
             throw HrApiException.conflict("ATTENDANCE_PUNCH_ALREADY_USED",
                     "Một dấu chấm đang được dùng cho ca thuộc import khác.");
         }
-    }
-
-    private boolean withinWindow(LocalTime value, LocalTime from, LocalTime until) {
-        if (!from.isAfter(until)) return !value.isBefore(from) && !value.isAfter(until);
-        return !value.isBefore(from) || !value.isAfter(until);
     }
 
     private LocalDateTime expectedMissingAt(HrProductionAttendanceShift shift) {

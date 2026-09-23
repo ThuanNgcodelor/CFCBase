@@ -128,6 +128,7 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
   const [adjustments, setAdjustments] = useState([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(null);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (!shift) return;
@@ -145,7 +146,9 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (savingRef.current) return;
     if (!form.reason.trim()) return toast.error('Phải nhập lý do quyết định.');
+    savingRef.current = true;
     setSaving(true);
     try {
       const saved = await api.decideShift(shift.id, {
@@ -171,7 +174,7 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
         ? 'Máy chủ chưa xác nhận lịch sử điều chỉnh. Ca vẫn đang mở; không coi là đã lưu.'
         : apiErrorMessage(error, 'Không thể lưu quyết định ca.'));
     }
-    finally { setSaving(false); }
+    finally { savingRef.current = false; setSaving(false); }
   };
 
   return <HrDrawer isOpen={Boolean(shift)} onClose={onClose} title={shift ? `${shift.employeeCode} · ${formatHrDate(shift.workDate)}` : ''} description="Dấu chấm gốc không bị sửa; mọi quyết định đều lưu lịch sử." size="wide">
@@ -189,7 +192,7 @@ function ShiftDecisionDrawer({ shift, policies, readOnly, onClose, onSaved }) {
       <div className="rounded-xl bg-slate-50 p-4 text-sm text-gray-600"><p className="font-semibold text-gray-800">Giải thích hệ thống</p><p className="mt-1">{shift.explanation || 'Không có.'}</p></div>
       <div><h3 className="text-sm font-semibold text-gray-900">Dấu chấm gốc</h3><div className="mt-2 space-y-2">{punches.map((item) => <div key={item.id} className="flex justify-between rounded-lg border border-gray-200 p-3 text-sm"><span>{time(item.punchedAt)}</span><span className="text-gray-500">Dòng {item.sourceRowNumber} · {item.sourceColumn} · {item.rawValue}</span></div>)}{!punches.length && <p className="text-sm text-gray-500">Không có dấu chấm.</p>}</div></div>
       <details><summary className="cursor-pointer text-sm font-semibold text-gray-800">Lịch sử điều chỉnh ({adjustments.length})</summary><div className="mt-2 space-y-2">{adjustments.map((item) => <div key={item.id} className="rounded-lg border border-gray-200 p-3 text-sm"><p>{item.reason}</p><p className="mt-1 text-xs text-gray-500">{formatHrDateTime(item.createdAt)} · {item.createdByActor}</p></div>)}</div></details>
-      <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>{readOnly ? 'Đóng' : 'Hủy'}</Button>{!readOnly && <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu và tính lại chuỗi'}</Button>}</div>
+      <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose} disabled={saving}>{readOnly ? 'Đóng' : 'Hủy'}</Button>{!readOnly && <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu và tính lại chuỗi'}</Button>}</div>
     </form>}
   </HrDrawer>;
 }
@@ -313,19 +316,25 @@ export default function HrProductionAttendance() {
   const activeImport = imports.find((item) => item.id === activeImportId) || null;
   const isAdmin = authApi.getRole() === 'ADMIN';
 
+  const loadImports = useCallback(async () => {
+    const importPage = await api.listImports({ page: 0, size: 100, month });
+    const nextImports = importPage?.content || [];
+    setImports(nextImports);
+    setActiveImportId((current) => nextImports.some((item) => item.id === current) ? current : nextImports[0]?.id || '');
+    return nextImports;
+  }, [month]);
+
   const loadBase = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); setError('');
     try {
-      const [importPage, nextSummary, nextPolicies, nextCreditRules, incidentPage] = await Promise.all([
-        api.listImports({ page: 0, size: 100, month }), api.summary(month), api.shiftPolicies(), api.workCreditRules(), api.incidents({ page: 0, size: 100 }),
+      const [nextImports, nextSummary, nextPolicies, nextCreditRules, incidentPage] = await Promise.all([
+        loadImports(), api.summary(month), api.shiftPolicies(), api.workCreditRules(), api.incidents({ page: 0, size: 100 }),
       ]);
-      const nextImports = importPage?.content || [];
-      setImports(nextImports); setSummary(nextSummary); setPolicies(nextPolicies || []); setCreditRules(nextCreditRules || []); setIncidents(incidentPage?.content || []);
-      setActiveImportId((current) => nextImports.some((item) => item.id === current) ? current : nextImports[0]?.id || '');
+      setSummary(nextSummary); setPolicies(nextPolicies || []); setCreditRules(nextCreditRules || []); setIncidents(incidentPage?.content || []);
       return nextImports;
     } catch (requestError) { setError(apiErrorMessage(requestError, 'Không thể tải chấm công ca sản xuất.')); }
     finally { setLoading(false); }
-  }, [month]);
+  }, [loadImports, month]);
 
   const loadShifts = useCallback(async () => {
     if (!activeImportId) { setShifts(emptyPage); return; }
@@ -348,11 +357,11 @@ export default function HrProductionAttendance() {
   useEffect(() => { loadEmployeeSummaries(); }, [loadEmployeeSummaries]);
   useEffect(() => { localStorage.setItem('hr-production-attendance-month', month); }, [month]);
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState === 'visible') { loadBase(true); loadShifts(); loadEmployeeSummaries(); } };
+    const refresh = () => { if (document.visibilityState === 'visible') { loadImports().catch(() => {}); loadShifts(); loadEmployeeSummaries(); } };
     const timer = window.setInterval(refresh, 30000);
     document.addEventListener('visibilitychange', refresh);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
-  }, [loadBase, loadShifts, loadEmployeeSummaries]);
+  }, [loadImports, loadShifts, loadEmployeeSummaries]);
   useEffect(() => {
     if (!activeImport) return;
     const context = `${activeImportId}:${activeImport.status}`;
@@ -435,7 +444,7 @@ export default function HrProductionAttendance() {
     <ShiftDecisionDrawer shift={decisionShift} policies={policies} readOnly={activeImport?.status !== 'PREVIEWED'} onClose={() => setDecisionShift(null)} onSaved={async (saved, action) => {
       const reviewBefore = activeImport?.reviewShifts;
       setDecisionShift(null);
-      const nextImports = await loadBase(true);
+      const nextImports = await loadImports();
       await Promise.all([loadShifts(), loadEmployeeSummaries()]);
       const nextImport = nextImports?.find((item) => item.id === saved.importId);
       const actionLabel = action === 'REJECT' ? 'Đã từ chối ca' : 'Đã xác nhận ca';

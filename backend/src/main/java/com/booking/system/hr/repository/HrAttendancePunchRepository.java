@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface HrAttendancePunchRepository extends HrRepository<HrAttendancePunch, String> {
     List<HrAttendancePunch> findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(String importId);
+    List<HrAttendancePunch> findByImportIdAndEmployeeCodeOrderByPunchedAtAsc(
+            String importId, String employeeCode);
     Page<HrAttendancePunch> findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(String importId, Pageable pageable);
     List<HrAttendancePunch> findByImportIdInOrderByEmployeeCodeAscPunchedAtAsc(List<String> importIds);
     List<HrAttendancePunch> findByImportIdAndEmployeeCodeAndWorkDateOrderByPunchedAtAsc(
