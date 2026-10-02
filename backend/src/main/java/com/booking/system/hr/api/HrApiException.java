@@ -32,4 +32,8 @@ public class HrApiException extends RuntimeException {
     public static HrApiException conflict(String code, String message) {
         return new HrApiException(HttpStatus.CONFLICT, code, message);
     }
+
+    public static HrApiException forbidden(String code, String message) {
+        return new HrApiException(HttpStatus.FORBIDDEN, code, message);
+    }
 }

@@ -41,6 +41,14 @@ function formatMoney(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(numeric);
 }
 
+function formatReviewCycle(value) {
+  const months = Number(value);
+  if (!Number.isFinite(months) || months <= 0) return '—';
+  if (months % 12 === 0) return `${months / 12} năm (${months} tháng)`;
+  const years = Math.floor(months / 12);
+  return years > 0 ? `${years} năm ${months % 12} tháng (${months} tháng)` : `${months} tháng`;
+}
+
 function DetailSection({ icon: Icon, title, note, children }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -374,6 +382,11 @@ export default function HrEmployeeDetail() {
               <DetailItem label="Số hợp đồng" value={employment.contractNumber} />
               <DetailItem label="Lương cơ bản" value={formatMoney(employment.baseSalary)} />
               <DetailItem label="Phụ cấp" value={formatMoney(employment.allowance)} />
+              <DetailItem label="Tổng lương hiện tại" value={formatMoney(Number(employment.baseSalary || 0) + Number(employment.allowance || 0))} />
+              <DetailItem label="Bậc / mã ngạch" value={[employment.salaryGrade, employment.salaryScaleCode].filter(Boolean).join(' · ')} />
+              <DetailItem label="Chu kỳ xét nâng bậc" value={formatReviewCycle(employment.salaryReviewCycleMonths)} />
+              <DetailItem label="Ngày nâng gần nhất" value={formatHrDate(employment.lastSalaryRaiseDate)} />
+              <DetailItem label="Ngày tới hạn" value={formatHrDate(employment.nextSalaryReviewDate)} />
               <DetailItem label="Mô tả công việc" value={employment.jobDescription} wide />
             </DetailSection>
 

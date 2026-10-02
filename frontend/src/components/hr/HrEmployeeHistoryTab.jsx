@@ -36,6 +36,17 @@ function HistoryList({ employeeId, section }) {
             <p className="text-xs text-gray-500">Tạo: {formatHrDateTime(item.createdAt)} · {item.createdByActor || 'Hệ thống'}</p>
             {item.confirmedAt && <p className="text-xs text-gray-500">Xác nhận: {formatHrDateTime(item.confirmedAt)} · {item.confirmedByActor}</p>}
             {item.cancelledAt && <p className="text-xs text-gray-500">Hủy: {formatHrDateTime(item.cancelledAt)} · {item.cancelledByActor}</p>}
+          </> : section === 'salary-history' ? <>
+            <div className="flex flex-wrap items-center gap-2">
+              <strong>Nâng lương hiệu lực {formatHrDate(item.effectiveDate)}</strong>
+              <HrStatusBadge status={item.status} />
+            </div>
+            <p className="text-sm text-gray-700">
+              {Number(item.oldBaseSalary || 0).toLocaleString('vi-VN')} → <b>{Number(item.newBaseSalary || 0).toLocaleString('vi-VN')}</b> · Phụ cấp {Number(item.oldAllowance || 0).toLocaleString('vi-VN')} → {Number(item.newAllowance || 0).toLocaleString('vi-VN')}
+            </p>
+            <p className="text-sm text-gray-600">Bậc {item.oldGrade || '—'} → {item.newGrade || '—'} · Chu kỳ {item.reviewCycleMonths % 12 === 0 ? `${item.reviewCycleMonths / 12} năm (${item.reviewCycleMonths} tháng)` : `${item.reviewCycleMonths} tháng`} · Tới hạn {formatHrDate(item.nextReviewDate)}</p>
+            {item.rollbackReason && <p className="text-sm text-red-700">Rollback: {item.rollbackReason}</p>}
+            <p className="text-xs text-gray-500">Tạo: {formatHrDateTime(item.createdAt)} · {item.createdByActor || 'Hệ thống'}</p>
           </> : <>
             <strong>{ACTIONS[item.action] || 'Thay đổi hồ sơ nhân sự'}</strong>
             <p className="text-sm text-gray-600">{fieldsLabel(item.changedFields) || 'Không có chi tiết trường thay đổi'}</p>
@@ -54,7 +65,7 @@ export function HrEmployeeHistoryTab({ employeeId }) {
     <h2 className="font-semibold">Lịch sử nhân sự</h2>
     <p className="mt-1 text-sm text-gray-500">Biến động sắp theo ngày hiệu lực; nhật ký hồ sơ ghi người sửa, thời điểm và nhóm thông tin thay đổi. Các bản Word nằm trong tab Hợp đồng.</p>
     <div className="my-4 flex flex-wrap gap-2">
-      {[['movements', 'Biến động tăng / giảm'], ['profile-audit', 'Nhật ký sửa hồ sơ']].map(([key, label]) =>
+      {[['movements', 'Biến động tăng / giảm'], ['salary-history', 'Lịch sử nâng lương'], ['profile-audit', 'Nhật ký sửa hồ sơ']].map(([key, label]) =>
         <button key={key} type="button" aria-pressed={section === key} onClick={() => setSection(key)} className={`rounded-lg border px-4 py-2 text-sm ${section === key ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-gray-200'}`}>{label}</button>)}
     </div>
     <HistoryList key={`${employeeId}/${section}`} employeeId={employeeId} section={section} />

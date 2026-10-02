@@ -17,6 +17,8 @@ import java.util.Optional;
 public interface HrExcelImportBatchRepository extends HrRepository<HrExcelImportBatch, String> {
     Page<HrExcelImportBatch> findByStatus(HrImportBatchStatus status, Pageable pageable);
 
+    Page<HrExcelImportBatch> findByImportTypeOrderByCreatedAtDesc(HrImportType importType, Pageable pageable);
+
     Optional<HrExcelImportBatch> findFirstByFileSha256AndSourceSheetNameAndImportTypeOrderByAttemptNumberDesc(
             String fileSha256,
             String sourceSheetName,

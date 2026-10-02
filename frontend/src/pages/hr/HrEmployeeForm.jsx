@@ -326,8 +326,9 @@ export default function HrEmployeeForm() {
           <Field label="Ngày nghỉ việc"><input type="date" value={form.employment.terminationDate} onChange={(e) => update('employment', 'terminationDate', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="Loại hợp đồng"><input value={form.employment.contractTypeLabel} onChange={(e) => update('employment', 'contractTypeLabel', e.target.value)} className={INPUT_CLASS} /></Field>
           <Field label="Số hợp đồng"><input value={form.employment.contractNumber} onChange={(e) => update('employment', 'contractNumber', e.target.value)} className={INPUT_CLASS} /></Field>
-          <Field label={isEdit ? 'Lương cơ bản mới (để trống nếu giữ nguyên)' : 'Lương cơ bản'}><input type="number" min="0" step="0.01" value={form.employment.baseSalary} onChange={(e) => update('employment', 'baseSalary', e.target.value)} className={INPUT_CLASS} /></Field>
-          <Field label={isEdit ? 'Phụ cấp mới (để trống nếu giữ nguyên)' : 'Phụ cấp'}><input type="number" min="0" step="0.01" value={form.employment.allowance} onChange={(e) => update('employment', 'allowance', e.target.value)} className={INPUT_CLASS} /></Field>
+          <Field label="Lương cơ bản"><input disabled={isEdit} type="number" min="0" step="0.01" value={form.employment.baseSalary} onChange={(e) => update('employment', 'baseSalary', e.target.value)} className={`${INPUT_CLASS} disabled:bg-gray-100 disabled:text-gray-500`} /></Field>
+          <Field label="Phụ cấp"><input disabled={isEdit} type="number" min="0" step="0.01" value={form.employment.allowance} onChange={(e) => update('employment', 'allowance', e.target.value)} className={`${INPUT_CLASS} disabled:bg-gray-100 disabled:text-gray-500`} /></Field>
+          {isEdit && <p className="text-xs text-amber-700 sm:col-span-2">Lương và phụ cấp chỉ được thay đổi qua chức năng Nâng lương để giữ lịch sử theo kỳ.</p>}
           <Field label="Mô tả công việc" wide><textarea value={form.employment.jobDescription} onChange={(e) => update('employment', 'jobDescription', e.target.value)} className={TEXTAREA_CLASS} /></Field>
         </FormSection>
 

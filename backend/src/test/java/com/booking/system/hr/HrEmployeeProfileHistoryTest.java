@@ -6,6 +6,7 @@ import com.booking.system.hr.entity.*;
 import com.booking.system.hr.enums.*;
 import com.booking.system.hr.repository.*;
 import com.booking.system.hr.service.HrEmploymentContractService;
+import com.booking.system.hr.service.HrSalaryRaiseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -67,7 +68,8 @@ class HrEmployeeProfileHistoryTest {
                 .extracting(HrEmploymentContract::getStatus).containsExactly(HrEmploymentContractStatus.VOIDED);
 
         var service = new HrEmployeeProfileQueryService(employees, contracts, documents, audit,
-                mock(HrEmploymentContractService.class), mock(HrActivityQueryService.class));
+                mock(HrEmploymentContractService.class), mock(HrActivityQueryService.class),
+                mock(HrSalaryRaiseService.class));
         assertThatThrownBy(() -> service.documents(first.getId(), other.getId(), 0, 20))
                 .isInstanceOf(HrApiException.class).hasMessageContaining("Không tìm thấy hợp đồng");
         assertThatThrownBy(() -> service.profileAudit("missing", 0, 20)).isInstanceOf(HrApiException.class);

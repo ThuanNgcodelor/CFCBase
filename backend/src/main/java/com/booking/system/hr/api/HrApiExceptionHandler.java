@@ -30,7 +30,9 @@ import java.util.Set;
         HrPayrollController.class,
         HrOcrController.class,
         HrOcrCaptureController.class,
-        HrProductionAttendanceController.class
+        HrProductionAttendanceController.class,
+        HrEmployeeProfileController.class,
+        HrSalaryRaiseController.class
 })
 public class HrApiExceptionHandler {
 

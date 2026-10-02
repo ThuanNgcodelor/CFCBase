@@ -132,6 +132,11 @@ public final class HrApiDtos {
             String contractNumber,
             BigDecimal baseSalary,
             BigDecimal allowance,
+            String salaryGrade,
+            String salaryScaleCode,
+            Integer salaryReviewCycleMonths,
+            LocalDate lastSalaryRaiseDate,
+            LocalDate nextSalaryReviewDate,
             boolean hasCompensationData,
             String jobDescription
     ) {

@@ -22,6 +22,11 @@ public interface HrEmployeeRepository extends HrRepository<HrEmployee, String> {
 
     List<HrEmployee> findAllByEmployeeCodeIn(Collection<String> employeeCodes);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = "employment")
+    @Query("select employee from HrEmployee employee where employee.employeeCode in :employeeCodes order by employee.employeeCode")
+    List<HrEmployee> findAllByEmployeeCodeInForUpdate(@Param("employeeCodes") Collection<String> employeeCodes);
+
     @EntityGraph(attributePaths = {"employment", "employment.department"})
     @Query("select distinct employee from HrEmployee employee left join employee.employment employment left join employment.department department where employee.employeeCode in :employeeCodes")
     List<HrEmployee> findAttendanceEmployeesByCodes(@Param("employeeCodes") Collection<String> employeeCodes);

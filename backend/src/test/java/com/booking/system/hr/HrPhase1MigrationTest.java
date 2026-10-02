@@ -112,7 +112,7 @@ class HrPhase1MigrationTest {
             MigrateResult firstRun = flyway.migrate();
             MigrateResult secondRun = flyway.migrate();
 
-            assertThat(firstRun.migrationsExecuted).isEqualTo(26);
+            assertThat(firstRun.migrationsExecuted).isEqualTo(27);
             assertThat(secondRun.migrationsExecuted).isZero();
 
             for (String table : EXPECTED_TABLES) {
@@ -133,6 +133,7 @@ class HrPhase1MigrationTest {
             assertThat(tableExists(statement, "hr_attendance_shifts")).isTrue();
             assertThat(tableExists(statement, "hr_attendance_incidents")).isTrue();
             assertThat(tableExists(statement, "hr_attendance_exemptions")).isTrue();
+            assertThat(tableExists(statement, "hr_employee_salary_changes")).isTrue();
 
             statement.executeUpdate("""
                     INSERT INTO hr_employees (
@@ -291,7 +292,7 @@ class HrPhase1MigrationTest {
             statement.executeUpdate("INSERT INTO users (id, email) VALUES ('legacy-user', 'legacy@example.test')");
 
             MigrateResult result = flyway(connection, true).migrate();
-            assertThat(result.migrationsExecuted).isEqualTo(26);
+            assertThat(result.migrationsExecuted).isEqualTo(27);
 
             try (var rows = statement.executeQuery("SELECT id, email FROM users")) {
                 assertThat(rows.next()).isTrue();

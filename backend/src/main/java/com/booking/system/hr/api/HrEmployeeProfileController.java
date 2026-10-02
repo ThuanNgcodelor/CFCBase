@@ -24,6 +24,14 @@ public class HrEmployeeProfileController {
         return ApiResponse.success(service.profileAudit(employeeId, page, size), "Nhật ký hồ sơ nhân sự");
     }
 
+    @GetMapping("/salary-history")
+    public ApiResponse<HrPageResponse<HrSalaryRaiseDtos.HistoryResponse>> salaryHistory(
+            @PathVariable String employeeId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(service.salaryHistory(employeeId, page, size), "Lịch sử nâng lương");
+    }
+
     @GetMapping("/contracts")
     public ApiResponse<HrPageResponse<HrApiDtos.EmploymentContractSummary>> contracts(@PathVariable String employeeId,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {

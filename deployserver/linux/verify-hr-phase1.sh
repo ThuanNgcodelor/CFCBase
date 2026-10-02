@@ -5,12 +5,14 @@ CONTAINER_NAME="${BOOKINGBASE_DB_CONTAINER:-booking_db}"
 DATABASE_NAME="${BOOKINGBASE_DB_NAME:-booking_db}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_SNAPSHOT="${BOOKINGBASE_HR_LEGACY_SNAPSHOT:-}"
-EXPECTED_TABLE_COUNT=15
-EXPECTED_CHECK_COUNT=62
-EXPECTED_FOREIGN_KEY_COUNT=26
-EXPECTED_UNIQUE_COUNT=17
-EXPECTED_NAMED_INDEX_COUNT=29
-EXPECTED_CONTRACT_COLUMN_COUNT=25
+EXPECTED_CORE_TABLE_COUNT=15
+EXPECTED_TABLE_COUNT=55
+EXPECTED_CHECK_COUNT=130
+EXPECTED_FOREIGN_KEY_COUNT=83
+EXPECTED_UNIQUE_COUNT=48
+EXPECTED_NAMED_INDEX_COUNT=92
+EXPECTED_CONTRACT_COLUMN_COUNT=41
+EXPECTED_MIGRATION_COUNT=27
 
 log() {
   printf '[BookingBase HR Verify] %s\n' "$*"
@@ -62,8 +64,8 @@ hr_table_count="$(read_query "
       'hr_audit_events'
     );
 ")"
-[[ "$hr_table_count" == "$EXPECTED_TABLE_COUNT" ]] \
-  || fail "Chi tim thay $hr_table_count/$EXPECTED_TABLE_COUNT bang HR Phase 1."
+[[ "$hr_table_count" == "$EXPECTED_CORE_TABLE_COUNT" ]] \
+  || fail "Chi tim thay $hr_table_count/$EXPECTED_CORE_TABLE_COUNT bang HR core."
 
 all_hr_table_count="$(read_query "
   SELECT COUNT(*)
@@ -77,9 +79,10 @@ all_hr_table_count="$(read_query "
 migration_count="$(read_query "
   SELECT COUNT(*)
   FROM flyway_schema_history
-  WHERE version IN ('1', '2') AND success = 1 AND checksum IS NOT NULL;
+  WHERE version IS NOT NULL AND success = 1 AND checksum IS NOT NULL;
 ")"
-[[ "$migration_count" == 2 ]] || fail "Khong tim thay du Flyway migration V1/V2 thanh cong."
+[[ "$migration_count" == "$EXPECTED_MIGRATION_COUNT" ]] \
+  || fail "Flyway migration drift: $migration_count/$EXPECTED_MIGRATION_COUNT."
 
 user_fk_count="$(read_query "
   SELECT COUNT(*)
@@ -156,6 +159,11 @@ contract_column_count="$(read_query "
       'hr_employee_employment.leave_accrual_start_date',
       'hr_employee_employment.base_salary',
       'hr_employee_employment.allowance',
+      'hr_employee_employment.salary_grade',
+      'hr_employee_employment.salary_scale_code',
+      'hr_employee_employment.salary_review_cycle_months',
+      'hr_employee_employment.last_salary_raise_date',
+      'hr_employee_employment.next_salary_review_date',
       'hr_employee_identity.legacy_identity_number',
       'hr_employee_identity.citizen_identity_number',
       'hr_employee_insurance.social_insurance_number',
@@ -175,6 +183,17 @@ contract_column_count="$(read_query "
       'hr_excel_import_batches.payload_purged_by_actor',
       'hr_excel_import_rows.raw_payload',
       'hr_excel_import_rows.normalized_payload',
+      'hr_employee_salary_changes.employee_id',
+      'hr_employee_salary_changes.effective_date',
+      'hr_employee_salary_changes.status',
+      'hr_employee_salary_changes.old_base_salary',
+      'hr_employee_salary_changes.new_base_salary',
+      'hr_employee_salary_changes.old_allowance',
+      'hr_employee_salary_changes.new_allowance',
+      'hr_employee_salary_changes.new_grade',
+      'hr_employee_salary_changes.review_cycle_months',
+      'hr_employee_salary_changes.next_review_date',
+      'hr_employee_salary_changes.idempotency_key',
       'hr_audit_events.actor_subject'
     );
 ")"
@@ -205,4 +224,4 @@ if [[ -n "$LEGACY_SNAPSHOT" ]]; then
   trap - EXIT
 fi
 
-log "PASS: V1/V2 dung table/column/constraint/index/retention contract, khong co HR -> users va khong co migration loi."
+log "PASS: V1-V27 dung table/column/constraint/index/retention contract, khong co HR -> users va khong co migration loi."

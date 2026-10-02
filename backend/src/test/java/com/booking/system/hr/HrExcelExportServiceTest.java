@@ -2,10 +2,13 @@ package com.booking.system.hr;
 
 import com.booking.system.hr.repository.HrEmployeeMovementRepository;
 import com.booking.system.hr.repository.HrEmployeeRepository;
+import com.booking.system.hr.entity.HrEmployee;
+import com.booking.system.hr.entity.HrEmployeeEmployment;
 import com.booking.system.hr.enums.HrEmploymentStatus;
 import com.booking.system.hr.enums.HrRosterInclusionReason;
 import com.booking.system.hr.service.HrExcelExportService;
 import com.booking.system.hr.service.HrRosterProjectionService;
+import com.booking.system.hr.service.HrSalaryRaiseService;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
@@ -14,22 +17,27 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 
 class HrExcelExportServiceTest {
 
     private final HrEmployeeRepository employeeRepository = mock(HrEmployeeRepository.class);
     private final HrEmployeeMovementRepository movementRepository = mock(HrEmployeeMovementRepository.class);
     private final HrRosterProjectionService rosterProjectionService = mock(HrRosterProjectionService.class);
+    private final HrSalaryRaiseService salaryRaiseService = mock(HrSalaryRaiseService.class);
     private final HrExcelExportService service = new HrExcelExportService(
             employeeRepository,
             movementRepository,
-            rosterProjectionService
+            rosterProjectionService,
+            salaryRaiseService
     );
 
     @Test
@@ -47,6 +55,45 @@ class HrExcelExportServiceTest {
         assertThat(file.fileName()).isEqualTo("hr-T6-26.xlsx");
         assertThat(sheetNames(file.content())).containsExactly("TĂNG", "GIẢM", "T6-26");
         assertThat(zipEntry(file.content(), "xl/styles.xml")).isNotBlank();
+    }
+
+    @Test
+    void monthlyRosterUsesOldJuneSalaryAndRaisedJulySalary() throws Exception {
+        HrEmployee employee = new HrEmployee();
+        employee.setId("salary-export-employee");
+        employee.setEmployeeCode("A339");
+        employee.setFullName("Lê Minh Toàn");
+        HrEmployeeEmployment employment = new HrEmployeeEmployment();
+        employment.setEmployee(employee);
+        employment.setBaseSalary(new BigDecimal("6647000"));
+        employment.setAllowance(new BigDecimal("1892000"));
+        employee.setEmployment(employment);
+        var item = new HrRosterProjectionService.ProjectedRosterItem(
+                "item-salary", employee, 1, 1, "A339", "Lê Minh Toàn",
+                "HC", "Hành chính", "NV", "Nhân viên", "BT", "Bình thường",
+                HrEmploymentStatus.ACTIVE, LocalDate.of(2013, 4, 15), null, BigDecimal.valueOf(12),
+                HrRosterInclusionReason.BASELINE, null, null, null);
+        when(movementRepository.findConfirmedForExport(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
+        when(rosterProjectionService.projectedItems(LocalDate.of(2026, 6, 1))).thenReturn(List.of(item));
+        when(rosterProjectionService.projectedItems(LocalDate.of(2026, 7, 1))).thenReturn(List.of(item));
+        when(salaryRaiseService.compensationAt(anyCollection(), eq(LocalDate.of(2026, 6, 30))))
+                .thenReturn(Map.of(employee.getId(), new HrSalaryRaiseService.Compensation(
+                        new BigDecimal("6647000"), new BigDecimal("1892000"), "2/6", "B3.1",
+                        null, null, null)));
+        when(salaryRaiseService.compensationAt(anyCollection(), eq(LocalDate.of(2026, 7, 31))))
+                .thenReturn(Map.of(employee.getId(), new HrSalaryRaiseService.Compensation(
+                        new BigDecimal("7046000"), new BigDecimal("1892000"), "3/6", "B3.1",
+                        48, LocalDate.of(2026, 7, 1), LocalDate.of(2030, 6, 10))));
+
+        try (XSSFWorkbook june = new XSSFWorkbook(new ByteArrayInputStream(service.exportMonth(2026, 6).content()));
+             XSSFWorkbook july = new XSSFWorkbook(new ByteArrayInputStream(service.exportMonth(2026, 7).content()))) {
+            assertThat(june.getSheet("T6-26").getRow(4).getCell(6).getNumericCellValue()).isEqualTo(6_647_000);
+            assertThat(june.getSheet("T6-26").getRow(4).getCell(8).getNumericCellValue()).isEqualTo(8_539_000);
+            assertThat(july.getSheet("T7-26").getRow(4).getCell(6).getNumericCellValue()).isEqualTo(7_046_000);
+            assertThat(july.getSheet("T7-26").getRow(4).getCell(8).getNumericCellValue()).isEqualTo(8_938_000);
+        }
     }
 
     @Test

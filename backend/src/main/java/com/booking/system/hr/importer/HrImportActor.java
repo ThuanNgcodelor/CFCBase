@@ -12,6 +12,10 @@ public record HrImportActor(String subject, String displayName, String role) {
         return new HrImportActor("SYSTEM:HR_IMPORT_RETENTION", "HR import retention", "SYSTEM");
     }
 
+    public static HrImportActor systemSalaryActor() {
+        return new HrImportActor("SYSTEM:HR_SALARY_EFFECTIVE", "HR salary effective date", "SYSTEM");
+    }
+
     private static String required(String value, String field, int maxLength) {
         String normalized = optional(value, maxLength);
         if (normalized == null) {

@@ -6,6 +6,7 @@ import SEOHead from '../../components/SEOHead';
 import { Button } from '../../components/ui/Button';
 import { HrEmpty, HrError, HrPageHeader, HrPageShell, HrPagination, HrReadOnlyNotice, HrStatusBadge } from '../../components/hr/HrUi';
 import { HrWorkforceSnapshotImport } from '../../components/hr/HrWorkforceSnapshotImport';
+import { HrSalaryRaiseImport } from '../../components/hr/HrSalaryRaiseImport';
 import { hrImportApi } from '../../api/hrImportApi';
 import { normalizePage } from '../../api/hrApiUtils';
 import { apiErrorMessage, formatHrDateTime, nonEmpty } from '../../utils/hr';
@@ -236,7 +237,9 @@ export default function HrImports() {
   return (
     <HrPageShell>
       <SEOHead title="CFC Base | Nhập dữ liệu nhân sự" url="https://cfcbooking.io.vn/manager/hr/imports" />
-      <HrPageHeader title="Nhập dữ liệu nhân sự" description="Dùng file baseline T6-26 · 339 nhân sự để khởi tạo dữ liệu HR lần đầu. Hệ thống luôn kiểm tra file trước khi cho xác nhận." />
+      <HrPageHeader title="Nhập dữ liệu nhân sự" description="Nhập nâng lương theo MS hoặc quản lý các file baseline nhân sự. Hệ thống luôn kiểm tra trước khi xác nhận." />
+
+      <HrSalaryRaiseImport />
 
       <HrWorkforceSnapshotImport onImported={() => setReloadKey((value) => value + 1)} />
 

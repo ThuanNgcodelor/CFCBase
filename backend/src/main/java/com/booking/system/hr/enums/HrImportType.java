@@ -4,5 +4,6 @@ public enum HrImportType {
     BASELINE,
     INCREASE,
     DECREASE,
-    ROSTER
+    ROSTER,
+    SALARY_RAISE
 }

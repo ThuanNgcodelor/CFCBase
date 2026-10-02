@@ -4,6 +4,7 @@ import com.booking.system.hr.api.dto.*;
 import com.booking.system.hr.dto.HrApiDtos;
 import com.booking.system.hr.repository.*;
 import com.booking.system.hr.service.HrEmploymentContractService;
+import com.booking.system.hr.service.HrSalaryRaiseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ public class HrEmployeeProfileQueryService {
     private final HrAuditEventRepository audit;
     private final HrEmploymentContractService contractService;
     private final HrActivityQueryService activity;
+    private final HrSalaryRaiseService salaryRaiseService;
 
     public HrPageResponse<HrMovementResponse> movements(String employeeId, int page, int size) {
         requireEmployee(employeeId);
@@ -31,6 +33,10 @@ public class HrEmployeeProfileQueryService {
                 "HR_EMPLOYEE", employeeId,
                 HrActivityQueryService.pageRequest(page, size, Sort.by(Sort.Order.desc("id")))),
                 HrAuditEventResponse::from);
+    }
+
+    public HrPageResponse<HrSalaryRaiseDtos.HistoryResponse> salaryHistory(String employeeId, int page, int size) {
+        return salaryRaiseService.history(employeeId, page, size);
     }
 
     public HrPageResponse<HrApiDtos.EmploymentContractSummary> contracts(String employeeId, int page, int size) {

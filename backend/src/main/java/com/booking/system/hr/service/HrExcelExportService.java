@@ -67,6 +67,7 @@ public class HrExcelExportService {
     private final HrEmployeeRepository employeeRepository;
     private final HrEmployeeMovementRepository movementRepository;
     private final HrRosterProjectionService rosterProjectionService;
+    private final HrSalaryRaiseService salaryRaiseService;
 
     public ExportFile exportMonth(int year, int month) {
         LocalDate periodStart = periodStart(year, month);
@@ -342,9 +343,13 @@ public class HrExcelExportService {
             boolean keepDrawings
     ) {
         String template = text(entries, "xl/worksheets/sheet3.xml");
+        List<HrEmployee> employees = rosterItems.stream().map(HrRosterProjectionService.ProjectedRosterItem::employee)
+                .filter(java.util.Objects::nonNull).toList();
+        Map<String, HrSalaryRaiseService.Compensation> compensation = salaryRaiseService.compensationAt(
+                employees, periodStart.plusMonths(1).minusDays(1));
         List<List<CellValue>> rows = new ArrayList<>();
         for (HrRosterProjectionService.ProjectedRosterItem item : rosterItems) {
-            rows.add(rosterRow(item, periodStart));
+            rows.add(rosterRow(item, periodStart, compensation));
         }
         String xml = rewriteSheetData(template, 5, 34, rows, "AH", true);
         xml = xml.replaceFirst("<dimension ref=\\\"[^\\\"]+\\\"", "<dimension ref=\"A1:AH" + Math.max(4, rows.size() + 4) + "\"");
@@ -356,14 +361,19 @@ public class HrExcelExportService {
         return xml;
     }
 
-    private List<CellValue> rosterRow(HrRosterProjectionService.ProjectedRosterItem item, LocalDate periodStart) {
+    private List<CellValue> rosterRow(HrRosterProjectionService.ProjectedRosterItem item, LocalDate periodStart,
+                                      Map<String, HrSalaryRaiseService.Compensation> compensationByEmployee) {
         HrEmployee employee = item.employee();
         HrEmployeeEmployment employment = employee == null ? null : employee.getEmployment();
         HrEmployeeInsurance insurance = employee == null ? null : employee.getInsurance();
         HrEmployeeIdentity identity = employee == null ? null : employee.getIdentity();
         HrEmployeeContact contact = employee == null ? null : employee.getContact();
-        BigDecimal baseSalary = employment == null ? null : employment.getBaseSalary();
-        BigDecimal allowance = employment == null ? null : employment.getAllowance();
+        HrSalaryRaiseService.Compensation compensation = employee == null ? null
+                : compensationByEmployee.get(employee.getId());
+        BigDecimal baseSalary = compensation == null
+                ? (employment == null ? null : employment.getBaseSalary()) : compensation.baseSalary();
+        BigDecimal allowance = compensation == null
+                ? (employment == null ? null : employment.getAllowance()) : compensation.allowance();
         BigDecimal totalIncome = baseSalary == null ? allowance : allowance == null ? baseSalary : baseSalary.add(allowance);
         LocalDate birthDate = employee == null ? null : employee.getDateOfBirth();
         LocalDate hireDate = firstDate(item.hireDate(), employment == null ? null : employment.getHireDate());

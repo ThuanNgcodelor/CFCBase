@@ -45,6 +45,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -416,6 +417,16 @@ public class HrManagementService {
         employment.setContractNumber(trimToNull(input.contractNumber()));
         // Omitted/null compensation values preserve the stored value on edit.
         // A non-null value is an explicit replacement.
+        if (!created && input.baseSalary() != null
+                && moneyChanged(employment.getBaseSalary(), input.baseSalary())) {
+            throw HrApiException.conflict("SALARY_DIRECT_EDIT_DISABLED",
+                    "Lương đã có lịch sử hiệu lực; hãy thay đổi qua chức năng Nâng lương.");
+        }
+        if (!created && input.allowance() != null
+                && moneyChanged(employment.getAllowance(), input.allowance())) {
+            throw HrApiException.conflict("SALARY_DIRECT_EDIT_DISABLED",
+                    "Phụ cấp đã có lịch sử hiệu lực; hãy thay đổi qua chức năng Nâng lương.");
+        }
         if (created || input.baseSalary() != null) {
             employment.setBaseSalary(input.baseSalary());
         }
@@ -425,6 +436,10 @@ public class HrManagementService {
         employment.setJobDescription(trimToNull(input.jobDescription()));
         employmentRepository.save(employment);
         employee.setEmployment(employment);
+    }
+
+    private static boolean moneyChanged(BigDecimal stored, BigDecimal requested) {
+        return stored == null || stored.compareTo(requested) != 0;
     }
 
     private void upsertIdentity(HrEmployee employee, HrApiDtos.IdentityInput input, HrImportActor actor) {
@@ -553,6 +568,9 @@ public class HrManagementService {
                         employment.getLeaveAccrualStartDate(), employment.getTerminationDate(),
                         employment.getContractTypeLabel(), employment.getContractNumber(),
                         employment.getBaseSalary(), employment.getAllowance(),
+                        employment.getSalaryGrade(), employment.getSalaryScaleCode(),
+                        employment.getSalaryReviewCycleMonths(), employment.getLastSalaryRaiseDate(),
+                        employment.getNextSalaryReviewDate(),
                         employment.getBaseSalary() != null || employment.getAllowance() != null,
                         employment.getJobDescription()),
                 identity == null ? null : new HrApiDtos.IdentityDetails(

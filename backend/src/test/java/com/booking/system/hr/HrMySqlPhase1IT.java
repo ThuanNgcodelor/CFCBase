@@ -9,6 +9,7 @@ import com.booking.system.hr.entity.HrEmployeeEmployment;
 import com.booking.system.hr.entity.HrEmployeeIdentity;
 import com.booking.system.hr.entity.HrEmployeeInsurance;
 import com.booking.system.hr.entity.HrEmployeeMovement;
+import com.booking.system.hr.entity.HrEmployeeSalaryChange;
 import com.booking.system.hr.entity.HrExcelImportBatch;
 import com.booking.system.hr.entity.HrExcelImportRow;
 import com.booking.system.hr.entity.HrExcelTemplateVersion;
@@ -67,7 +68,7 @@ class HrMySqlPhase1IT {
         MigrateResult firstRun = flyway.migrate();
         MigrateResult secondRun = flyway.migrate();
 
-        assertThat(firstRun.migrationsExecuted).isEqualTo(2);
+        assertThat(firstRun.migrationsExecuted).isEqualTo(27);
         assertThat(secondRun.migrationsExecuted).isZero();
 
         verifyMySqlConstraintsAndLegacyData();
@@ -81,7 +82,9 @@ class HrMySqlPhase1IT {
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM legacy_probe WHERE id = 1 AND marker = 'preserve-me'"))
                     .isEqualTo(1);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE 'hr\\_%'"))
-                    .isEqualTo(15);
+                    .isEqualTo(55);
+            assertThat(singleInt(statement, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'hr_employee_salary_changes'"))
+                    .isEqualTo(1);
             assertThat(singleInt(statement, "SELECT COUNT(*) FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name LIKE 'hr\\_%' AND referenced_table_name = 'users'"))
                     .isZero();
 
@@ -198,6 +201,7 @@ class HrMySqlPhase1IT {
                 HrEmployeeIdentity.class,
                 HrEmployeeInsurance.class,
                 HrEmployeeMovement.class,
+                HrEmployeeSalaryChange.class,
                 HrExcelImportBatch.class,
                 HrExcelImportRow.class,
                 HrExcelTemplateVersion.class,

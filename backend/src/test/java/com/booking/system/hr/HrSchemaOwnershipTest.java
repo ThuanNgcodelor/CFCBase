@@ -7,6 +7,7 @@ import com.booking.system.hr.repository.HrExcelImportBatchRepository;
 import com.booking.system.hr.repository.HrExcelImportRowRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterItemRepository;
 import com.booking.system.hr.repository.HrMonthlyRosterRepository;
+import com.booking.system.hr.repository.HrEmployeeSalaryChangeRepository;
 import org.hibernate.mapping.Table;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,7 @@ class HrSchemaOwnershipTest {
                 HrEmployeeMovementRepository.class,
                 HrExcelImportBatchRepository.class,
                 HrExcelImportRowRepository.class,
+                HrEmployeeSalaryChangeRepository.class,
                 HrMonthlyRosterRepository.class,
                 HrMonthlyRosterItemRepository.class
         );

@@ -74,6 +74,21 @@ public class HrEmployeeEmployment extends HrAuditable {
     @Column(name = "allowance", precision = 15, scale = 2)
     private BigDecimal allowance;
 
+    @Column(name = "salary_grade", length = 40)
+    private String salaryGrade;
+
+    @Column(name = "salary_scale_code", length = 64)
+    private String salaryScaleCode;
+
+    @Column(name = "salary_review_cycle_months")
+    private Integer salaryReviewCycleMonths;
+
+    @Column(name = "last_salary_raise_date")
+    private LocalDate lastSalaryRaiseDate;
+
+    @Column(name = "next_salary_review_date")
+    private LocalDate nextSalaryReviewDate;
+
     @Column(name = "job_description", length = 2000)
     private String jobDescription;
 }
