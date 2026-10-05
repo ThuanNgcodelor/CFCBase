@@ -27,6 +27,7 @@ const HrGeneralLaborOnboarding = lazy(() => import('./pages/hr/HrGeneralLaborOnb
 const HrGeneralLaborCapturePhone = lazy(() => import('./pages/hr/HrGeneralLaborCapturePhone'));
 const HrCatalogs = lazy(() => import('./pages/hr/HrCatalogs'));
 const HrImports = lazy(() => import('./pages/hr/HrImports'));
+const HrSalaryRaises = lazy(() => import('./pages/hr/HrSalaryRaises'));
 const HrMovements = lazy(() => import('./pages/hr/HrMovements'));
 const HrRosters = lazy(() => import('./pages/hr/HrRosters'));
 const HrRosterDetail = lazy(() => import('./pages/hr/HrRosterDetail'));
@@ -181,6 +182,7 @@ function App() {
         <Route path="manager/hr/general-labor/new" element={<HrRoute><HrGeneralLaborOnboarding /></HrRoute>} />
         <Route path="manager/hr/catalogs" element={<HrRoute><HrCatalogs /></HrRoute>} />
         <Route path="manager/hr/imports" element={<HrRoute><HrImports /></HrRoute>} />
+        <Route path="manager/hr/salary-raises" element={<HrRoute><HrSalaryRaises /></HrRoute>} />
         <Route path="manager/hr/movements" element={<HrRoute><HrMovements /></HrRoute>} />
         <Route path="manager/hr/rosters" element={<HrRoute><HrRosters /></HrRoute>} />
         <Route path="manager/hr/rosters/:id" element={<HrRoute><HrRosterDetail /></HrRoute>} />
