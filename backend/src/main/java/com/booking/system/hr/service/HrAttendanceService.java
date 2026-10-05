@@ -30,8 +30,12 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.PrintSetup;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -47,6 +51,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.time.format.DateTimeFormatter;
@@ -426,7 +431,8 @@ public class HrAttendanceService {
         List<HrAttendanceRecord> source = recordRepository.findByImportIdOrderBySourceRowNumber(importId).stream()
                 .filter(record -> record.getWorkDate() != null && record.getEmployeeCode() != null && !record.getEmployeeCode().isBlank())
                 .toList();
-        List<LocalDate> dates = source.stream().map(HrAttendanceRecord::getWorkDate).distinct().sorted().toList();
+        List<LocalDate> sourceDates = source.stream().map(HrAttendanceRecord::getWorkDate).distinct().sorted().toList();
+        List<LocalDate> dates = attendanceMonthDates(batch.getAttendanceMonth(), sourceDates);
         Map<String, HrAttendanceRecord> lookup = new HashMap<>();
         Map<String, String> names = new LinkedHashMap<>();
         for (HrAttendanceRecord record : source) {
@@ -434,26 +440,179 @@ public class HrAttendanceService {
             lookup.put(key, record); names.putIfAbsent(record.getEmployeeCode(), record.getEmployeeName() == null ? "" : record.getEmployeeName());
         }
         List<String> employeeCodes = new ArrayList<>(names.keySet());
+        List<HrEmployee> employees = employeeCodes.isEmpty()
+                ? List.of()
+                : employeeRepository.findAttendanceEmployeesByCodes(employeeCodes);
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("Công");
-            CellStyle title = workbook.createCellStyle(); title.setAlignment(HorizontalAlignment.CENTER); title.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex()); title.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            CellStyle header = workbook.createCellStyle(); header.setAlignment(HorizontalAlignment.CENTER); header.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex()); header.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            Row titleRow = sheet.createRow(0); titleRow.createCell(0).setCellValue("BẢNG CÔNG" + (batch.getAttendanceMonth() == null ? "" : " - " + batch.getAttendanceMonth())); titleRow.getCell(0).setCellStyle(title); sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, dates.size() + 3));
-            Row headerRow = sheet.createRow(1); String[] fixed = {"STT", "Mã nhân viên", "Tên nhân viên"};
-            for (int i = 0; i < fixed.length; i++) { headerRow.createCell(i).setCellValue(fixed[i]); headerRow.getCell(i).setCellStyle(header); }
-            for (int i = 0; i < dates.size(); i++) { headerRow.createCell(i + 3).setCellValue(dates.get(i).format(EXPORT_DATE_FORMAT)); headerRow.getCell(i + 3).setCellStyle(header); }
-            headerRow.createCell(dates.size() + 3).setCellValue("Tổng ngày công"); headerRow.getCell(dates.size() + 3).setCellStyle(header);
-            int rowNumber = 2, serial = 1;
-            for (String code : employeeCodes) {
-                Row row = sheet.createRow(rowNumber++); row.createCell(0).setCellValue(serial++); row.createCell(1).setCellValue(code); row.createCell(2).setCellValue(names.get(code)); double total = 0;
-                for (int i = 0; i < dates.size(); i++) { HrAttendanceRecord record = lookup.get(code + "|" + dates.get(i)); double value = attendanceValue(record); row.createCell(i + 3).setCellValue(value); total += value; }
-                row.createCell(dates.size() + 3).setCellValue(total);
+            CellStyle titleStyle = congTitleStyle(workbook);
+            CellStyle headerStyle = congHeaderStyle(workbook);
+            CellStyle centeredBodyStyle = congBodyStyle(workbook, HorizontalAlignment.CENTER);
+            CellStyle textBodyStyle = congBodyStyle(workbook, HorizontalAlignment.LEFT);
+            int totalColumn = dates.size() + 3;
+
+            // Keep the same printable layout as the approved workbook: two blank
+            // rows, a merged unit title, then day number/day-of-week headers.
+            Row titleRow = sheet.createRow(2);
+            titleRow.setHeightInPoints(16.15f);
+            for (int column = 0; column <= totalColumn; column++) {
+                Cell cell = titleRow.createCell(column);
+                cell.setCellStyle(titleStyle);
             }
-            for (int i = 0; i < dates.size() + 4; i++) sheet.setColumnWidth(i, (i == 2 ? 28 : 14) * 256);
+            titleRow.getCell(0).setCellValue(congTitle(batch, employees));
+            sheet.addMergedRegion(new CellRangeAddress(2, 2, 0, totalColumn));
+
+            Row dayHeaderRow = sheet.createRow(3);
+            Row weekdayHeaderRow = sheet.createRow(4);
+            dayHeaderRow.setHeightInPoints(12.75f);
+            weekdayHeaderRow.setHeightInPoints(12.75f);
+            String[] fixedHeaders = {"STT", "Mã nhân viên", "Tên nhân viên"};
+            for (int column = 0; column < fixedHeaders.length; column++) {
+                dayHeaderRow.createCell(column).setCellValue(fixedHeaders[column]);
+                weekdayHeaderRow.createCell(column);
+                dayHeaderRow.getCell(column).setCellStyle(headerStyle);
+                weekdayHeaderRow.getCell(column).setCellStyle(headerStyle);
+                sheet.addMergedRegion(new CellRangeAddress(3, 4, column, column));
+            }
+            for (int index = 0; index < dates.size(); index++) {
+                LocalDate date = dates.get(index);
+                int column = index + 3;
+                dayHeaderRow.createCell(column).setCellValue(date.getDayOfMonth());
+                weekdayHeaderRow.createCell(column).setCellValue(shortDayName(date.getDayOfWeek()));
+                dayHeaderRow.getCell(column).setCellStyle(headerStyle);
+                weekdayHeaderRow.getCell(column).setCellStyle(headerStyle);
+            }
+            dayHeaderRow.createCell(totalColumn).setCellValue("Ngày\ncông");
+            weekdayHeaderRow.createCell(totalColumn);
+            dayHeaderRow.getCell(totalColumn).setCellStyle(headerStyle);
+            weekdayHeaderRow.getCell(totalColumn).setCellStyle(headerStyle);
+            sheet.addMergedRegion(new CellRangeAddress(3, 4, totalColumn, totalColumn));
+
+            int rowNumber = 5, serial = 1;
+            for (String code : employeeCodes) {
+                Row row = sheet.createRow(rowNumber++);
+                row.setHeightInPoints(12.75f);
+                row.createCell(0).setCellValue(serial++);
+                row.createCell(1).setCellValue(code);
+                row.createCell(2).setCellValue(names.get(code));
+                row.getCell(0).setCellStyle(centeredBodyStyle);
+                row.getCell(1).setCellStyle(textBodyStyle);
+                row.getCell(2).setCellStyle(textBodyStyle);
+                double total = 0;
+                for (int index = 0; index < dates.size(); index++) {
+                    HrAttendanceRecord record = lookup.get(code + "|" + dates.get(index));
+                    double value = attendanceValue(record);
+                    Cell cell = row.createCell(index + 3);
+                    cell.setCellValue(value);
+                    cell.setCellStyle(centeredBodyStyle);
+                    total += value;
+                }
+                Cell totalCell = row.createCell(totalColumn);
+                totalCell.setCellValue(total);
+                totalCell.setCellStyle(centeredBodyStyle);
+            }
+            sheet.setColumnWidth(0, (int) (8.68 * 256));
+            sheet.setColumnWidth(1, (int) (8.68 * 256));
+            sheet.setColumnWidth(2, (int) (25.71 * 256));
+            for (int column = 3; column < totalColumn; column++) sheet.setColumnWidth(column, (int) (4.71 * 256));
+            sheet.setColumnWidth(totalColumn, (int) (8.68 * 256));
+            sheet.setDisplayGridlines(true);
+            sheet.setAutobreaks(true);
+            PrintSetup printSetup = sheet.getPrintSetup();
+            printSetup.setPaperSize(PrintSetup.A4_PAPERSIZE);
+            printSetup.setLandscape(false);
+            printSetup.setFitWidth((short) 1);
+            printSetup.setFitHeight((short) 1);
+            sheet.setFitToPage(true);
             workbook.write(output);
             String safeName = (batch.getSourceFileName() == null ? "attendance" : batch.getSourceFileName()).replaceAll("(?i)\\.(xlsx|xls|xlsm)$", "");
             return new ExportFile("CONG_" + safeName + ".xlsx", output.toByteArray());
         } catch (IOException ex) { throw HrApiException.badRequest("ATTENDANCE_EXPORT_FAILED", "Không thể tạo file Bảng Công."); }
+    }
+
+    private static List<LocalDate> attendanceMonthDates(String attendanceMonth, List<LocalDate> sourceDates) {
+        YearMonth month = null;
+        if (attendanceMonth != null && MONTH_PATTERN.matcher(attendanceMonth.trim()).matches()) {
+            month = YearMonth.parse(attendanceMonth.trim(), DateTimeFormatter.ofPattern("MM/uuuu"));
+        } else if (!sourceDates.isEmpty()) {
+            YearMonth firstMonth = YearMonth.from(sourceDates.get(0));
+            boolean oneMonthOnly = sourceDates.stream().allMatch(date -> YearMonth.from(date).equals(firstMonth));
+            if (oneMonthOnly) month = firstMonth;
+        }
+        if (month == null) return sourceDates;
+        List<LocalDate> dates = new ArrayList<>(month.lengthOfMonth());
+        for (int day = 1; day <= month.lengthOfMonth(); day++) dates.add(month.atDay(day));
+        return dates;
+    }
+
+    private static CellStyle congTitleStyle(XSSFWorkbook workbook) {
+        CellStyle style = borderedStyle(workbook, HorizontalAlignment.CENTER);
+        Font font = workbook.createFont();
+        font.setFontName("Arial");
+        font.setFontHeightInPoints((short) 13);
+        font.setBold(true);
+        style.setFont(font);
+        return style;
+    }
+
+    private static CellStyle congHeaderStyle(XSSFWorkbook workbook) {
+        CellStyle style = borderedStyle(workbook, HorizontalAlignment.CENTER);
+        Font font = workbook.createFont();
+        font.setFontName("Arial");
+        font.setFontHeightInPoints((short) 10);
+        font.setBold(true);
+        style.setFont(font);
+        style.setWrapText(true);
+        return style;
+    }
+
+    private static CellStyle congBodyStyle(XSSFWorkbook workbook, HorizontalAlignment alignment) {
+        CellStyle style = borderedStyle(workbook, alignment);
+        Font font = workbook.createFont();
+        font.setFontName("Arial");
+        font.setFontHeightInPoints((short) 10);
+        style.setFont(font);
+        style.setDataFormat(workbook.createDataFormat().getFormat("0.##"));
+        return style;
+    }
+
+    private static CellStyle borderedStyle(XSSFWorkbook workbook, HorizontalAlignment alignment) {
+        CellStyle style = workbook.createCellStyle();
+        style.setAlignment(alignment);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        return style;
+    }
+
+    private static String congTitle(HrAttendanceImport batch, List<HrEmployee> employees) {
+        List<String> departments = employees.stream()
+                .map(HrEmployee::getEmployment)
+                .filter(employment -> employment != null && employment.getDepartment() != null)
+                .map(employment -> employment.getDepartment().getName())
+                .filter(name -> name != null && !name.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+        if (departments.size() == 1) {
+            String department = departments.get(0).replaceFirst("(?iu)^(phòng|ban)\\s+", "");
+            return "(" + department.toUpperCase(Locale.forLanguageTag("vi-VN")) + ")";
+        }
+        return "BẢNG CÔNG" + (batch.getAttendanceMonth() == null ? "" : " - " + batch.getAttendanceMonth());
+    }
+
+    private static String shortDayName(DayOfWeek day) {
+        return switch (day) {
+            case MONDAY -> "T.2";
+            case TUESDAY -> "T.3";
+            case WEDNESDAY -> "T.4";
+            case THURSDAY -> "T.5";
+            case FRIDAY -> "T.6";
+            case SATURDAY -> "T.7";
+            case SUNDAY -> "CN";
+        };
     }
 
     private static double attendanceValue(HrAttendanceRecord record) {

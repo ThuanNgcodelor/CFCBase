@@ -2,7 +2,9 @@ package com.booking.system.hr.api;
 
 import com.booking.system.hr.entity.HrAttendanceImport;
 import com.booking.system.hr.entity.HrAttendanceRecord;
+import com.booking.system.hr.entity.HrDepartment;
 import com.booking.system.hr.entity.HrEmployee;
+import com.booking.system.hr.entity.HrEmployeeEmployment;
 import com.booking.system.hr.enums.HrAttendanceImportStatus;
 import com.booking.system.hr.enums.HrAttendanceRecordStatus;
 import com.booking.system.hr.importer.HrImportActor;
@@ -13,8 +15,11 @@ import com.booking.system.hr.repository.HrEmployeeRepository;
 import com.booking.system.hr.repository.HrSystemSettingRepository;
 import com.booking.system.hr.service.HrAttendanceService;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CreationHelper;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -111,6 +117,47 @@ class HrAttendanceServiceTest {
         assertThat(summary.onTimeRate()).isEqualTo(100.0);
     }
 
+    @Test
+    void congExportMatchesApprovedTwoRowCalendarLayout() throws Exception {
+        HrAttendanceImport batch = confirmedImport("attendance-1", "09/2026");
+        batch.setSourceFileName("KHVT T9.2026.xlsx");
+        when(importRepository.findById("attendance-1")).thenReturn(Optional.of(batch));
+
+        HrAttendanceRecord firstDay = record("attendance-1", "A339", LocalDate.of(2026, 9, 1),
+                HrAttendanceRecordStatus.VALID, 0, 0);
+        HrAttendanceRecord thirdDay = record("attendance-1", "A339", LocalDate.of(2026, 9, 3),
+                HrAttendanceRecordStatus.MISSING_CHECK_IN, 0, 0);
+        when(recordRepository.findByImportIdOrderBySourceRowNumber("attendance-1"))
+                .thenReturn(List.of(firstDay, thirdDay));
+        when(employeeRepository.findAttendanceEmployeesByCodes(any())).thenReturn(List.of(employeeWithDepartment(
+                "A339", "Lê Minh Toàn", "Phòng Kế hoạch Vật tư")));
+
+        HrAttendanceService.ExportFile exported = service.exportCong("attendance-1");
+
+        assertThat(exported.fileName()).isEqualTo("CONG_KHVT T9.2026.xlsx");
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(exported.content()))) {
+            var sheet = workbook.getSheet("Công");
+            assertThat(sheet.getMergedRegions()).extracting(CellRangeAddress::formatAsString).containsExactlyInAnyOrder(
+                    "A3:AH3", "A4:A5", "B4:B5", "C4:C5", "AH4:AH5");
+            assertThat(sheet.getRow(2).getCell(0).getStringCellValue()).isEqualTo("(KẾ HOẠCH VẬT TƯ)");
+            assertThat(sheet.getRow(3).getCell(3).getNumericCellValue()).isEqualTo(1);
+            assertThat(sheet.getRow(3).getCell(32).getNumericCellValue()).isEqualTo(30);
+            assertThat(sheet.getRow(4).getCell(3).getStringCellValue()).isEqualTo("T.3");
+            assertThat(sheet.getRow(3).getCell(33).getStringCellValue()).isEqualTo("Ngày\ncông");
+            assertThat(sheet.getRow(5).getCell(3).getNumericCellValue()).isEqualTo(1);
+            assertThat(sheet.getRow(5).getCell(4).getNumericCellValue()).isZero();
+            assertThat(sheet.getRow(5).getCell(5).getNumericCellValue()).isEqualTo(0.5);
+            assertThat(sheet.getRow(5).getCell(33).getNumericCellValue()).isEqualTo(1.5);
+            assertThat(sheet.getColumnWidth(2)).isEqualTo((int) (25.71 * 256));
+            assertThat(sheet.getColumnWidth(3)).isEqualTo((int) (4.71 * 256));
+            assertThat(sheet.getRow(5).getCell(3).getCellStyle().getBorderBottom()).isEqualTo(BorderStyle.THIN);
+            assertThat(sheet.getRow(5).getCell(3).getCellStyle().getAlignment()).isEqualTo(HorizontalAlignment.CENTER);
+            assertThat(sheet.getRow(5).getCell(3).getCellStyle().getFontIndexAsInt()).isGreaterThan(0);
+            assertThat(workbook.getFontAt(sheet.getRow(5).getCell(3).getCellStyle().getFontIndexAsInt()).getFontName())
+                    .isEqualTo("Arial");
+        }
+    }
+
     private static byte[] workbookFixture() throws Exception {
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("XNK");
@@ -170,6 +217,18 @@ class HrAttendanceServiceTest {
         employee.setId("employee-1");
         employee.setEmployeeCode(code);
         employee.setFullName(name);
+        return employee;
+    }
+
+    private static HrEmployee employeeWithDepartment(String code, String name, String departmentName) {
+        HrEmployee employee = employee(code, name);
+        HrDepartment department = new HrDepartment();
+        department.setName(departmentName);
+        HrEmployeeEmployment employment = new HrEmployeeEmployment();
+        employment.setEmployee(employee);
+        employment.setEmployeeId(employee.getId());
+        employment.setDepartment(department);
+        employee.setEmployment(employment);
         return employee;
     }
 
