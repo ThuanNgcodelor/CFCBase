@@ -26,4 +26,8 @@ export const hrSalaryRaiseApi = {
   rollback: async (batchId, reason) => unwrapApiData(await baseApi.post(
     `/hr/salary-raises/imports/${batchId}/rollback`, { reason },
   )),
+
+  deleteImport: async (batchId) => unwrapApiData(await baseApi.delete(
+    `/hr/salary-raises/imports/${batchId}`,
+  )),
 };

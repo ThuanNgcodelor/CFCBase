@@ -220,7 +220,7 @@ public class HrSalaryRaiseService {
     @Transactional
     public HrSalaryRaiseDtos.BatchResponse confirm(String batchId, String confirmationKey,
                                                     boolean acceptWarnings, HrImportActor actor) {
-        requireAdmin(actor);
+        requireApprover(actor);
         HrExcelImportBatch batch = lockedBatch(batchId);
         requireSalaryBatch(batch);
         if (batch.getStatus() == HrImportBatchStatus.CONFIRMED) {
@@ -320,7 +320,7 @@ public class HrSalaryRaiseService {
 
     @Transactional
     public HrSalaryRaiseDtos.BatchResponse rollback(String batchId, String reason, HrImportActor actor) {
-        requireAdmin(actor);
+        requireApprover(actor);
         String safeReason = requiredText(reason, "Lý do rollback là bắt buộc.");
         HrExcelImportBatch batch = lockedBatch(batchId);
         requireSalaryBatch(batch);
@@ -372,6 +372,46 @@ public class HrSalaryRaiseService {
         audit(actor, "SALARY_RAISE_IMPORT_ROLLED_BACK", "HR_IMPORT_BATCH", batch.getId(),
                 batch.getConfirmationKey(), Map.of("rowCount", changes.size(), "reason", safeReason));
         return HrSalaryRaiseDtos.BatchResponse.from(batch);
+    }
+
+    @Transactional
+    public void deleteImport(String batchId, HrImportActor actor) {
+        requireApprover(actor);
+        HrExcelImportBatch batch = lockedBatch(batchId);
+        requireSalaryBatch(batch);
+        if (batch.getStatus() == HrImportBatchStatus.CONFIRMED) {
+            throw HrApiException.conflict("SALARY_RAISE_DELETE_REQUIRES_ROLLBACK",
+                    "Batch đã áp dụng lương; phải rollback trước khi xóa file import.");
+        }
+
+        List<HrEmployeeSalaryChange> changes = salaryChangeRepository
+                .findAllByImportBatch_IdOrderBySourceRowNumber(batchId);
+        if (changes.stream().anyMatch(change -> change.getStatus() != HrSalaryChangeStatus.ROLLED_BACK)) {
+            throw HrApiException.conflict("SALARY_RAISE_DELETE_HAS_ACTIVE_CHANGES",
+                    "Batch còn thay đổi lương đang hiệu lực nên không thể xóa.");
+        }
+
+        // A rolled-back salary change is permanent audit/history. Detach only
+        // the disposable import batch so deleting the preview cannot erase it.
+        for (HrEmployeeSalaryChange change : changes) {
+            change.setImportBatch(null);
+            touch(change, actor);
+        }
+        salaryChangeRepository.saveAll(changes);
+
+        List<HrExcelImportRow> rows = rowRepository.findAllByBatch_IdOrderByRowNumber(batchId);
+        rows.forEach(entityManager::remove);
+        entityManager.flush();
+        String sourceFileName = batch.getSourceFileName();
+        HrImportBatchStatus deletedStatus = batch.getStatus();
+        entityManager.remove(batch);
+        entityManager.flush();
+
+        audit(actor, "SALARY_RAISE_IMPORT_DELETED", "HR_IMPORT_BATCH", batchId, null,
+                Map.of("sourceFileName", sourceFileName == null ? "" : sourceFileName,
+                        "previousStatus", deletedStatus.name(),
+                        "deletedPreviewRows", rows.size(),
+                        "preservedSalaryHistoryRows", changes.size()));
     }
 
     @Transactional
@@ -589,10 +629,10 @@ public class HrSalaryRaiseService {
         return normalized;
     }
 
-    private static void requireAdmin(HrImportActor actor) {
-        if (!"ADMIN".equals(actor.role())) {
-            throw HrApiException.forbidden("SALARY_RAISE_ADMIN_REQUIRED",
-                    "Chỉ ADMIN được xác nhận hoặc rollback nâng lương.");
+    private static void requireApprover(HrImportActor actor) {
+        if (!Set.of("ADMIN", "MANAGER").contains(actor.role())) {
+            throw HrApiException.forbidden("SALARY_RAISE_APPROVER_REQUIRED",
+                    "Chỉ ADMIN hoặc MANAGER được xác nhận, rollback hoặc xóa file nâng lương.");
         }
     }
 

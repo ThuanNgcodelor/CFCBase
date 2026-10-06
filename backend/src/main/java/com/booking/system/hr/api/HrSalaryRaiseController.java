@@ -70,4 +70,12 @@ public class HrSalaryRaiseController {
         return ApiResponse.success(service.rollback(batchId, request.reason(), actorResolver.fromPrincipal(principal)),
                 "Đã rollback batch nâng lương");
     }
+
+    @DeleteMapping("/imports/{batchId}")
+    public ApiResponse<Void> deleteImport(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String batchId) {
+        service.deleteImport(batchId, actorResolver.fromPrincipal(principal));
+        return ApiResponse.success(null, "Đã xóa file import; lịch sử lương đã áp dụng vẫn được giữ lại");
+    }
 }

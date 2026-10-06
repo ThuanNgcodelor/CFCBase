@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { CalendarClock, CheckCircle2, FileSearch, RotateCcw, Upload } from 'lucide-react';
+import { CalendarClock, CheckCircle2, FileSearch, RotateCcw, Trash2, Upload } from 'lucide-react';
 import { authApi } from '../../api/authApi';
 import { hrSalaryRaiseApi } from '../../api/hrSalaryRaiseApi';
 import { normalizePage } from '../../api/hrApiUtils';
@@ -39,7 +39,7 @@ function Stat({ label, value, tone = 'gray' }) {
 }
 
 export function HrSalaryRaiseImport() {
-  const isAdmin = authApi.getRole() === 'ADMIN';
+  const canApprove = ['ADMIN', 'MANAGER'].includes(authApi.getRole());
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [batches, setBatches] = useState(normalizePage(null));
@@ -138,6 +138,42 @@ export function HrSalaryRaiseImport() {
       .then((result) => { if (result) setRollbackReason(''); });
   };
 
+  const deleteImport = async () => {
+    if (!batch || !canApprove) return;
+    const confirmed = batch.status === 'CONFIRMED';
+    if (confirmed) {
+      toast.error('Batch đã áp dụng lương. Hãy rollback trước khi xóa file import.');
+      return;
+    }
+    const confirmedByUser = window.confirm(
+      `Xóa file import “${batch.sourceFileName}”?\n\nDữ liệu preview sẽ bị xóa. Lịch sử nâng lương đã rollback vẫn được giữ lại.`,
+    );
+    if (!confirmedByUser) return;
+    setBusy('delete');
+    setError('');
+    try {
+      await hrSalaryRaiseApi.deleteImport(selectedId);
+      setBatches((current) => ({
+        ...current,
+        content: current.content.filter((item) => item.id !== selectedId),
+        totalElements: Math.max(0, Number(current.totalElements || 0) - 1),
+      }));
+      setSelectedId('');
+      setPreview(null);
+      setPage(0);
+      toast.success('Đã xóa file import; dữ liệu lương và lịch sử được giữ an toàn.');
+      setRevision((value) => value + 1);
+    } catch (requestError) {
+      const message = apiErrorMessage(requestError, 'Không thể xóa file import nâng lương.');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const canDeleteBatch = batch && ['UPLOADED', 'PARSED', 'VALIDATED', 'FAILED', 'ROLLED_BACK'].includes(batch.status);
+
   return <section className="mb-5 rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
@@ -168,12 +204,13 @@ export function HrSalaryRaiseImport() {
             <div><p className="font-medium text-gray-900">{batch.sourceFileName}</p><p className="text-xs text-gray-500">{batch.id}</p></div>
             <div className="flex flex-wrap gap-2">
               {batch.status === 'PARSED' && <Button type="button" variant="secondary" disabled={Boolean(busy)} onClick={() => run('validate', () => hrSalaryRaiseApi.validate(selectedId), 'Đã đối chiếu file với DB.')}><FileSearch className="mr-1.5 h-4 w-4" />{busy === 'validate' ? 'Đang kiểm tra...' : 'Kiểm tra DB'}</Button>}
-              {batch.status === 'VALIDATED' && isAdmin && <Button type="button" disabled={Boolean(busy) || batch.invalidRows > 0} onClick={confirm}><CheckCircle2 className="mr-1.5 h-4 w-4" />{busy === 'confirm' ? 'Đang áp dụng...' : 'Xác nhận nâng lương'}</Button>}
+              {batch.status === 'VALIDATED' && canApprove && <Button type="button" disabled={Boolean(busy) || batch.invalidRows > 0} onClick={confirm}><CheckCircle2 className="mr-1.5 h-4 w-4" />{busy === 'confirm' ? 'Đang áp dụng...' : 'Xác nhận nâng lương'}</Button>}
+              {canDeleteBatch && canApprove && <Button type="button" variant="danger" disabled={Boolean(busy)} onClick={deleteImport}><Trash2 className="mr-1.5 h-4 w-4" />{busy === 'delete' ? 'Đang xóa...' : 'Xóa file import'}</Button>}
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5"><Stat label="Tổng" value={batch.totalRows} /><Stat label="Hợp lệ" value={batch.validRows} tone="green" /><Stat label="Cảnh báo" value={batch.warningRows} tone="amber" /><Stat label="Bị chặn" value={batch.invalidRows} tone="red" /><Stat label="Đã nhập" value={batch.importedRows} tone="blue" /></div>
           {batch.status === 'VALIDATED' && batch.warningRows > 0 && <label className="mt-3 flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800"><input type="checkbox" checked={acceptWarnings} onChange={(event) => setAcceptWarnings(event.target.checked)} /><span>Tôi đã đọc cảnh báo, bao gồm chênh lệch ngày tới hạn so với phép cộng tháng lịch.</span></label>}
-          {batch.status === 'VALIDATED' && !isAdmin && <p className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">Batch đã kiểm tra. Chỉ ADMIN được xác nhận nâng lương.</p>}
+          {batch.status === 'VALIDATED' && !canApprove && <p className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">Batch đã kiểm tra. Chỉ ADMIN hoặc MANAGER được xác nhận nâng lương.</p>}
 
           <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
             <table className="min-w-[980px] w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-3 py-3">MS / Họ tên</th><th className="px-3 py-3">Lương hiện tại</th><th className="px-3 py-3">Sau nâng</th><th className="px-3 py-3">Bậc</th><th className="px-3 py-3">Hiệu lực / tới hạn</th><th className="px-3 py-3">Kết quả</th></tr></thead>
@@ -188,7 +225,7 @@ export function HrSalaryRaiseImport() {
           </div>
           <HrPagination page={preview?.page || 0} totalPages={preview?.totalPages || 0} totalElements={preview?.totalElements || 0} onPageChange={setPage} />
 
-          {batch.status === 'CONFIRMED' && isAdmin && <div className="mt-4 rounded-lg border border-red-200 p-3"><p className="text-sm font-medium text-red-800">Rollback nâng lương</p><div className="mt-2 flex flex-col gap-2 sm:flex-row"><input value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} placeholder="Lý do bắt buộc" className="h-10 flex-1 rounded-lg border border-gray-300 px-3 text-sm" /><Button type="button" variant="danger" disabled={Boolean(busy) || !rollbackReason.trim()} onClick={rollback}><RotateCcw className="mr-1.5 h-4 w-4" />Rollback</Button></div></div>}
+          {batch.status === 'CONFIRMED' && canApprove && <div className="mt-4 rounded-lg border border-red-200 p-3"><p className="text-sm font-medium text-red-800">Rollback nâng lương</p><p className="mt-1 text-xs text-red-700">Nhập lý do để hoàn tác lương. Sau khi rollback thành công, bạn có thể xóa file import mà vẫn giữ lịch sử hoàn tác.</p><div className="mt-2 flex flex-col gap-2 sm:flex-row"><input value={rollbackReason} onChange={(event) => setRollbackReason(event.target.value)} placeholder="Lý do bắt buộc" className="h-10 flex-1 rounded-lg border border-gray-300 px-3 text-sm" /><Button type="button" variant="danger" disabled={Boolean(busy) || !rollbackReason.trim()} onClick={rollback}><RotateCcw className="mr-1.5 h-4 w-4" />Rollback</Button></div></div>}
         </> : <HrEmpty title="Chọn hoặc tải một batch nâng lương" />}
       </div>
     </div>

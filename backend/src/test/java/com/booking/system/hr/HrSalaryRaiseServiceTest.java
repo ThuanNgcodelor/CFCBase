@@ -130,7 +130,7 @@ class HrSalaryRaiseServiceTest {
     }
 
     @Test
-    void futureRaiseIsIdempotentAdminOnlyAndAppliesOnItsEffectiveDate() throws Exception {
+    void managerCanConfirmRollbackAndDeleteWhileSalaryHistoryIsPreserved() throws Exception {
         HrEmployee employee = employee("A341", "Nhân viên tương lai", "6647000", "1892000");
         HrSalaryRaiseService service = service();
         LocalDate effectiveDate = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
@@ -144,12 +144,7 @@ class HrSalaryRaiseServiceTest {
         var validated = service.validate(firstUpload.id(), MANAGER);
         assertThat(validated.validRows()).isEqualTo(1);
 
-        assertThatThrownBy(() -> service.confirm(firstUpload.id(), "future-manager", false, MANAGER))
-                .isInstanceOf(HrApiException.class)
-                .extracting(exception -> ((HrApiException) exception).code())
-                .isEqualTo("SALARY_RAISE_ADMIN_REQUIRED");
-
-        service.confirm(firstUpload.id(), "future-admin", false, ADMIN);
+        service.confirm(firstUpload.id(), "future-manager", false, MANAGER);
         assertThat(service.history(employee.getId(), 0, 20).content().getFirst().status())
                 .isEqualTo(HrSalaryChangeStatus.SCHEDULED);
         assertThat(employee.getEmployment().getBaseSalary()).isEqualByComparingTo("6647000");
@@ -163,6 +158,41 @@ class HrSalaryRaiseServiceTest {
         assertThat(service.history(employee.getId(), 0, 20).content().getFirst().status())
                 .isEqualTo(HrSalaryChangeStatus.APPLIED);
         assertThat(employee.getEmployment().getBaseSalary()).isEqualByComparingTo("7046000");
+
+        assertThatThrownBy(() -> service.deleteImport(firstUpload.id(), MANAGER))
+                .isInstanceOf(HrApiException.class)
+                .extracting(exception -> ((HrApiException) exception).code())
+                .isEqualTo("SALARY_RAISE_DELETE_REQUIRES_ROLLBACK");
+
+        String historyId = service.history(employee.getId(), 0, 20).content().getFirst().id();
+        service.rollback(firstUpload.id(), "Manager hoàn tác để kiểm thử", MANAGER);
+        service.deleteImport(firstUpload.id(), MANAGER);
+        entityManager.clear();
+
+        assertThat(batches.findById(firstUpload.id())).isEmpty();
+        assertThat(rows.findAllByBatch_IdOrderByRowNumber(firstUpload.id())).isEmpty();
+        assertThat(salaryChanges.findById(historyId)).get().satisfies(change -> {
+            assertThat(change.getStatus()).isEqualTo(HrSalaryChangeStatus.ROLLED_BACK);
+            assertThat(change.getImportBatch()).isNull();
+            assertThat(change.getRollbackReason()).isEqualTo("Manager hoàn tác để kiểm thử");
+        });
+        assertThat(service.compensationAt(List.of(employees.findById(employee.getId()).orElseThrow()),
+                effectiveDate).get(employee.getId()).total()).isEqualByComparingTo("8539000");
+    }
+
+    @Test
+    void managerCanDeleteValidatedFileBecauseItHasNotChangedSalary() throws Exception {
+        employee("A342", "Nhân viên xóa file", "6647000", "1892000");
+        HrSalaryRaiseService service = service();
+        var uploaded = service.upload("salary-unused.xlsx",
+                workbook("A342", "Nhân viên xóa file", "6647000"), MANAGER);
+        service.validate(uploaded.id(), MANAGER);
+
+        service.deleteImport(uploaded.id(), MANAGER);
+
+        assertThat(batches.findById(uploaded.id())).isEmpty();
+        assertThat(rows.findAllByBatch_IdOrderByRowNumber(uploaded.id())).isEmpty();
+        assertThat(salaryChanges.count()).isZero();
     }
 
     private HrSalaryRaiseService service() {
