@@ -84,6 +84,63 @@ class HrProductionAttendanceServiceTest {
     @jakarta.annotation.Resource private HrEmployeeRepository employeeRepository;
 
     @Test
+    void manualNightDecisionDoesNotStealPreviousNightCheckoutOrCascadeReviewBackward() throws Exception {
+        HrEmployee employee = new HrEmployee();
+        employee.setEmployeeCode("B901");
+        employee.setFullName("Nguyễn Văn Chuỗi Ca");
+        employee.setWorkforceGroup(HrWorkforceGroup.GENERAL_LABOR);
+        employee.setCreatedByActor(ACTOR.subject());
+        employee.setUpdatedByActor(ACTOR.subject());
+        employee = employeeRepository.save(employee);
+
+        var batch = service.upload("B901-consecutive-night.xlsx", consecutiveNightWorkbook(), "2026-08", ACTOR);
+        try {
+            var initial = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id());
+            var day9 = initial.stream().filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 9)))
+                    .findFirst().orElseThrow();
+            var day10 = initial.stream().filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 10)))
+                    .findFirst().orElseThrow();
+            assertThat(day9.getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.AUTO_MATCHED);
+            assertThat(day10.getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.AUTO_MATCHED);
+
+            var punches = punchRepository.findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(batch.id());
+            var previousNightCheckout = punches.stream()
+                    .filter(value -> value.getPunchedAt().equals(LocalDateTime.of(2026, 8, 10, 5, 0)))
+                    .findFirst().orElseThrow();
+            var day10CheckIn = punches.stream()
+                    .filter(value -> value.getPunchedAt().equals(LocalDateTime.of(2026, 8, 10, 18, 0)))
+                    .findFirst().orElseThrow();
+            var day10CheckOut = punches.stream()
+                    .filter(value -> value.getPunchedAt().equals(LocalDateTime.of(2026, 8, 11, 5, 0)))
+                    .findFirst().orElseThrow();
+
+            assertThatThrownBy(() -> service.decideShift(day10.getId(),
+                    new HrProductionAttendanceDtos.ShiftDecisionRequest(
+                            HrProductionAttendanceDtos.DecisionAction.CONFIRM, "CN_18_5",
+                            previousNightCheckout.getId(), day10CheckOut.getId(), new BigDecimal("1.5"),
+                            new BigDecimal("50000"), "Không được lấy lượt ra của ngày 9", day10.getRowVersion()),
+                    ACTOR)).isInstanceOfSatisfying(HrApiException.class,
+                            exception -> assertThat(exception.code())
+                                    .isEqualTo("ATTENDANCE_NIGHT_PUNCH_DIRECTION_INVALID"));
+
+            var refreshedDay10 = shiftRepository.findById(day10.getId()).orElseThrow();
+            service.decideShift(refreshedDay10.getId(), new HrProductionAttendanceDtos.ShiftDecisionRequest(
+                    HrProductionAttendanceDtos.DecisionAction.CONFIRM, "CN_18_5",
+                    day10CheckIn.getId(), day10CheckOut.getId(), new BigDecimal("1.5"),
+                    new BigDecimal("50000"), "Xác nhận đúng chuỗi ca đêm", refreshedDay10.getRowVersion()), ACTOR);
+
+            var recalculated = shiftRepository.findByImportIdAndActiveTrueOrderByEmployeeCodeAscWorkDateAsc(batch.id());
+            var recalculatedDay9 = recalculated.stream()
+                    .filter(value -> value.getWorkDate().equals(LocalDate.of(2026, 8, 9)))
+                    .findFirst().orElseThrow();
+            assertThat(recalculatedDay9.getStatus()).isEqualTo(HrProductionAttendanceShiftStatus.AUTO_MATCHED);
+            assertThat(recalculatedDay9.getCheckOutAt()).isEqualTo(LocalDateTime.of(2026, 8, 10, 5, 0));
+        } finally {
+            service.deleteImport(batch.id(), ACTOR);
+        }
+    }
+
+    @Test
     void manualNightShiftDecisionAcceptsCheckoutOutsideAutomaticWindowOnExpectedDate() throws Exception {
         employeeRepository.findByEmployeeCode("B900").orElseGet(() -> {
             HrEmployee employee = new HrEmployee();
@@ -468,6 +525,40 @@ class HrProductionAttendanceServiceTest {
             nightEnd.createCell(2).setCellValue("Nguyễn Văn Ca Đêm");
             nightEnd.createCell(4).setCellValue("11-Aug-26");
             nightEnd.createCell(6).setCellValue("06:06");
+
+            workbook.write(output);
+            return output.toByteArray();
+        }
+    }
+
+    private byte[] consecutiveNightWorkbook() throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("Thang 08 ca dem lien tiep");
+            var header = sheet.createRow(0);
+            header.createCell(1).setCellValue("Mã nhân viên");
+            header.createCell(2).setCellValue("Tên nhân viên");
+            header.createCell(4).setCellValue("Ngày");
+            header.createCell(6).setCellValue("Chấm lần 1");
+            header.createCell(7).setCellValue("Chấm lần 2");
+
+            var day9 = sheet.createRow(1);
+            day9.createCell(1).setCellValue("B901");
+            day9.createCell(2).setCellValue("Nguyễn Văn Chuỗi Ca");
+            day9.createCell(4).setCellValue("09-Aug-26");
+            day9.createCell(7).setCellValue("18:00");
+
+            var day10 = sheet.createRow(2);
+            day10.createCell(1).setCellValue("B901");
+            day10.createCell(2).setCellValue("Nguyễn Văn Chuỗi Ca");
+            day10.createCell(4).setCellValue("10-Aug-26");
+            day10.createCell(6).setCellValue("05:00");
+            day10.createCell(7).setCellValue("18:00");
+
+            var day11 = sheet.createRow(3);
+            day11.createCell(1).setCellValue("B901");
+            day11.createCell(2).setCellValue("Nguyễn Văn Chuỗi Ca");
+            day11.createCell(4).setCellValue("11-Aug-26");
+            day11.createCell(6).setCellValue("05:00");
 
             workbook.write(output);
             return output.toByteArray();

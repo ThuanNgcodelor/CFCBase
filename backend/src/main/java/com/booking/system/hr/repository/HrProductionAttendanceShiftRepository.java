@@ -84,10 +84,11 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
     @Query("""
             select shift from HrProductionAttendanceShift shift
             where shift.importId = :importId and shift.active = true and shift.id <> :shiftId
-              and shift.resolutionType = :manualResolution
+              and (shift.resolutionType = :manualResolution
+                   or (shift.checkInPunchId is not null and shift.checkOutPunchId is not null))
               and (shift.checkInPunchId in :punchIds or shift.checkOutPunchId in :punchIds)
             """)
-    List<HrProductionAttendanceShift> findOtherActiveManualShiftsUsingPunches(
+    List<HrProductionAttendanceShift> findOtherActiveShiftsUsingPunches(
             @Param("importId") String importId,
             @Param("shiftId") String shiftId,
             @Param("manualResolution") HrAttendanceResolutionType manualResolution,

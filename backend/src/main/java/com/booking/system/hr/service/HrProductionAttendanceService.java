@@ -422,6 +422,13 @@ public class HrProductionAttendanceService {
             shift.setStatus(HrProductionAttendanceShiftStatus.REJECTED);
             shift.setWorkValue(BigDecimal.ZERO);
             shift.setNightAllowanceAmount(BigDecimal.ZERO);
+            // A rejected row must not keep punches reserved. Keeping them on a
+            // manual anchor makes the matcher steal the next/previous night's
+            // punches one day at a time when it rebuilds the employee chain.
+            shift.setCheckInPunchId(null);
+            shift.setCheckInAt(null);
+            shift.setCheckOutPunchId(null);
+            shift.setCheckOutAt(null);
         } else {
             validateWorkValue(request.workValue());
             if (request.nightAllowanceAmount().signum() < 0) {
@@ -761,9 +768,22 @@ public class HrProductionAttendanceService {
                         .filter(value -> value.isActive() && policyIds.contains(value.getShiftPolicyId())).map(this::matcherRule).toList();
                 Map<Integer, HrAttendanceSourceDay> byRow = groupEntry.getValue().stream()
                         .collect(Collectors.toMap(HrAttendanceSourceDay::getSourceRowNumber, Function.identity()));
-                List<HrProductionShiftMatcher.Punch> supplemental = boundaryPunchesByCode.getOrDefault(code, List.of()).stream()
+                // Manual anchors remove their source day from matcherDays, but an
+                // unused morning punch on that row can still be the checkout of
+                // the previous night's shift. Keep those unreserved punches in
+                // the matching pool; otherwise confirming day D makes D-1 fail,
+                // then confirming D-1 makes D-2 fail, and so on.
+                List<HrProductionShiftMatcher.Punch> supplemental = java.util.stream.Stream.concat(
+                                boundaryPunchesByCode.getOrDefault(code, List.of()).stream(),
+                                punchesByCode.getOrDefault(code, List.of()).stream()
+                                        .filter(value -> anchoredDays.contains(
+                                                attendanceDayKey(code, value.getWorkDate()))))
                         .filter(value -> !reservedPunches.contains(value.getId()))
-                        .map(value -> new HrProductionShiftMatcher.Punch(value.getId(), value.getPunchedAt())).toList();
+                        .collect(Collectors.toMap(HrAttendancePunch::getId, Function.identity(),
+                                (left, right) -> left, LinkedHashMap::new))
+                        .values().stream()
+                        .map(value -> new HrProductionShiftMatcher.Punch(value.getId(), value.getPunchedAt()))
+                        .toList();
                 for (HrProductionShiftMatcher.MatchResult match : matcher.match(matcherDays, supplemental, policies, rules)) {
                     HrAttendanceSourceDay source = byRow.get(match.sourceRowNumber());
                     HrProductionAttendanceShift shift = new HrProductionAttendanceShift();
@@ -882,6 +902,18 @@ public class HrProductionAttendanceService {
             throw HrApiException.badRequest("ATTENDANCE_PUNCH_WINDOW_INVALID",
                     "Dấu chấm không thuộc ngày của " + label + " đã chọn.");
         }
+        if (policy.isCrossesMidnight()) {
+            LocalTime punchedTime = punch.getPunchedAt().toLocalTime();
+            boolean wrongHalfOfDay = checkIn
+                    ? punchedTime.isBefore(LocalTime.NOON)
+                    : !punchedTime.isBefore(LocalTime.NOON);
+            if (wrongHalfOfDay) {
+                throw HrApiException.badRequest("ATTENDANCE_NIGHT_PUNCH_DIRECTION_INVALID",
+                        checkIn
+                                ? "Lượt vào ca đêm phải là dấu buổi chiều/tối của ngày bắt đầu ca; dấu buổi sáng có thể là lượt ra của ngày trước."
+                                : "Lượt ra ca đêm phải là dấu buổi sáng của ngày kế tiếp.");
+            }
+        }
         if (!punch.getImportId().equals(shift.getImportId())
                 && (checkIn || !policy.isCrossesMidnight()
                 || YearMonth.from(expectedDate).equals(YearMonth.from(shift.getWorkDate())))) {
@@ -895,10 +927,13 @@ public class HrProductionAttendanceService {
         List<String> selectedIds = java.util.stream.Stream.of(selected.getCheckInPunchId(), selected.getCheckOutPunchId())
                 .filter(Objects::nonNull).distinct().toList();
         if (selectedIds.isEmpty()) return;
-        if (!shiftRepository.findOtherActiveManualShiftsUsingPunches(
-                selected.getImportId(), selected.getId(), HrAttendanceResolutionType.MANUAL_OVERRIDE, selectedIds).isEmpty()) {
+        List<HrProductionAttendanceShift> sameImportConflicts = shiftRepository.findOtherActiveShiftsUsingPunches(
+                selected.getImportId(), selected.getId(), HrAttendanceResolutionType.MANUAL_OVERRIDE, selectedIds);
+        if (!sameImportConflicts.isEmpty()) {
+            HrProductionAttendanceShift conflict = sameImportConflicts.get(0);
             throw HrApiException.conflict("ATTENDANCE_PUNCH_ALREADY_USED",
-                    "Dấu chấm đang thuộc một ngày đã điều chỉnh thủ công; hãy kiểm tra mốc đã xác nhận trước.");
+                    "Dấu chấm đang thuộc ca ngày " + conflict.getWorkDate()
+                            + "; hãy kiểm tra ngày đó trước. Hệ thống không tự lấy dấu của ngày liền trước/sau.");
         }
         if (!shiftRepository.findOtherActiveCompleteShiftsUsingPunches(selected.getImportId(), selectedIds).isEmpty()) {
             throw HrApiException.conflict("ATTENDANCE_PUNCH_ALREADY_USED",
