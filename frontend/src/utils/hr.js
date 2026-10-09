@@ -39,6 +39,11 @@ const STATUS_LABELS = {
   CONVERTED: 'Đã chuyển hồ sơ',
   GENERATED: 'Đã tạo',
   VOIDED: 'Đã hủy',
+  IN_REVIEW: 'Đang rà soát',
+  APPROVED: 'Đã duyệt nâng',
+  DEFERRED: 'Đã hoãn',
+  NOT_ELIGIBLE: 'Chưa đủ điều kiện',
+  COMPLETED: 'Đã hoàn tất',
 };
 
 const MOVEMENT_LABELS = {
@@ -70,10 +75,10 @@ export function movementLabel(type) {
 }
 
 export function statusTone(status) {
-  if (['ACTIVE', 'CONFIRMED', 'VALID', 'IMPORTED', 'VERIFIED', 'PASSED', 'CONVERTED', 'GENERATED'].includes(status)) return 'green';
-  if (['WARNING', 'NEEDS_REVIEW', 'OPEN', 'PARSED', 'UPLOADED', 'PREVIEWED', 'PENDING', 'PENDING_REVIEW', 'STARTED', 'PHONE_RECEIVED', 'CODE_RECEIVED', 'CONTRACT_CREATED', 'IN_PROBATION'].includes(status)) return 'amber';
-  if (['FAILED', 'INVALID', 'CANCELLED', 'REJECTED', 'REVOKED', 'BLOCKED'].includes(status)) return 'red';
-  if (['CLOSED', 'EXPORTED', 'VALIDATED', 'AUTO_FILLED'].includes(status)) return 'blue';
+  if (['ACTIVE', 'CONFIRMED', 'VALID', 'IMPORTED', 'VERIFIED', 'PASSED', 'CONVERTED', 'GENERATED', 'COMPLETED'].includes(status)) return 'green';
+  if (['WARNING', 'NEEDS_REVIEW', 'OPEN', 'PARSED', 'UPLOADED', 'PREVIEWED', 'PENDING', 'PENDING_REVIEW', 'STARTED', 'PHONE_RECEIVED', 'CODE_RECEIVED', 'CONTRACT_CREATED', 'IN_PROBATION', 'DEFERRED'].includes(status)) return 'amber';
+  if (['FAILED', 'INVALID', 'CANCELLED', 'REJECTED', 'REVOKED', 'BLOCKED', 'NOT_ELIGIBLE'].includes(status)) return 'red';
+  if (['CLOSED', 'EXPORTED', 'VALIDATED', 'AUTO_FILLED', 'IN_REVIEW', 'APPROVED'].includes(status)) return 'blue';
   return 'gray';
 }
 

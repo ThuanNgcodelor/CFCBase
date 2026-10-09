@@ -1,7 +1,10 @@
 package com.booking.system.hr.entity;
 
+import com.booking.system.hr.enums.HrSalaryReviewStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
@@ -16,6 +19,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -88,6 +92,22 @@ public class HrEmployeeEmployment extends HrAuditable {
 
     @Column(name = "next_salary_review_date")
     private LocalDate nextSalaryReviewDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "salary_review_status", length = 24)
+    private HrSalaryReviewStatus salaryReviewStatus;
+
+    @Column(name = "salary_review_follow_up_date")
+    private LocalDate salaryReviewFollowUpDate;
+
+    @Column(name = "salary_review_note", length = 1000)
+    private String salaryReviewNote;
+
+    @Column(name = "salary_review_status_updated_at")
+    private LocalDateTime salaryReviewStatusUpdatedAt;
+
+    @Column(name = "salary_review_status_updated_by_actor", length = 320)
+    private String salaryReviewStatusUpdatedByActor;
 
     @Column(name = "job_description", length = 2000)
     private String jobDescription;

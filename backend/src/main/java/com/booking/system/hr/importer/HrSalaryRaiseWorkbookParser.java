@@ -77,17 +77,25 @@ public class HrSalaryRaiseWorkbookParser {
         if (employeeCode != null) employeeCode = employeeCode.toUpperCase(Locale.ROOT);
         String fullName = requiredText(row, columns, "fullName", evaluator, formatter, issues);
         BigDecimal currentBase = money(row, columns, "currentBaseSalary", evaluator, formatter, issues);
-        BigDecimal currentAllowance = money(row, columns, "currentAllowance", evaluator, formatter, issues);
-        BigDecimal currentTotal = money(row, columns, "currentTotal", evaluator, formatter, issues);
+        BigDecimal currentAllowance = moneyOrZero(row, columns, "currentAllowance", evaluator, formatter, issues);
+        BigDecimal currentTotal = moneyOrSum(row, columns, "currentTotal", currentBase, currentAllowance,
+                evaluator, formatter, issues);
         String currentGrade = requiredText(row, columns, "currentGrade", evaluator, formatter, issues);
         String scaleCode = optionalText(row, columns, "salaryScaleCode", evaluator, formatter);
         String newGrade = requiredText(row, columns, "newGrade", evaluator, formatter, issues);
         BigDecimal newBase = money(row, columns, "newBaseSalary", evaluator, formatter, issues);
-        BigDecimal newAllowance = money(row, columns, "newAllowance", evaluator, formatter, issues);
-        BigDecimal newTotal = money(row, columns, "newTotal", evaluator, formatter, issues);
-        Integer cycle = positiveInteger(row, columns, "reviewCycleMonths", evaluator, formatter, issues);
+        BigDecimal newAllowance = moneyOrZero(row, columns, "newAllowance", evaluator, formatter, issues);
+        BigDecimal newTotal = moneyOrSum(row, columns, "newTotal", newBase, newAllowance,
+                evaluator, formatter, issues);
+        Integer cycle = reviewCycle(row, columns, "reviewCycleMonths", evaluator, formatter, issues);
         LocalDate effectiveDate = date(row, columns, "effectiveDate", evaluator, formatter, issues);
-        LocalDate nextReviewDate = date(row, columns, "nextReviewDate", evaluator, formatter, issues);
+        LocalDate nextReviewDate = optionalDate(row, columns, "nextReviewDate", evaluator, formatter, issues);
+
+        if ((cycle == null) != (nextReviewDate == null)) {
+            issues.add(issue(HrImportIssueCode.NEXT_REVIEW_DATE_MISMATCH, HrImportIssueSeverity.ERROR,
+                    cell(columns, "nextReviewDate", sourceRow), "nextReviewDate",
+                    "Hạn nâng bậc và ngày tới hạn phải cùng có giá trị, hoặc cùng để trống/Hết."));
+        }
 
         verifyTotal(currentBase, currentAllowance, currentTotal, sourceRow,
                 cell(columns, "currentTotal", sourceRow), "currentTotal", issues);
@@ -199,6 +207,29 @@ public class HrSalaryRaiseWorkbookParser {
         }
     }
 
+    private BigDecimal moneyOrZero(Row row, Map<String, Integer> columns, String field,
+                                   FormulaEvaluator evaluator, DataFormatter formatter,
+                                   List<HrImportIssue> issues) {
+        Integer column = columns.get(field);
+        Cell value = column == null ? null : row.getCell(column);
+        if (value == null || text(value, evaluator, formatter) == null) {
+            return BigDecimal.ZERO.setScale(2);
+        }
+        return money(row, columns, field, evaluator, formatter, issues);
+    }
+
+    private BigDecimal moneyOrSum(Row row, Map<String, Integer> columns, String field,
+                                  BigDecimal base, BigDecimal allowance,
+                                  FormulaEvaluator evaluator, DataFormatter formatter,
+                                  List<HrImportIssue> issues) {
+        Integer column = columns.get(field);
+        Cell value = column == null ? null : row.getCell(column);
+        if (value == null || text(value, evaluator, formatter) == null) {
+            return base == null || allowance == null ? null : base.add(allowance).setScale(2);
+        }
+        return money(row, columns, field, evaluator, formatter, issues);
+    }
+
     private Integer positiveInteger(Row row, Map<String, Integer> columns, String field,
                                     FormulaEvaluator evaluator, DataFormatter formatter,
                                     List<HrImportIssue> issues) {
@@ -213,6 +244,14 @@ public class HrSalaryRaiseWorkbookParser {
                     cell(columns, field, row.getRowNum() + 1), field, "Hạn nâng bậc phải là số tháng nguyên dương."));
             return null;
         }
+    }
+
+    private Integer reviewCycle(Row row, Map<String, Integer> columns, String field,
+                                FormulaEvaluator evaluator, DataFormatter formatter,
+                                List<HrImportIssue> issues) {
+        String raw = optionalText(row, columns, field, evaluator, formatter);
+        if (raw == null || "het".equals(normalize(raw))) return null;
+        return positiveInteger(row, columns, field, evaluator, formatter, issues);
     }
 
     private LocalDate date(Row row, Map<String, Integer> columns, String field,
@@ -244,6 +283,15 @@ public class HrSalaryRaiseWorkbookParser {
         issues.add(issue(HrImportIssueCode.INVALID_DATE, HrImportIssueSeverity.ERROR,
                 cell(columns, field, row.getRowNum() + 1), field, "Ngày bắt buộc không hợp lệ."));
         return null;
+    }
+
+    private LocalDate optionalDate(Row row, Map<String, Integer> columns, String field,
+                                   FormulaEvaluator evaluator, DataFormatter formatter,
+                                   List<HrImportIssue> issues) {
+        Integer column = columns.get(field);
+        Cell value = column == null ? null : row.getCell(column);
+        if (value == null || text(value, evaluator, formatter) == null) return null;
+        return date(row, columns, field, evaluator, formatter, issues);
     }
 
     private void verifyTotal(BigDecimal base, BigDecimal allowance, BigDecimal total, int row,

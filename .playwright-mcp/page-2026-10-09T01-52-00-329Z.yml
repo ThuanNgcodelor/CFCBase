@@ -1,0 +1,25 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - img "CFC Logo" [ref=e7]
+    - heading "CFC Base" [level=1] [ref=e8]
+    - paragraph [ref=e9]: Hệ thống nội bộ CFC
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: Email công ty
+      - 'textbox "vd: admin1@booking.base.vn" [ref=e13]'
+    - generic [ref=e14]:
+      - generic [ref=e15]: Mật khẩu
+      - generic [ref=e16]:
+        - textbox "••••••••" [ref=e17]
+        - button "Hiện mật khẩu" [ref=e18]
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - checkbox "Nhớ email" [ref=e24] [cursor=pointer]
+        - generic [ref=e25] [cursor=pointer]: Nhớ email
+      - link "Quên mật khẩu?" [ref=e26] [cursor=pointer]:
+        - /url: /forgot-password
+    - button "Đăng nhập" [ref=e27]
+  - paragraph [ref=e28]:
+    - text: Chưa có tài khoản?
+    - link "Đăng ký bằng email" [ref=e29] [cursor=pointer]:
+      - /url: /register

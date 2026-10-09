@@ -7,12 +7,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_SNAPSHOT="${BOOKINGBASE_HR_LEGACY_SNAPSHOT:-}"
 EXPECTED_CORE_TABLE_COUNT=15
 EXPECTED_TABLE_COUNT=55
-EXPECTED_CHECK_COUNT=130
+EXPECTED_CHECK_COUNT=132
 EXPECTED_FOREIGN_KEY_COUNT=83
 EXPECTED_UNIQUE_COUNT=48
-EXPECTED_NAMED_INDEX_COUNT=92
-EXPECTED_CONTRACT_COLUMN_COUNT=41
-EXPECTED_MIGRATION_COUNT=27
+EXPECTED_NAMED_INDEX_COUNT=94
+EXPECTED_CONTRACT_COLUMN_COUNT=46
+EXPECTED_MIGRATION_COUNT=28
 
 log() {
   printf '[BookingBase HR Verify] %s\n' "$*"
@@ -98,9 +98,11 @@ user_id_column_count="$(read_query "
   FROM information_schema.columns
   WHERE table_schema = DATABASE()
     AND table_name LIKE 'hr\\_%'
-    AND column_name = 'user_id';
+    AND column_name = 'user_id'
+    AND table_name <> 'hr_payroll_test_recipients';
 ")"
-[[ "$user_id_column_count" == 0 ]] || fail "Phat hien cot user_id trong schema HR."
+[[ "$user_id_column_count" == 0 ]] \
+  || fail "Phat hien cot user_id ngoai bang test recipient duoc phep trong schema HR."
 
 failed_migration_count="$(read_query "
   SELECT COUNT(*)
@@ -164,6 +166,11 @@ contract_column_count="$(read_query "
       'hr_employee_employment.salary_review_cycle_months',
       'hr_employee_employment.last_salary_raise_date',
       'hr_employee_employment.next_salary_review_date',
+      'hr_employee_employment.salary_review_status',
+      'hr_employee_employment.salary_review_follow_up_date',
+      'hr_employee_employment.salary_review_note',
+      'hr_employee_employment.salary_review_status_updated_at',
+      'hr_employee_employment.salary_review_status_updated_by_actor',
       'hr_employee_identity.legacy_identity_number',
       'hr_employee_identity.citizen_identity_number',
       'hr_employee_insurance.social_insurance_number',
@@ -224,4 +231,4 @@ if [[ -n "$LEGACY_SNAPSHOT" ]]; then
   trap - EXIT
 fi
 
-log "PASS: V1-V27 dung table/column/constraint/index/retention contract, khong co HR -> users va khong co migration loi."
+log "PASS: V1-V28 dung table/column/constraint/index/retention contract, khong co HR -> users va khong co migration loi."

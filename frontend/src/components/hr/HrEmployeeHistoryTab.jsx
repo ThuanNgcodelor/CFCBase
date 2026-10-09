@@ -44,7 +44,7 @@ function HistoryList({ employeeId, section }) {
             <p className="text-sm text-gray-700">
               {Number(item.oldBaseSalary || 0).toLocaleString('vi-VN')} → <b>{Number(item.newBaseSalary || 0).toLocaleString('vi-VN')}</b> · Phụ cấp {Number(item.oldAllowance || 0).toLocaleString('vi-VN')} → {Number(item.newAllowance || 0).toLocaleString('vi-VN')}
             </p>
-            <p className="text-sm text-gray-600">Bậc {item.oldGrade || '—'} → {item.newGrade || '—'} · Chu kỳ {item.reviewCycleMonths % 12 === 0 ? `${item.reviewCycleMonths / 12} năm (${item.reviewCycleMonths} tháng)` : `${item.reviewCycleMonths} tháng`} · Tới hạn {formatHrDate(item.nextReviewDate)}</p>
+            <p className="text-sm text-gray-600">Bậc {item.oldGrade || '—'} → {item.newGrade || '—'} · Chu kỳ {item.reviewCycleMonths ? (item.reviewCycleMonths % 12 === 0 ? `${item.reviewCycleMonths / 12} năm (${item.reviewCycleMonths} tháng)` : `${item.reviewCycleMonths} tháng`) : 'Hết/không có kỳ tiếp'} · Tới hạn {formatHrDate(item.nextReviewDate)}</p>
             {item.rollbackReason && <p className="text-sm text-red-700">Rollback: {item.rollbackReason}</p>}
             <p className="text-xs text-gray-500">Tạo: {formatHrDateTime(item.createdAt)} · {item.createdByActor || 'Hệ thống'}</p>
           </> : <>

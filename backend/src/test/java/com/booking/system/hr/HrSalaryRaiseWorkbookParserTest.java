@@ -68,6 +68,11 @@ class HrSalaryRaiseWorkbookParserTest {
         assumeTrue(Files.isRegularFile(sample), "File nghiệp vụ chỉ có ở workspace local");
 
         var parsed = parser.parse(Files.readAllBytes(sample));
+        assertThat(parsed.rows()).hasSize(78);
+        assertThat(parsed.rows().stream().map(row -> row.data().employeeCode()).distinct().count())
+                .isEqualTo(parsed.rows().size());
+        assertThat(parsed.rows()).allSatisfy(row -> assertThat(row.issues())
+                .noneMatch(issue -> issue.severity() == HrImportIssueSeverity.ERROR));
         var a339 = parsed.rows().stream()
                 .filter(row -> "A339".equals(row.data().employeeCode()))
                 .findFirst().orElseThrow();
@@ -79,6 +84,12 @@ class HrSalaryRaiseWorkbookParserTest {
         assertThat(a339.data().effectiveDate()).isEqualTo(LocalDate.of(2026, 7, 1));
         assertThat(a339.data().nextReviewDate()).isEqualTo(LocalDate.of(2030, 6, 10));
         assertThat(a339.issues()).noneMatch(issue -> issue.severity() == HrImportIssueSeverity.ERROR);
+
+        var terminal = parsed.rows().stream()
+                .filter(row -> "A112".equals(row.data().employeeCode()))
+                .findFirst().orElseThrow();
+        assertThat(terminal.data().reviewCycleMonths()).isNull();
+        assertThat(terminal.data().nextReviewDate()).isNull();
     }
 
     private static Date date(int year, int month, int day) {

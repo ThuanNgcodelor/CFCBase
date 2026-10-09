@@ -2,6 +2,21 @@ import { baseApi } from './baseApi';
 import { unwrapApiData } from './hrApiUtils';
 
 export const hrSalaryRaiseApi = {
+  reviews: async (params = {}, options = {}) => unwrapApiData(await baseApi.get('/hr/salary-raises/reviews', {
+    params: {
+      bucket: params.bucket || 'ALL',
+      keyword: params.keyword || undefined,
+      departmentId: params.departmentId || undefined,
+      page: params.page || 0,
+      size: Math.min(Number(params.size) || 20, 100),
+    },
+    signal: options.signal,
+  })),
+
+  updateReview: async (employeeId, payload) => unwrapApiData(await baseApi.patch(
+    `/hr/salary-raises/reviews/${employeeId}`, payload,
+  )),
+
   imports: async (params = {}, options = {}) => unwrapApiData(await baseApi.get('/hr/salary-raises/imports', {
     params: { page: params.page || 0, size: Math.min(Number(params.size) || 20, 50) },
     signal: options.signal,

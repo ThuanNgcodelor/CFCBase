@@ -67,10 +67,10 @@ public class HrEmployeeSalaryChange extends HrBaseEntity {
     @Column(name = "salary_scale_code", length = 64)
     private String salaryScaleCode;
 
-    @Column(name = "review_cycle_months", nullable = false)
-    private int reviewCycleMonths;
+    @Column(name = "review_cycle_months")
+    private Integer reviewCycleMonths;
 
-    @Column(name = "next_review_date", nullable = false)
+    @Column(name = "next_review_date")
     private LocalDate nextReviewDate;
 
     @Column(name = "idempotency_key", nullable = false, length = 100)

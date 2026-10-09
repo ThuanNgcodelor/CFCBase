@@ -152,7 +152,7 @@ public class HrSalaryRaiseService {
                                 : source.effectiveDate().minusDays(1),
                         timelines.getOrDefault(employee.getId(), List.of()));
                 resolved = source.withDatabase(employee.getId(), employee.getFullName(),
-                        before.baseSalary(), before.allowance());
+                        before.baseSalary(), zero(before.allowance()));
                 if (!normalizedName(employee.getFullName()).equals(normalizedName(source.fullName()))) {
                     issues.add(warning(HrImportIssueCode.EMPLOYEE_NAME_MISMATCH, "fullName",
                             "Họ tên trong file khác hồ sơ DB; hệ thống vẫn ghép theo MS."));
@@ -161,7 +161,7 @@ public class HrSalaryRaiseService {
                     issues.add(error(HrImportIssueCode.CURRENT_SALARY_MISMATCH, "currentBaseSalary",
                             mismatchMessage("Lương", source.currentBaseSalary(), before.baseSalary())));
                 }
-                if (!moneyEquals(before.allowance(), source.currentAllowance())) {
+                if (!moneyEqualsAllowingBlankZero(before.allowance(), source.currentAllowance())) {
                     issues.add(error(HrImportIssueCode.CURRENT_ALLOWANCE_MISMATCH, "currentAllowance",
                             mismatchMessage("Phụ cấp", source.currentAllowance(), before.allowance())));
                 }
@@ -264,7 +264,7 @@ public class HrSalaryRaiseService {
             Compensation before = compensationAt(employee, data.effectiveDate().minusDays(1),
                     timelineMap.getOrDefault(employee.getId(), List.of()));
             if (!moneyEquals(before.baseSalary(), data.currentBaseSalary())
-                    || !moneyEquals(before.allowance(), data.currentAllowance())) {
+                    || !moneyEqualsAllowingBlankZero(before.allowance(), data.currentAllowance())) {
                 throw HrApiException.conflict("SALARY_RAISE_STALE_DATA",
                         data.employeeCode() + " – Lương hoặc phụ cấp trong DB đã thay đổi; batch chưa được áp dụng.");
             }
@@ -503,7 +503,16 @@ public class HrSalaryRaiseService {
         employment.setSalaryGrade(value.grade());
         employment.setSalaryScaleCode(value.scaleCode());
         employment.setSalaryReviewCycleMonths(value.reviewCycleMonths());
+        boolean reviewCycleChanged = !Objects.equals(employment.getLastSalaryRaiseDate(), value.effectiveDate())
+                || !Objects.equals(employment.getNextSalaryReviewDate(), value.nextReviewDate());
         employment.setLastSalaryRaiseDate(value.effectiveDate());
+        if (reviewCycleChanged) {
+            employment.setSalaryReviewStatus(value.nextReviewDate() == null ? null : HrSalaryReviewStatus.PENDING);
+            employment.setSalaryReviewFollowUpDate(null);
+            employment.setSalaryReviewNote(null);
+            employment.setSalaryReviewStatusUpdatedAt(null);
+            employment.setSalaryReviewStatusUpdatedByActor(null);
+        }
         employment.setNextSalaryReviewDate(value.nextReviewDate());
         touch(employment, actor);
         employmentRepository.save(employment);
@@ -605,6 +614,10 @@ public class HrSalaryRaiseService {
 
     private static boolean moneyEquals(BigDecimal left, BigDecimal right) {
         return left != null && right != null && left.compareTo(right) == 0;
+    }
+
+    private static boolean moneyEqualsAllowingBlankZero(BigDecimal left, BigDecimal right) {
+        return zero(left).compareTo(zero(right)) == 0;
     }
 
     private static BigDecimal zero(BigDecimal value) {

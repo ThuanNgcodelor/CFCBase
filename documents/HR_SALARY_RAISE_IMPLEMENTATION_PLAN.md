@@ -2,7 +2,7 @@
 
 > Ngày chốt nghiệp vụ: 02/10/2026 (Asia/Ho_Chi_Minh)
 >
-> Trạng thái: **Đã triển khai và kiểm thử local; chưa deploy production**
+> Trạng thái: **Đã triển khai import và theo dõi tới hạn đến V28; chưa deploy production**
 >
 > File mẫu đối chiếu: `Tang luong thang 7-2026.xlsx`
 
@@ -27,7 +27,8 @@ Hệ thống phải giữ đúng lịch sử theo kỳ:
 | 3 — Confirm/effective/rollback | Hoàn thành | ADMIN-only, transaction/lock, scheduled apply, audit và rollback |
 | 4 — UI/profile | Hoàn thành | Màn import nâng lương, thông báo từng dòng, hồ sơ và lịch sử lương |
 | 5 — Export/direct edit | Hoàn thành | Export theo tháng dùng timeline; form và backend chặn sửa lương trực tiếp |
-| 6 — Hardening/rollout | Một phần, gate chính đạt | H2 + MySQL 8, test nghiệp vụ, lint/build và schema verifier V27; còn concurrency/API-security E2E và smoke/deploy production |
+| 6 — Hardening/rollout | Một phần, gate chính đạt | H2 + MySQL 8, test nghiệp vụ, lint/build và schema verifier V28; còn concurrency/API-security E2E và smoke/deploy production |
+| 7 — Theo dõi tới hạn | Hoàn thành local | Dashboard quá hạn/30/60/90 ngày, trạng thái rà soát/hoãn/kết thúc, audit, optimistic locking và hỗ trợ `Hết` |
 
 ## 2. Quyết định nghiệp vụ đã chốt
 
@@ -125,7 +126,7 @@ Ví dụ A339:
 - Không tìm thấy `MS` trong DB hoặc có `MS` trùng trong file.
 - Nhân viên không có hồ sơ employment cần thiết.
 - Lương/phụ cấp trước nâng trong file khác mức đang có hiệu lực trong DB.
-- Thiếu lương mới, phụ cấp mới, bậc mới, ngày hiệu lực hoặc ngày tới hạn.
+- Thiếu lương mới, bậc mới hoặc ngày hiệu lực. Phụ cấp trống được hiểu là 0; ngày tới hạn chỉ được trống khi chu kỳ cũng trống hoặc ghi `Hết`.
 - Tổng cũ/mới không bằng lương + phụ cấp.
 - Lương mới âm, phụ cấp mới âm hoặc tổng mới không tăng trong chế độ nâng lương.
 - Trùng thay đổi đã xác nhận hoặc dữ liệu bị thay đổi sau lúc preview.
@@ -289,3 +290,13 @@ Form hồ sơ không ghi trực tiếp `baseSalary`/`allowance` sau khi module �
 - Gửi email/Telegram nhắc tới hạn.
 - Thay đổi phòng ban, chức danh hoặc ngày làm từ file nâng lương.
 - Tự suy đoán nhân viên theo họ tên khi thiếu/sai `MS`.
+
+## 12. Phase 7 — Theo dõi tới hạn (09/10/2026)
+
+- Trang Nâng lương tách tab **Theo dõi tới hạn** và **Import nâng lương**.
+- Danh sách tự phân nhóm quá hạn, 0–30, 31–60, 61–90 ngày, sau 90 ngày, thiếu ngày hạn và đã kết thúc.
+- ADMIN/MANAGER có thể chuyển trạng thái chờ rà soát, đang rà soát, đã duyệt nâng, hoãn, chưa đủ điều kiện hoặc hoàn tất.
+- Hoãn bắt buộc có ngày theo dõi lại và lý do; chưa đủ điều kiện/hoàn tất bắt buộc có ghi chú.
+- Thay đổi trạng thái dùng row version chống ghi đè và ghi `HR_SALARY_REVIEW_STATUS_UPDATED` vào audit.
+- Một batch nâng lương mới đổi ngày hiệu lực hoặc ngày tới hạn sẽ reset trạng thái theo dõi cũ về chờ rà soát.
+- File nghiệp vụ hiện tại có 78 MS duy nhất. Parser chấp nhận ô phụ cấp trống là 0, tự suy ra tổng trống và hiểu `Hết`/chu kỳ trống kèm ngày tới hạn trống là không có kỳ xét tiếp theo.

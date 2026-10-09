@@ -3,7 +3,9 @@ package com.booking.system.hr.api;
 import com.booking.system.dto.ApiResponse;
 import com.booking.system.entity.User;
 import com.booking.system.hr.api.dto.*;
+import com.booking.system.hr.enums.HrSalaryReviewBucket;
 import com.booking.system.hr.service.HrSalaryRaiseService;
+import com.booking.system.hr.service.HrSalaryReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -18,7 +20,28 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class HrSalaryRaiseController {
     private final HrSalaryRaiseService service;
+    private final HrSalaryReviewService reviewService;
     private final HrActorResolver actorResolver;
+
+    @GetMapping("/reviews")
+    public ApiResponse<HrSalaryRaiseDtos.ReviewDashboardResponse> reviews(
+            @RequestParam(defaultValue = "ALL") HrSalaryReviewBucket bucket,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String departmentId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(reviewService.dashboard(bucket, keyword, departmentId, page, size),
+                "Danh sách rà soát nâng lương");
+    }
+
+    @PatchMapping("/reviews/{employeeId}")
+    public ApiResponse<HrSalaryRaiseDtos.ReviewItem> updateReview(
+            @AuthenticationPrincipal User principal,
+            @PathVariable String employeeId,
+            @Valid @RequestBody HrSalaryRaiseDtos.ReviewUpdateRequest request) {
+        return ApiResponse.success(reviewService.update(employeeId, request, actorResolver.fromPrincipal(principal)),
+                "Đã cập nhật trạng thái rà soát nâng lương");
+    }
 
     @GetMapping("/imports")
     public ApiResponse<HrPageResponse<HrSalaryRaiseDtos.BatchResponse>> imports(
