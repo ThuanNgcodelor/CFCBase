@@ -56,6 +56,24 @@ public interface HrProductionAttendanceShiftRepository extends HrRepository<HrPr
             @Param("importStatus") com.booking.system.hr.enums.HrAttendanceImportStatus importStatus);
 
     @Query("""
+            select distinct shift.importId from HrProductionAttendanceShift shift
+            where shift.active = true and shift.importId in :importIds
+              and shift.policyGroup = :policyGroup
+            """)
+    List<String> findActiveImportIdsByPolicyGroup(
+            @Param("importIds") List<String> importIds,
+            @Param("policyGroup") com.booking.system.hr.enums.HrAttendancePolicyGroup policyGroup);
+
+    @Query("""
+            select distinct shift.employeeCode from HrProductionAttendanceShift shift
+            where shift.active = true and shift.importId in :importIds
+              and shift.policyGroup = :policyGroup
+            """)
+    List<String> findActiveEmployeeCodesByImportIdsAndPolicyGroup(
+            @Param("importIds") List<String> importIds,
+            @Param("policyGroup") com.booking.system.hr.enums.HrAttendancePolicyGroup policyGroup);
+
+    @Query("""
             select shift from HrProductionAttendanceShift shift
             where shift.importId = :importId and shift.active = true
               and (:status is null or shift.status = :status)

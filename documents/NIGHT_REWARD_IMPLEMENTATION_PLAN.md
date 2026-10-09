@@ -138,9 +138,9 @@ Mọi bảng theo convention HR hiện có: UUID `VARCHAR(36)`, actor/timestamps
 Không tạo tiền ngay khi bấm **Chốt file** của một import; một tháng có thể có nhiều file.
 
 ```text
-Toàn bộ import tháng đã chốt
+Import của các nhân viên được xét đã chốt
         ↓
-Kiểm tra: không PREVIEWED, không NEEDS_REVIEW, không trùng ngày nguồn
+Kiểm tra: file chờ không trùng MS với nhóm đang xét, không NEEDS_REVIEW hoặc trùng ngày nguồn trong dữ liệu đã chốt
         ↓
 Tạo bản nháp kết quả ca đêm theo từng nhân viên
         ↓
@@ -155,9 +155,9 @@ Kế toán duyệt / đưa vào kỳ lương / đánh dấu đã trả
 
 Điều kiện bắt buộc trước khi chốt:
 
-1. Có ít nhất một import `CONFIRMED` của tháng và không còn import `PREVIEWED`.
-2. Không còn ca `NEEDS_REVIEW` trong phạm vi tháng.
-3. Không có trùng `employeeCode + workDate` giữa các file. Báo cáo chấm công hiện có thể đối soát/khử trùng để hiển thị; với tiền thưởng phải **chặn chốt** và yêu cầu xử lý trùng.
+1. Có ít nhất một import `CONFIRMED` chứa ca thuộc nhóm chính sách xét thưởng. Import `PREVIEWED` có cùng MS trong nhóm này phải xử lý trước; import chỉ chứa MS khác có thể chốt ở lần sau và được hiển thị như cảnh báo phạm vi chốt.
+2. Không còn ca `NEEDS_REVIEW` trong dữ liệu đã chốt thuộc nhóm chính sách xét thưởng.
+3. Không có trùng `employeeCode + workDate` giữa các file đã chốt thuộc nhóm xét thưởng. Báo cáo chấm công hiện có thể đối soát/khử trùng để hiển thị; với tiền thưởng phải **chặn chốt** và yêu cầu xử lý trùng.
 4. Chỉ lấy các ca đúng cấu hình chương trình, `CONFIRMED`, công dương và thuộc đối tượng chương trình.
 5. Thao tác chốt phải idempotent, optimistic-lock và được audit.
 
@@ -247,7 +247,7 @@ Mỗi phase chỉ được đi tiếp khi đạt điều kiện nghiệm thu c�
 - Service đọc duy nhất ca `CONFIRMED` thuộc import tháng đã chốt.
 - Đếm duy nhất theo `employeeCode + workDate`; ca qua ngày lấy tháng của `workDate`.
 - Chỉ trả kết quả suy ra: `nightShiftCount`, `qualified`, blocker và danh sách ca nguồn.
-- Chặn tính thử khi còn import `PREVIEWED`, `NEEDS_REVIEW` hoặc trùng nguồn; không âm thầm khử trùng để xét tiền.
+- Chặn chốt khi import `PREVIEWED` có cùng MS trong nhóm đang xét, hoặc dữ liệu đã chốt của nhóm này còn `NEEDS_REVIEW`/trùng nguồn; file chờ với MS khác được đối soát và chốt ở lần sau.
 
 **UI đề xuất:** route độc lập `/manager/hr/attendance/night-rewards` ở chế độ **SHADOW — không tạo quyền lợi**. Danh sách hiển thị `8/10`, `10/10`, `12/10`, và lý do chưa thể đối soát.
 

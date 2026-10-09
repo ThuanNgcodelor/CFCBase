@@ -253,11 +253,37 @@ public class HrNightRewardService {
         List<HrProductionAttendanceImport> previewImports = attendanceImportRepository
                 .findByAttendanceMonthAndStatusOrderByCreatedAtAsc(monthText, HrAttendanceImportStatus.PREVIEWED);
         List<String> blockers = new ArrayList<>();
+        List<String> notices = new ArrayList<>();
         if (confirmedImports.isEmpty()) blockers.add("Chưa có file ca sản xuất đã chốt trong tháng.");
-        if (!previewImports.isEmpty()) blockers.add("Còn " + previewImports.size() + " file chấm công chưa chốt.");
-
         List<HrProductionAttendanceShift> shifts = attendanceShiftRepository
-                .findActiveByAttendanceMonthAndImportStatus(monthText, HrAttendanceImportStatus.CONFIRMED);
+                .findActiveByAttendanceMonthAndImportStatus(monthText, HrAttendanceImportStatus.CONFIRMED).stream()
+                .filter(item -> item.getPolicyGroup() == program.getEligiblePolicyGroup()).toList();
+        if (!confirmedImports.isEmpty() && shifts.isEmpty()) {
+            blockers.add("Chưa có ca thuộc nhóm xét thưởng trong file chấm công đã chốt.");
+        }
+        if (!previewImports.isEmpty()) {
+            List<String> previewIds = previewImports.stream().map(HrProductionAttendanceImport::getId).toList();
+            Set<String> pendingRewardImportIds = new HashSet<>(attendanceShiftRepository
+                    .findActiveImportIdsByPolicyGroup(previewIds, program.getEligiblePolicyGroup()));
+            List<String> pendingRewardFiles = previewImports.stream()
+                    .filter(value -> pendingRewardImportIds.contains(value.getId()))
+                    .map(HrProductionAttendanceImport::getSourceFileName).toList();
+            if (!pendingRewardFiles.isEmpty()) {
+                Set<String> confirmedCodes = shifts.stream().map(HrProductionAttendanceShift::getEmployeeCode)
+                        .collect(Collectors.toSet());
+                List<String> overlappingCodes = attendanceShiftRepository
+                        .findActiveEmployeeCodesByImportIdsAndPolicyGroup(previewIds, program.getEligiblePolicyGroup())
+                        .stream().filter(confirmedCodes::contains).sorted().toList();
+                if (!overlappingCodes.isEmpty()) {
+                    blockers.add("File chấm công chưa chốt có nhân viên trùng với dữ liệu đang xét: "
+                            + String.join(", ", overlappingCodes) + ". Hãy chốt hoặc đối soát file trước.");
+                } else {
+                    notices.add("Còn " + pendingRewardFiles.size() + " file chấm công chưa chốt ("
+                            + String.join(", ", pendingRewardFiles)
+                            + "). Lần này chỉ ghi nhận nhân viên từ file đã chốt; có thể chốt tiếp sau khi xử lý file còn lại.");
+                }
+            }
+        }
         Map<String, Long> dailyCounts = shifts.stream().collect(Collectors.groupingBy(
                 item -> item.getEmployeeCode() + "|" + item.getWorkDate(), Collectors.counting()));
         long duplicates = dailyCounts.values().stream().filter(value -> value > 1).count();
@@ -272,7 +298,6 @@ public class HrNightRewardService {
                         shifts.stream().map(HrProductionAttendanceShift::getEmployeeCode).distinct().toList())
                 .stream().collect(Collectors.toMap(HrEmployee::getEmployeeCode, Function.identity()));
         Map<String, List<HrProductionAttendanceShift>> byEmployee = shifts.stream()
-                .filter(item -> item.getPolicyGroup() == program.getEligiblePolicyGroup())
                 .collect(Collectors.groupingBy(HrProductionAttendanceShift::getEmployeeCode, TreeMap::new, Collectors.toList()));
         List<String> employeeIds = employees.values().stream().map(HrEmployee::getId).toList();
         Map<String, HrNightRewardException> approvedExceptions = (employeeIds.isEmpty() ? List.<HrNightRewardException>of()
@@ -335,7 +360,7 @@ public class HrNightRewardService {
         int exceptional = (int) candidates.stream().filter(value -> value.status() == HrNightRewardMonthlyStatus.QUALIFIED_EXCEPTION).count();
         int notQualified = (int) candidates.stream().filter(value -> value.status() == HrNightRewardMonthlyStatus.NOT_QUALIFIED).count();
         return new MonthBuild(monthText, program, List.copyOf(candidates), new HrNightRewardDtos.MonthResponse(monthText,
-                blockers.isEmpty(), List.copyOf(blockers), programResponse(program), candidates.size(), qualified, notQualified,
+                blockers.isEmpty(), List.copyOf(blockers), List.copyOf(notices), programResponse(program), candidates.size(), qualified, notQualified,
                 exceptional, employeeResponses));
     }
 

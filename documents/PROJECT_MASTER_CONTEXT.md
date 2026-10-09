@@ -215,6 +215,7 @@ V21 bổ sung pipeline độc lập cho Công nhân/KCS, không thay đổi lu�
 - Tab **Ca sản xuất** nằm cạnh tab **Hành chính**, có KPI, bộ lọc Công nhân/KCS/cần kiểm tra/sự cố/đã xác nhận, bảng review responsive, cấu hình ca/ngưỡng công/chính sách nhân viên/miễn chấm và chi tiết read-only sau khi chốt.
 - Tổng hợp chỉ đọc import `CONFIRMED`; file Excel có sheet **Bảng công** đủ ngày 1–31 và sheet **Đối soát**. Manager không thể mở khóa; ADMIN phải nhập lý do để mở khóa trước khi điều chỉnh.
 - Tổng quan nhân viên được phân trang/tìm kiếm tại database; tháng đang chọn được nhớ trên trình duyệt. Sau thao tác điều chỉnh, khi quay lại tab và theo chu kỳ 30 giây, UI tự tải lại các bảng liên quan. Chỉ số **Ca đêm + tăng ca** bằng số ca đêm cộng số ca có mức 2 công và cũng được ghi vào file Excel xuất.
+- Thưởng ca đêm chốt theo nhân viên thuộc file đã xác nhận; file chờ cùng tháng chỉ chặn khi có MS trùng trong nhóm xét thưởng. File chờ khác MS được báo phạm vi và chốt tiếp sau. Tiến độ 12/24 trên màn hình là số tháng đã chốt thưởng, không phải số ca hợp lệ của tháng đang xem.
 - Đã kiểm thử local B124: đủ 31 ngày, tổng 45 công, đúng 5 ca đêm ngày 04–08 và phụ cấp 250.000 đồng. Ngày 18 là ca ngày thiếu lượt vào do mất điện; quyết định thủ công giữ lượt vào trống, dùng lượt ra 17:24 và tự ghép lại chuỗi ngày sau mà không ghi đè các mốc thủ công.
 - Phase 7 đã bổ sung feature flag, chế độ SHADOW có cảnh báo/watermark Excel, gate local một lệnh, healthcheck V21/schema/seed/API trong deploy Linux và rollback không xóa dữ liệu.
 

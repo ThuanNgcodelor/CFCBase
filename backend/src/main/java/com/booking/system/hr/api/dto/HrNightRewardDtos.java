@@ -32,6 +32,7 @@ public final class HrNightRewardDtos {
                                           List<SourceShiftResponse> sourceShifts) { }
 
     public record MonthResponse(String attendanceMonth, boolean readyToFinalize, List<String> blockers,
+                                List<String> notices,
                                 ProgramResponse program, int eligibleEmployees, int qualifiedEmployees,
                                 int notQualifiedEmployees, int exceptionEmployees,
                                 List<MonthlyEmployeeResponse> employees) { }
