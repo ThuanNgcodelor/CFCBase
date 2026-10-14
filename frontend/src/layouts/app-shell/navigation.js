@@ -37,7 +37,7 @@ export function buildNavigation({ isAdmin, isHrUser = false, pendingRegistration
     { name: 'Nâng lương', path: '/manager/hr/salary-raises', icon: BadgeDollarSign },
     { name: 'Danh sách tháng', path: '/manager/hr/rosters', icon: TableProperties },
     { name: 'Gửi phiếu lương', path: '/manager/hr/payroll', icon: Send },
-    { name: 'Chấm công', path: '/manager/hr/attendance', icon: Clock3, exact: true },
+    { name: 'Chấm công', path: '/manager/hr/attendance', icon: Clock3 },
     { name: 'Thưởng ca đêm', path: '/manager/hr/attendance/night-rewards', icon: Trophy },
     { name: 'Danh mục', path: '/manager/hr/catalogs', icon: Library },
     { name: 'Mẫu Word', path: '/manager/hr/document-templates', icon: FileCheck2 },
@@ -80,6 +80,9 @@ export function buildMobileNavigation({ isHrUser = false, primaryItems, adminIte
 export function isNavigationItemActive(item, pathname) {
   if (!item?.path) return false;
   if (item.exact || item.path === '/') return pathname === item.path;
+  if (item.path === '/manager/hr/attendance' && pathname.startsWith('/manager/hr/attendance/night-rewards')) {
+    return false;
+  }
   return pathname === item.path || pathname.startsWith(`${item.path}/`);
 }
 

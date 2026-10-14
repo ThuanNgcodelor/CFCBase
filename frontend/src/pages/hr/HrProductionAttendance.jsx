@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, Download, Eye, FileSpreadsheet,
   Lock, RefreshCw, Settings2, Trash2, Unlock, UploadCloud,
@@ -10,6 +9,7 @@ import { authApi } from '../../api/authApi';
 import {
   HrDrawer, HrEmpty, HrError, HrLoading, HrPageHeader, HrPageShell, HrPagination, HrStatusBadge,
 } from '../../components/hr/HrUi';
+import { HrAttendanceTabs } from '../../components/hr/HrAttendanceTabs';
 import { Button } from '../../components/ui/Button';
 import SEOHead from '../../components/SEOHead';
 import { apiErrorMessage, formatHrDate, formatHrDateTime } from '../../utils/hr';
@@ -82,12 +82,7 @@ function downloadBlob(response, fallbackName) {
 }
 
 function AttendanceTabs() {
-  const navigate = useNavigate();
-  return <div className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-    <button type="button" onClick={() => navigate('/manager/hr/attendance')} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Hành chính</button>
-    <button type="button" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">Ca sản xuất</button>
-    <button type="button" onClick={() => navigate('/manager/hr/attendance/night-rewards')} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Thưởng ca đêm</button>
-  </div>;
+  return <HrAttendanceTabs activeTab="production" />;
 }
 
 function Metric({ label, value, tone = 'slate' }) {
