@@ -343,8 +343,8 @@ export default function HrProductionAttendance() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const initializedImportContext = useRef('');
-  const activeImport = imports.find((item) => item.id === activeImportId) || null;
-  const isAdmin = authApi.getRole() === 'ADMIN';
+  const role = authApi.getRole();
+  const canReopen = role === 'ADMIN' || role === 'MANAGER' || Boolean(role);
 
   const loadImports = useCallback(async () => {
     const importPage = await api.listImports({ page: 0, size: 100, month });
@@ -462,7 +462,7 @@ export default function HrProductionAttendance() {
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-start gap-3"><UploadCloud className="mt-0.5 h-5 w-5 text-blue-600" /><div><h2 className="font-semibold">Import Time Attendance</h2><p className="mt-1 text-xs text-gray-500">Có thể chọn nhiều file; mỗi file giữ nguyên G–J và đủ ngày.</p></div></div><input id="production-attendance-files" type="file" multiple accept=".xlsx,.xls,.xlsm" onChange={(event) => setFiles(Array.from(event.target.files || []))} className="mt-4 block w-full text-sm" /><Button type="button" className="mt-4 w-full" disabled={!files.length || working} onClick={upload}><FileSpreadsheet className="h-4 w-4" />{working ? 'Đang xử lý...' : `Import ${files.length || ''} file`}</Button></div>
     </section>
 
-    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">File đang xử lý</h2><p className="mt-1 text-xs text-gray-500">Chọn một file. File chờ xác nhận có thể xóa; file đã chốt phải được ADMIN mở khóa trước.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={isAdmin} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onDelete={() => deleteImport(item)} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
+    <section className="mt-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">File đang xử lý</h2><p className="mt-1 text-xs text-gray-500">Chọn một file. File chờ xác nhận có thể xóa; file đã chốt có thể mở khóa để điều chỉnh.</p></div><span className="text-sm text-gray-500">{imports.length} file</span></div><div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">{imports.map((item) => <ImportCard key={item.id} item={item} active={item.id === activeImportId} canReopen={canReopen} onSelect={() => { setActiveImportId(item.id); setPage(0); }} onConfirm={() => confirmImport(item)} onRecalculate={() => mutate(() => api.recalculate(item.id), 'Đã tính lại từ dấu chấm gốc.', 'Không thể tính lại file.')} onDelete={() => deleteImport(item)} onReopen={() => reopen(item)} />)}{!imports.length && <HrEmpty title="Chưa có file ca sản xuất" description="Chọn tháng và import file Time Attendance ở phía trên." />}</div></section>
 
     <WorkflowGuide item={activeImport} />
     <EmployeeOverview result={employeeSummaries} keyword={employeeSummaryKeyword} onKeywordChange={(value) => { setEmployeeSummaryKeyword(value); setEmployeeSummaryPage(0); }} selectedCode={employeeCode} onPageChange={setEmployeeSummaryPage} onSelect={(item) => { setEmployeeCode(item.employeeCode); setView(item.reviewShifts > 0 ? 'NEEDS_REVIEW' : 'ALL'); setPage(0); }} />

@@ -434,8 +434,9 @@ class HrProductionAttendanceServiceTest {
         } finally {
             org.springframework.test.util.ReflectionTestUtils.setField(reportService, "shadowMode", false);
         }
+        var employeeActor = new HrImportActor("emp@example.test", "Employee", "EMPLOYEE");
         assertThatThrownBy(() -> service.reopenImport(batch.id(),
-                new HrProductionAttendanceDtos.ReopenImportRequest("Manager không được mở khóa", confirmedAugust.rowVersion()), ACTOR))
+                new HrProductionAttendanceDtos.ReopenImportRequest("Employee không được mở khóa", confirmedAugust.rowVersion()), employeeActor))
                 .isInstanceOfSatisfying(HrApiException.class,
                         exception -> assertThat(exception.code()).isEqualTo("PRODUCTION_ATTENDANCE_REOPEN_FORBIDDEN"));
         assertThatThrownBy(() -> service.deleteImport(batch.id(), ACTOR))
@@ -443,7 +444,7 @@ class HrProductionAttendanceServiceTest {
                         exception -> assertThat(exception.code()).isEqualTo("PRODUCTION_ATTENDANCE_DELETE_CONFIRMED"));
         var reopened = service.reopenImport(batch.id(),
                 new HrProductionAttendanceDtos.ReopenImportRequest("Điều chỉnh sau đối soát", confirmedAugust.rowVersion()),
-                new HrImportActor("admin@example.test", "Admin", "ADMIN"));
+                ACTOR);
         assertThat(reopened.status().name()).isEqualTo("PREVIEWED");
 
         service.deleteImport(overlappingAugust.id(), ACTOR);

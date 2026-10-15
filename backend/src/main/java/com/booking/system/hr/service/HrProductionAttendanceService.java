@@ -529,9 +529,9 @@ public class HrProductionAttendanceService {
     @Transactional
     public HrProductionAttendanceDtos.ImportResponse reopenImport(
             String importId, HrProductionAttendanceDtos.ReopenImportRequest request, HrImportActor actor) {
-        if (!"ADMIN".equalsIgnoreCase(actor.role())) {
+        if (actor == null || (!"ADMIN".equalsIgnoreCase(actor.role()) && !"MANAGER".equalsIgnoreCase(actor.role()))) {
             throw new HrApiException(org.springframework.http.HttpStatus.FORBIDDEN,
-                    "PRODUCTION_ATTENDANCE_REOPEN_FORBIDDEN", "Chỉ quản trị viên được mở khóa kỳ chấm công.");
+                    "PRODUCTION_ATTENDANCE_REOPEN_FORBIDDEN", "Chỉ quản trị viên hoặc nhân viên phụ trách chấm công được mở khóa kỳ chấm công.");
         }
         HrProductionAttendanceImport batch = importBatch(importId);
         if (batch.getStatus() != HrAttendanceImportStatus.CONFIRMED) {
@@ -541,7 +541,7 @@ public class HrProductionAttendanceService {
             throw HrApiException.conflict("PRODUCTION_ATTENDANCE_IMPORT_VERSION_CONFLICT", "Đợt chấm công vừa được người khác cập nhật.");
         }
         nightRewardService.markStaleForAttendanceImport(importId, actor,
-                "Đợt chấm công được ADMIN mở khóa: " + request.reason().trim());
+                "Đợt chấm công được mở khóa: " + request.reason().trim());
         batch.setStatus(HrAttendanceImportStatus.PREVIEWED);
         batch.setConfirmedAt(null);
         batch.setConfirmedByActor(null);
