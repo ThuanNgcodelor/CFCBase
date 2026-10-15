@@ -345,6 +345,7 @@ export default function HrProductionAttendance() {
   const initializedImportContext = useRef('');
   const role = authApi.getRole();
   const canReopen = role === 'ADMIN' || role === 'MANAGER' || Boolean(role);
+  const activeImport = useMemo(() => imports.find((item) => item.id === activeImportId) || null, [imports, activeImportId]);
 
   const loadImports = useCallback(async () => {
     const importPage = await api.listImports({ page: 0, size: 100, month });
