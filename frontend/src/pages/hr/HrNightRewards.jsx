@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
@@ -7,6 +7,7 @@ import {
   Clock3,
   FileSpreadsheet,
   Info,
+  Loader2,
   RefreshCw,
   ShieldCheck,
   Unlock,
@@ -151,6 +152,7 @@ export default function HrNightRewards() {
   const [data, setData] = useState(null);
   const [exceptions, setExceptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [timeline, setTimeline] = useState(null);
@@ -161,20 +163,38 @@ export default function HrNightRewards() {
     evidenceReference: '',
   });
   const [showReconcile, setShowReconcile] = useState(false);
+  const loadSeq = useRef(0);
+  const hasDataRef = useRef(false);
   const canAdmin = authApi.getRole() === 'ADMIN';
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    hasDataRef.current = Boolean(data);
+  }, [data]);
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent && !hasDataRef.current) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError('');
+    const seq = ++loadSeq.current;
     try {
       const [next, nextExceptions] = await Promise.all([api.month(month), api.exceptions(month)]);
-      setData(next);
-      setExceptions(nextExceptions || []);
-      localStorage.setItem('hr-night-reward-month', month);
+      if (seq === loadSeq.current) {
+        setData(next);
+        setExceptions(nextExceptions || []);
+        localStorage.setItem('hr-night-reward-month', month);
+      }
     } catch (requestError) {
-      setError(apiErrorMessage(requestError, 'Không tải được dữ liệu thưởng ca đêm.'));
+      if (seq === loadSeq.current) {
+        setError(apiErrorMessage(requestError, 'Không tải được dữ liệu thưởng ca đêm.'));
+      }
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [month]);
 
@@ -204,7 +224,7 @@ export default function HrNightRewards() {
     try {
       const result = await api.finalizeMonth(month, { reason: reason.trim() });
       toast.success(`Đã chốt ${result.createdQualifications} hồ sơ tháng ${month}.`);
-      await load();
+      await load(true);
     } catch (requestError) {
       toast.error(apiErrorMessage(requestError, 'Không thể chốt tháng.'));
     } finally {
@@ -219,7 +239,7 @@ export default function HrNightRewards() {
     try {
       const result = await api.reopenMonth(month, { reason: reason.trim() });
       toast.success(`Đã mở khóa tháng ${month} (${result.staleQualifications} hồ sơ chuyển về chưa chốt).`);
-      await load();
+      await load(true);
     } catch (requestError) {
       toast.error(apiErrorMessage(requestError, 'Không thể mở khóa tháng.'));
     } finally {
@@ -234,7 +254,7 @@ export default function HrNightRewards() {
       await api.createException({ ...exceptionForm, attendanceMonth: month });
       setExceptionForm({ employeeCode: '', exceptionType: 'COMPANY_PRODUCTION_PLAN', reason: '', evidenceReference: '' });
       toast.success('Đã tạo ngoại lệ, chờ quản trị viên duyệt.');
-      await load();
+      await load(true);
     } catch (requestError) {
       toast.error(apiErrorMessage(requestError, 'Không thể tạo ngoại lệ.'));
     } finally {
@@ -250,7 +270,7 @@ export default function HrNightRewards() {
       const method = action === 'approve' ? api.approveException : action === 'reject' ? api.rejectException : api.cancelException;
       await method(item.id, { reason: reason.trim() });
       toast.success('Đã cập nhật ngoại lệ.');
-      await load();
+      await load(true);
     } catch (requestError) {
       toast.error(apiErrorMessage(requestError, 'Không thể cập nhật ngoại lệ.'));
     } finally {
@@ -290,9 +310,14 @@ export default function HrNightRewards() {
               onChange={(event) => setMonth(event.target.value)}
               className="h-10 rounded-lg border border-gray-300 px-3 text-sm"
             />
-            <Button type="button" variant="secondary" onClick={load}>
-              <RefreshCw className="h-4 w-4" />
-              Tải lại
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={refreshing || busy}
+              onClick={() => load(true)}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Đang tải...' : 'Tải lại'}
             </Button>
           </div>
         }
@@ -300,6 +325,14 @@ export default function HrNightRewards() {
 
       {/* Unified Attendance Tabs */}
       <HrAttendanceTabs activeTab="night-rewards" />
+
+      {/* Busy processing banner */}
+      {busy && (
+        <section className="mb-5 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-medium text-blue-900 shadow-sm animate-pulse">
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-600" />
+          <span>Đang xử lý dữ liệu và cập nhật trạng thái thưởng ca đêm... Vui lòng đợi trong giây lát.</span>
+        </section>
+      )}
 
       {/* Shadow mode notice */}
       {shadowMode && (
@@ -358,6 +391,12 @@ export default function HrNightRewards() {
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                   Chưa chốt
+                </span>
+              )}
+              {refreshing && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Đang cập nhật...
                 </span>
               )}
             </div>
@@ -491,14 +530,18 @@ export default function HrNightRewards() {
               ))}
             </tbody>
           </table>
-          {!data?.employees?.length && (
+          {refreshing && !data?.employees?.length ? (
+            <div className="p-8">
+              <HrLoading label="Đang tải dữ liệu công nhân..." />
+            </div>
+          ) : !data?.employees?.length ? (
             <div className="p-6">
               <HrEmpty
                 title="Chưa có dữ liệu công nhân để xét"
                 description="Hãy chốt file ca sản xuất và đảm bảo ca đêm được cấu hình đúng trước."
               />
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 

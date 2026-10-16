@@ -41,6 +41,7 @@ public class HrProductionAttendanceWorkbookParser {
             Header header = locateHeader(sheet, formatter, evaluator);
             List<ParsedDay> days = new ArrayList<>();
             Set<YearMonth> months = new LinkedHashSet<>();
+            Map<String, Integer> seenRows = new HashMap<>();
             int totalPunches = 0;
 
             for (int rowIndex = header.rowIndex() + 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
@@ -54,6 +55,13 @@ public class HrProductionAttendanceWorkbookParser {
                     throw rowError(rowIndex, "Thiếu mã hoặc tên nhân viên.");
                 }
                 LocalDate date = parseDate(row.getCell(header.dateColumn()), rawDate, evaluator, rowIndex);
+                String uniqueKey = code + "|" + date;
+                Integer previousRow = seenRows.put(uniqueKey, rowIndex + 1);
+                if (previousRow != null) {
+                    throw HrApiException.badRequest("PRODUCTION_ATTENDANCE_DUPLICATE_ROW",
+                            String.format("Dòng %d bị trùng dữ liệu với dòng %d: Nhân viên %s ngày %s đã xuất hiện trước đó trong file.",
+                                    rowIndex + 1, previousRow, code, date));
+                }
                 months.add(YearMonth.from(date));
                 List<ParsedPunch> punches = new ArrayList<>();
                 for (int column : header.punchColumns()) {

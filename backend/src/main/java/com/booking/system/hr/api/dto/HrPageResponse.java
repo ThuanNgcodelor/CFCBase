@@ -29,4 +29,8 @@ public record HrPageResponse<T>(
                 source.isLast()
         );
     }
+
+    public static <T> HrPageResponse<T> empty() {
+        return new HrPageResponse<>(List.of(), 0, 20, 0, 0, true, true);
+    }
 }

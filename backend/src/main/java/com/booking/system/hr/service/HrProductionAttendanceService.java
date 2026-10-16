@@ -314,7 +314,9 @@ public class HrProductionAttendanceService {
 
     @Transactional(readOnly = true)
     public HrPageResponse<HrProductionAttendanceDtos.PunchResponse> punches(String importId, int page, int size) {
-        importBatch(importId);
+        if (importId == null || importId.isBlank() || !importRepository.existsById(importId)) {
+            return HrPageResponse.empty();
+        }
         return HrPageResponse.from(punchRepository.findByImportIdOrderByEmployeeCodeAscPunchedAtAsc(
                 importId, PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 200))), this::toPunchResponse);
     }
@@ -323,7 +325,9 @@ public class HrProductionAttendanceService {
     public HrPageResponse<HrProductionAttendanceDtos.ShiftResponse> shifts(
             String importId, HrProductionAttendanceShiftStatus status, HrAttendancePolicyGroup policyGroup,
             boolean incidentOnly, String employeeCode, int page, int size) {
-        importBatch(importId);
+        if (importId == null || importId.isBlank() || !importRepository.existsById(importId)) {
+            return HrPageResponse.empty();
+        }
         PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 200));
         String normalizedEmployeeCode = employeeCode == null || employeeCode.isBlank()
                 ? null : normalizeCode(employeeCode);
@@ -335,7 +339,9 @@ public class HrProductionAttendanceService {
     @Transactional(readOnly = true)
     public HrPageResponse<HrProductionAttendanceDtos.EmployeeReviewSummary> employeeReviewSummaries(
             String importId, String keyword, int page, int size) {
-        importBatch(importId);
+        if (importId == null || importId.isBlank() || !importRepository.existsById(importId)) {
+            return HrPageResponse.empty();
+        }
         PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100),
                 Sort.by(Sort.Direction.ASC, "employeeCode"));
         String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
