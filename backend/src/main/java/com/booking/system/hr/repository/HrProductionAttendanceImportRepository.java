@@ -14,5 +14,7 @@ public interface HrProductionAttendanceImportRepository extends HrRepository<HrP
     Page<HrProductionAttendanceImport> findByAttendanceMonthOrderByCreatedAtDesc(String month, Pageable pageable);
     List<HrProductionAttendanceImport> findByAttendanceMonthAndStatusOrderByCreatedAtAsc(
             String month, HrAttendanceImportStatus status);
+    List<HrProductionAttendanceImport> findByAttendanceMonthAndStatusIn(
+            String month, java.util.Collection<HrAttendanceImportStatus> statuses);
     void deleteById(String id);
 }

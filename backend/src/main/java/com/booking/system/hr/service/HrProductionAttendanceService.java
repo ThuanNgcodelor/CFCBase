@@ -224,6 +224,8 @@ public class HrProductionAttendanceService {
         if (duplicate.isPresent()) return toImportResponse(duplicate.get());
 
         HrProductionAttendanceWorkbookParser.ParsedWorkbook workbook = parser.parse(bytes, requestedMonth);
+        validateNoCrossFileConflicts(workbook);
+
         HrProductionAttendanceImport batch = new HrProductionAttendanceImport();
         batch.setSourceFileName(safeFileName(fileName));
         batch.setFileSha256(checksum);
@@ -246,6 +248,50 @@ public class HrProductionAttendanceService {
                 List.of("sourceRows", "punches", "calculatedShifts"),
                 Map.of("fileName", batch.getSourceFileName(), "month", batch.getAttendanceMonth()));
         return toImportResponse(batch);
+    }
+
+    private void validateNoCrossFileConflicts(HrProductionAttendanceWorkbookParser.ParsedWorkbook workbook) {
+        String month = workbook.attendanceMonth().toString();
+        List<HrProductionAttendanceImport> activeImports = importRepository.findByAttendanceMonthAndStatusIn(
+                month, List.of(HrAttendanceImportStatus.PREVIEWED, HrAttendanceImportStatus.CONFIRMED));
+        if (activeImports.isEmpty()) return;
+
+        Map<String, HrProductionAttendanceImport> importMap = activeImports.stream()
+                .collect(Collectors.toMap(HrProductionAttendanceImport::getId, Function.identity()));
+        List<HrAttendanceSourceDay> existingDays = sourceDayRepository.findByImportIdIn(importMap.keySet());
+        if (existingDays.isEmpty()) return;
+
+        Map<String, HrAttendanceSourceDay> existingMap = new HashMap<>(existingDays.size());
+        for (HrAttendanceSourceDay day : existingDays) {
+            existingMap.putIfAbsent(day.getEmployeeCode() + "|" + day.getWorkDate(), day);
+        }
+
+        List<String> conflicts = new ArrayList<>();
+        java.time.format.DateTimeFormatter dmy = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        for (HrProductionAttendanceWorkbookParser.ParsedDay newDay : workbook.days()) {
+            String key = newDay.employeeCode() + "|" + newDay.workDate();
+            HrAttendanceSourceDay existing = existingMap.get(key);
+            if (existing != null) {
+                HrProductionAttendanceImport sourceImport = importMap.get(existing.getImportId());
+                String sourceFileName = sourceImport != null ? sourceImport.getSourceFileName() : "file khác";
+                conflicts.add(String.format("NV %s ngày %s (dòng %d) trùng với file '%s' (dòng %d)",
+                        newDay.employeeCode(), dmy.format(newDay.workDate()), newDay.sourceRowNumber(),
+                        sourceFileName, existing.getSourceRowNumber()));
+            }
+        }
+
+        if (!conflicts.isEmpty()) {
+            List<String> preview = conflicts.stream().limit(5).toList();
+            String more = conflicts.size() > 5 ? String.format("\n... và %d ngày công khác.", conflicts.size() - 5) : "";
+            String detailMessage = String.format(
+                    "File tải lên bị trùng %d ngày công với các file đã có trong tháng %s:\n- %s%s\n\nVui lòng kiểm tra lại file hoặc xóa đợt import cũ trên hệ thống trước khi tải file mới.",
+                    conflicts.size(),
+                    workbook.attendanceMonth(),
+                    String.join("\n- ", preview),
+                    more
+            );
+            throw HrApiException.badRequest("PRODUCTION_ATTENDANCE_CROSS_FILE_CONFLICT", detailMessage);
+        }
     }
 
     private void recalculatePreviousMonthBoundary(YearMonth importedMonth, List<String> importedCodes,

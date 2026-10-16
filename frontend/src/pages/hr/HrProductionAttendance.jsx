@@ -538,7 +538,12 @@ export default function HrProductionAttendance() {
       if (detectedMonth && detectedMonth !== month) {
         setMonth(detectedMonth); setPage(0);
         toast.error(`File thuộc tháng ${detectedMonth.slice(5)}/${detectedMonth.slice(0, 4)}. Hệ thống đã chuyển đúng tháng; bấm Import lại.`);
-      } else toast.error(message);
+      } else {
+        toast.error(message, {
+          duration: 9000,
+          style: { whiteSpace: 'pre-line', maxWidth: '540px' },
+        });
+      }
     } finally { setWorking(false); }
   };
 
