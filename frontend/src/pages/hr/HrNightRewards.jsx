@@ -21,6 +21,7 @@ import { hrNightRewardApi as api } from '../../api/hrNightRewardApi';
 import { apiErrorMessage, formatHrDate, formatHrDateTime } from '../../utils/hr';
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
+const shadowMode = import.meta.env.VITE_HR_PRODUCTION_ATTENDANCE_SHADOW_MODE === 'true';
 const statusText = {
   QUALIFIED: 'Đạt điều kiện',
   QUALIFIED_EXCEPTION: 'Đạt ngoại lệ',
@@ -278,14 +279,16 @@ export default function HrNightRewards() {
       <HrAttendanceTabs activeTab="night-rewards" />
 
       {/* Shadow mode notice */}
-      <section className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
-        <div className="flex gap-3">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-          <div>
-            <b>Giai đoạn SHADOW / đối soát.</b> Màn hình này chỉ tạo lịch sử tích lũy và quyền lợi nháp. Chưa cộng vào bảng lương, PDF hoặc Telegram.
+      {shadowMode && (
+        <section className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+          <div className="flex gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+            <div>
+              <b>Giai đoạn SHADOW / đối soát.</b> Màn hình này chỉ tạo lịch sử tích lũy và quyền lợi nháp. Chưa cộng vào bảng lương, PDF hoặc Telegram.
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {error && <HrError message={error} onRetry={load} />}
 

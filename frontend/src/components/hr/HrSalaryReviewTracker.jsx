@@ -99,7 +99,7 @@ export function HrSalaryReviewTracker() {
   const load = useCallback((signal) => {
     setLoading(true);
     setError('');
-    return hrSalaryRaiseApi.reviews({ bucket, ...appliedFilters, page, size: 20 }, { signal })
+    return hrSalaryRaiseApi.reviews({ bucket, ...appliedFilters, page, size: 40 }, { signal })
       .then(setData)
       .catch((requestError) => {
         if (!signal.aborted) setError(apiErrorMessage(requestError, 'Không thể tải danh sách tới hạn nâng lương.'));

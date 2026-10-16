@@ -29,7 +29,7 @@ public class HrSalaryRaiseController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String departmentId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "40") int size) {
         return ApiResponse.success(reviewService.dashboard(bucket, keyword, departmentId, page, size),
                 "Danh sách rà soát nâng lương");
     }

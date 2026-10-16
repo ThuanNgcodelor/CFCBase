@@ -8,7 +8,7 @@ export const hrSalaryRaiseApi = {
       keyword: params.keyword || undefined,
       departmentId: params.departmentId || undefined,
       page: params.page || 0,
-      size: Math.min(Number(params.size) || 20, 100),
+      size: Math.min(Number(params.size) || 40, 100),
     },
     signal: options.signal,
   })),
