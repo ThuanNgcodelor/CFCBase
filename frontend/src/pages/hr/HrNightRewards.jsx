@@ -9,6 +9,7 @@ import {
   Info,
   RefreshCw,
   ShieldCheck,
+  Unlock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SEOHead from '../../components/SEOHead';
@@ -189,6 +190,13 @@ export default function HrNightRewards() {
     }
   };
 
+  const isFinalized = Boolean(
+    data?.finalized ?? (
+      data?.employees?.length > 0 &&
+      data.employees.every((item) => item.finalizedStatus && item.finalizedStatus !== 'STALE')
+    )
+  );
+
   const finalize = async () => {
     const reason = window.prompt('Nhập lý do chốt tháng để đối soát:');
     if (!reason?.trim()) return;
@@ -199,6 +207,21 @@ export default function HrNightRewards() {
       await load();
     } catch (requestError) {
       toast.error(apiErrorMessage(requestError, 'Không thể chốt tháng.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reopen = async () => {
+    const reason = window.prompt(`Nhập lý do mở khóa tháng ${month} đã chốt:`);
+    if (!reason?.trim()) return;
+    setBusy(true);
+    try {
+      const result = await api.reopenMonth(month, { reason: reason.trim() });
+      toast.success(`Đã mở khóa tháng ${month} (${result.staleQualifications} hồ sơ chuyển về chưa chốt).`);
+      await load();
+    } catch (requestError) {
+      toast.error(apiErrorMessage(requestError, 'Không thể mở khóa tháng.'));
     } finally {
       setBusy(false);
     }
@@ -323,12 +346,28 @@ export default function HrNightRewards() {
       <section className="mt-5 rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5">
           <div>
-            <h2 className="font-semibold text-gray-900">Kiểm tra tháng {month}</h2>
+            <div className="flex items-center gap-2.5">
+              <h2 className="font-semibold text-gray-900">
+                {isFinalized ? `Kết quả tháng ${month}` : `Kiểm tra tháng ${month}`}
+              </h2>
+              {isFinalized ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Đã chốt tháng
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Chưa chốt
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-gray-500">
-              Chỉ dùng ca có chính sách được đánh dấu "tính vào điều kiện thưởng ca đêm" và file chấm công đã chốt. Kết quả tháng chưa cộng vào chu kỳ cho đến khi chốt thưởng.
+              {isFinalized
+                ? `Kết quả thưởng ca đêm tháng ${month} đã được chốt và tích lũy vào chu kỳ cho nhân viên.`
+                : 'Chỉ dùng ca có chính sách được đánh dấu "tính vào điều kiện thưởng ca đêm" và file chấm công đã chốt. Kết quả tháng chưa cộng vào chu kỳ cho đến khi chốt thưởng.'}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="secondary"
@@ -338,16 +377,32 @@ export default function HrNightRewards() {
               <FileSpreadsheet className="h-4 w-4" />
               Rà soát Excel
             </Button>
-            {canAdmin && (
-              <Button
-                type="button"
-                disabled={busy || !data?.readyToFinalize}
-                title={!data?.readyToFinalize ? 'Xử lý các cảnh báo trước khi chốt.' : 'Chốt lịch sử tích lũy cho nhân viên trong file đã xác nhận'}
-                onClick={finalize}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Chốt tháng
-              </Button>
+            {isFinalized ? (
+              canAdmin && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={reopen}
+                  className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                  title="Mở khóa tháng này để điều chỉnh hoặc tính lại"
+                >
+                  <Unlock className="h-4 w-4 text-red-600" />
+                  Mở khóa
+                </Button>
+              )
+            ) : (
+              canAdmin && (
+                <Button
+                  type="button"
+                  disabled={busy || !data?.readyToFinalize}
+                  title={!data?.readyToFinalize ? 'Xử lý các cảnh báo trước khi chốt.' : 'Chốt lịch sử tích lũy cho nhân viên trong file đã xác nhận'}
+                  onClick={finalize}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Chốt tháng
+                </Button>
+              )
             )}
           </div>
         </div>

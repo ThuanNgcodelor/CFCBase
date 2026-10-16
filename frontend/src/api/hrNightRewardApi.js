@@ -6,6 +6,7 @@ const root = '/hr/attendance/night-rewards';
 export const hrNightRewardApi = {
   month: async (month) => unwrapApiData(await baseApi.get(`${root}/months/${month}`)),
   finalizeMonth: async (month, payload) => unwrapApiData(await baseApi.post(`${root}/months/${month}/finalize`, payload)),
+  reopenMonth: async (month, payload) => unwrapApiData(await baseApi.post(`${root}/months/${month}/reopen`, payload)),
   exceptions: async (month) => unwrapApiData(await baseApi.get(`${root}/exceptions`, { params: { month } })),
   createException: async (payload) => unwrapApiData(await baseApi.post(`${root}/exceptions`, payload)),
   approveException: async (id, payload) => unwrapApiData(await baseApi.post(`${root}/exceptions/${id}/approve`, payload)),

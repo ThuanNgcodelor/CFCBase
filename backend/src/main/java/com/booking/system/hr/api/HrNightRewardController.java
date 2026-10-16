@@ -37,6 +37,14 @@ public class HrNightRewardController {
         return ResponseEntity.ok(ApiResponse.success(service.finalizeMonth(month, request, actor), "Đã chốt thưởng ca đêm theo tháng"));
     }
 
+    @PostMapping("/months/{month}/reopen")
+    public ResponseEntity<ApiResponse<HrNightRewardDtos.ReopenMonthResponse>> reopenMonth(
+            @PathVariable String month, @Valid @RequestBody HrNightRewardDtos.ReopenMonthRequest request,
+            @AuthenticationPrincipal User principal) {
+        HrImportActor actor = actorResolver.fromPrincipal(principal);
+        return ResponseEntity.ok(ApiResponse.success(service.reopenMonth(month, request, actor), "Đã mở khóa thưởng ca đêm theo tháng"));
+    }
+
     @GetMapping("/exceptions")
     public ResponseEntity<ApiResponse<List<HrNightRewardDtos.ExceptionResponse>>> exceptions(
             @RequestParam String month, @AuthenticationPrincipal User principal) {

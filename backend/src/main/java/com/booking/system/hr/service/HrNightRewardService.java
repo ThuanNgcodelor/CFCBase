@@ -110,6 +110,44 @@ public class HrNightRewardService {
                 List.copyOf(entitlementIds));
     }
 
+    @Transactional
+    public HrNightRewardDtos.ReopenMonthResponse reopenMonth(String monthValue,
+                                                             HrNightRewardDtos.ReopenMonthRequest request,
+                                                             HrImportActor actor) {
+        requireAdmin(actor, "Chỉ quản trị viên được mở khóa thưởng ca đêm.");
+        YearMonth month = parseMonth(monthValue);
+        HrNightRewardProgram program = effectiveProgram(month);
+        String monthText = month.toString();
+        List<HrNightRewardMonthlyQualification> qualifications = qualificationRepository
+                .findByProgramIdAndAttendanceMonthOrderByEmployeeCodeAscRevisionDesc(program.getId(), monthText)
+                .stream().filter(q -> q.getStatus() != HrNightRewardMonthlyStatus.STALE).toList();
+        if (qualifications.isEmpty()) {
+            throw HrApiException.conflict("NIGHT_REWARD_MONTH_NOT_FINALIZED", "Tháng này chưa được chốt hoặc đã được mở khóa.");
+        }
+        int staleCount = 0;
+        String reason = request.reason().trim();
+        for (HrNightRewardMonthlyQualification qualification : qualifications) {
+            qualification.setStatus(HrNightRewardMonthlyStatus.STALE);
+            qualification.setStaleAt(now());
+            qualification.setStaleByActor(actor.subject());
+            qualification.setStaleReason(reason);
+            touch(qualification, actor);
+            qualificationRepository.save(qualification);
+            reverseCredits(qualification, actor, reason);
+            entitlementRepository.findByProgramIdAndEmployeeIdAndStatus(qualification.getProgramId(), qualification.getEmployeeId(),
+                            HrNightRewardEntitlementStatus.DRAFT)
+                    .forEach(entitlement -> {
+                        entitlement.setStatus(HrNightRewardEntitlementStatus.STALE);
+                        touch(entitlement, actor);
+                        entitlementRepository.save(entitlement);
+                    });
+            audit(actor, "REOPEN_NIGHT_REWARD_MONTH", "HR_NIGHT_REWARD_MONTH", qualification.getId(),
+                    List.of("status", "staleReason"), Map.of("month", monthText, "reason", reason));
+            staleCount++;
+        }
+        return new HrNightRewardDtos.ReopenMonthResponse(monthText, staleCount);
+    }
+
     @Transactional(readOnly = true)
     public List<HrNightRewardDtos.ExceptionResponse> exceptions(String monthValue) {
         YearMonth month = parseMonth(monthValue);
@@ -359,9 +397,11 @@ public class HrNightRewardService {
         int qualified = (int) candidates.stream().filter(value -> value.status() == HrNightRewardMonthlyStatus.QUALIFIED).count();
         int exceptional = (int) candidates.stream().filter(value -> value.status() == HrNightRewardMonthlyStatus.QUALIFIED_EXCEPTION).count();
         int notQualified = (int) candidates.stream().filter(value -> value.status() == HrNightRewardMonthlyStatus.NOT_QUALIFIED).count();
+        boolean finalized = !employeeResponses.isEmpty() && employeeResponses.stream()
+                .allMatch(e -> e.finalizedStatus() != null && e.finalizedStatus() != HrNightRewardMonthlyStatus.STALE);
         return new MonthBuild(monthText, program, List.copyOf(candidates), new HrNightRewardDtos.MonthResponse(monthText,
                 blockers.isEmpty(), List.copyOf(blockers), List.copyOf(notices), programResponse(program), candidates.size(), qualified, notQualified,
-                exceptional, employeeResponses));
+                exceptional, employeeResponses, finalized));
     }
 
     private List<String> creditAndMature(HrNightRewardProgram program, HrNightRewardMonthlyQualification qualification,

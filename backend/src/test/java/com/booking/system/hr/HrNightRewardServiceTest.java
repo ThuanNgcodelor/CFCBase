@@ -154,6 +154,12 @@ class HrNightRewardServiceTest {
             assertThat(value.progress().periodicQualifiedMonths()).isEqualTo(1);
             assertThat(value.progress().loyaltyQualifiedMonths()).isEqualTo(1);
         });
+
+        when(qualificationRepository.findByProgramIdAndAttendanceMonthOrderByEmployeeCodeAscRevisionDesc("program", MONTH))
+                .thenAnswer(invocation -> List.of(finalized.get()));
+        var reopened = service.reopenMonth(MONTH, new HrNightRewardDtos.ReopenMonthRequest("Cần tính lại"), ADMIN);
+        assertThat(reopened.staleQualifications()).isEqualTo(1);
+        assertThat(finalized.get().getStatus()).isEqualTo(HrNightRewardMonthlyStatus.STALE);
     }
 
     @Test

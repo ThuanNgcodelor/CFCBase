@@ -35,9 +35,14 @@ public final class HrNightRewardDtos {
                                 List<String> notices,
                                 ProgramResponse program, int eligibleEmployees, int qualifiedEmployees,
                                 int notQualifiedEmployees, int exceptionEmployees,
-                                List<MonthlyEmployeeResponse> employees) { }
+                                List<MonthlyEmployeeResponse> employees,
+                                boolean finalized) { }
 
     public record FinalizeMonthRequest(@NotBlank String reason) { }
+
+    public record ReopenMonthRequest(@NotBlank String reason) { }
+
+    public record ReopenMonthResponse(String attendanceMonth, int staleQualifications) { }
 
     public record FinalizeMonthResponse(String attendanceMonth, int createdQualifications,
                                         int unchangedQualifications, int qualifiedEmployees,
